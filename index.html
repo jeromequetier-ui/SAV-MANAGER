@@ -326,7 +326,7 @@ function genId(){return Math.random().toString(36).slice(2,9);}
 // ═══════════════════════════════════════════════════════
 // LOAD DATA
 // ═══════════════════════════════════════════════════════
-async async function loadAll(){
+async function loadAll(){
   // Timeout de sécurité - si ça prend plus de 10s, afficher l'erreur
   const timeout = setTimeout(()=>{
     document.getElementById('loader').innerHTML=`
@@ -466,7 +466,7 @@ function renderDashboard(el){
       const artisan=artisans.find(a=>a.id===s.artisan_id);
       const j=jours(s.date_signalement);
       const retard=s.statut!=='resolu'&&s.statut!=='intervenu'&&j>DELAI;
-      return '<div class="card'+(retard?' warn':'')+'" style="padding:11px 14px;cursor:pointer;margin-bottom:7px" onclick="openDetail(\''+s.client_id+'\')">'+
+      return '<div class="card'+(retard?' warn':'')+'" style="padding:11px 14px;cursor:pointer;margin-bottom:7px" onclick="openDetail(\''+s.client_id+'\')"">'+
         '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">'+
           '<div style="flex:1;min-width:0">'+
             '<div style="font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+s.titre+'</div>'+
@@ -699,45 +699,46 @@ function renderSavItems(list){
     const artisan=artisans.find(a=>a.id===s.artisan_id);
     const j=jours(s.date_signalement);
     const retard=s.statut!=='resolu'&&s.statut!=='intervenu'&&j>DELAI;
+    const cid=s.client_id;
+    const sid=s.id;
     const cc=[client?.email,client?.email2].filter(Boolean).join(',');
     const tels=[
       client?.tel?(client?.conjoint1?client.conjoint1+' : '+client.tel:client.tel):'',
       client?.tel2?(client?.conjoint2?client.conjoint2+' : '+client.tel2:client.tel2):''
     ].filter(Boolean).join('%0A');
     const body='Bonjour,%0A%0A'
-      +'Nous faisons suite au dossier SAV suivant :%0A'
+      +'Nous faisons suite au dossier SAV :%0A'
       +'━━━━━━━━━━━━━━━━━━━━%0A'
-      +'Client : '+(client?.nom||'—')+'%0A'
-      +'Adresse : '+encodeURIComponent(client?.adresse||'—')+'%0A'
+      +'Client : '+(client?.nom||'')+'%0A'
+      +'Adresse : '+encodeURIComponent(client?.adresse||'')+'%0A'
       +'%0ATéléphones :%0A'+tels+'%0A'
       +'━━━━━━━━━━━━━━━━━━━━%0A'
-      +'Intervention à réaliser :%0A'
-      +encodeURIComponent(s.titre)+(s.notes?'%0ADétails : '+encodeURIComponent(s.notes):'')+'%0A'
+      +'Intervention :%0A'
+      +encodeURIComponent(s.titre)+(s.notes?'%0A'+encodeURIComponent(s.notes):'')+'%0A'
       +'━━━━━━━━━━━━━━━━━━━━%0A%0A'
-      +'Merci de nous confirmer votre disponibilité pour intervenir rapidement.%0A%0A'
-      +'Cordialement';
+      +'Merci de confirmer votre disponibilité.%0A%0ACordialement';
     const mailBtn=artisan?.email
-      ?'<a href="mailto:'+artisan.email+'?cc='+cc+'&subject='+encodeURIComponent('Intervention SAV : '+s.titre)+'&body='+body+'" class="btn btn-green btn-sm" style="text-decoration:none" onclick="event.stopPropagation()">✉ Demande intervention</a>'
+      ?`<a href="mailto:${artisan.email}?cc=${cc}&subject=${encodeURIComponent('Intervention SAV : '+s.titre)}&body=${body}" class="btn btn-green btn-sm" style="text-decoration:none">✉ Demande intervention</a>`
       :'';
-    return '<div class="sav-item'+(retard?' retard':'')+'">'
-      +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">'
-        +'<div style="flex:1;min-width:0">'
-          +'<div style="font-size:12px;color:#2563eb;font-weight:700;cursor:pointer;margin-bottom:2px" onclick="openDetail(''+s.client_id+'')">'+( client?.nom||'—')+'</div>'
-          +'<div style="font-weight:700;font-size:13px">'+s.titre+'</div>'
-          +'<div style="font-size:11px;color:#64748b">'+frDate(s.date_signalement)+' · '+j+'j'+(artisan?' · '+artisan.nom:'')+'</div>'
-          +(retard?'<div style="color:#ef4444;font-size:11px;font-weight:600">⚠ Retard ('+j+'j)</div>':'')
-        +'</div>'
-        +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">'
-          +statusBadge(s.statut)
-          +mailBtn
-        +'</div>'
-      +'</div>'
-      +'<div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap">'
-        +Object.entries(STATUTS).filter(([k])=>k!==s.statut).map(([k,v])=>'<button class="btn btn-sm '+v.cls+'" onclick="chgStatut(''+s.id+'',''+k+'',''+s.client_id+'')">→ '+v.l+'</button>').join('')
-      +'</div>'
-    +'</div>';
+    const statutBtns=Object.entries(STATUTS).filter(([k])=>k!==s.statut).map(([k,v])=>`<button class="btn btn-sm ${v.cls}" onclick="chgStatut('${sid}','${k}','${cid}')">→ ${v.l}</button>`).join('');
+    return `<div class="sav-item${retard?' retard':''}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;color:#2563eb;font-weight:700;cursor:pointer;margin-bottom:2px" onclick="openDetail('${cid}')">${client?.nom||'—'}</div>
+          <div style="font-weight:700;font-size:13px">${s.titre}</div>
+          <div style="font-size:11px;color:#64748b">${frDate(s.date_signalement)} · ${j}j${artisan?' · '+artisan.nom:''}</div>
+          ${retard?`<div style="color:#ef4444;font-size:11px;font-weight:600">⚠ Retard (${j}j)</div>`:''}
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
+          ${statusBadge(s.statut)}
+          ${mailBtn}
+        </div>
+      </div>
+      <div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap">${statutBtns}</div>
+    </div>`;
   }).join('');
 }
+
 
 function filterSavList(q){
   const lq=q.toLowerCase();
