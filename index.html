@@ -8,40 +8,28 @@
 <title>SAV Manager — MA 17 SUD</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f1f5f9;color:#0f172a;overscroll-behavior:none;}
 button,a{font-family:inherit;cursor:pointer;}
 input,select,textarea{font-family:inherit;}
-
-/* LOADER */
 #loader{position:fixed;inset:0;background:#0f172a;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
-#loader .logo{font-size:32px;font-weight:800;color:#2563eb;letter-spacing:.05em;}
+#loader .logo{font-size:32px;font-weight:800;color:#2563eb;}
 #loader .sub{color:#475569;font-size:14px;}
 #loader .spinner{width:40px;height:40px;border:4px solid #1e293b;border-top-color:#2563eb;border-radius:50%;animation:spin .8s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg)}}
-
-/* SYNC INDICATOR */
-#sync{position:fixed;top:60px;right:12px;z-index:500;background:#10b981;color:#fff;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;display:none;animation:fadeIn .3s;}
-#sync.err{background:#ef4444;}
-@keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
-
-/* TOPBAR */
+#sync{position:fixed;top:60px;right:12px;z-index:500;background:#10b981;color:#fff;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;display:none;}
 #topbar{position:sticky;top:0;z-index:80;background:#0f172a;display:flex;align-items:center;gap:10px;padding:11px 14px;box-shadow:0 2px 8px rgba(0,0,0,0.25);}
 #hamburger{background:#1e293b;border:none;color:#94a3b8;border-radius:9px;padding:7px 9px;display:flex;}
 .page-title{flex:1;font-weight:700;font-size:15px;color:#f1f5f9;}
 #alert-pill{background:#ef4444;border:none;color:#fff;border-radius:20px;padding:5px 11px;font-size:12px;font-weight:700;display:none;}
-
-/* SIDEBAR */
 #overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:90;}
 #sidebar{position:fixed;top:0;left:0;height:100vh;width:230px;background:#0f172a;z-index:100;transform:translateX(-100%);transition:transform .25s ease;display:flex;flex-direction:column;}
+#sidebar.open{transform:translateX(0);}
 .leaflet-pane{z-index:1 !important;}
 .leaflet-top,.leaflet-bottom{z-index:2 !important;}
-.leaflet-control{z-index:2 !important;}
 .leaflet-popup-pane{z-index:3 !important;}
 .map-wrap{position:relative;z-index:1;}
-#sidebar.open{transform:translateX(0);}
 .sb-head{padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1e293b;}
 .sb-brand{font-size:13px;font-weight:800;color:#2563eb;letter-spacing:.08em;text-transform:uppercase;}
 .sb-sub{font-size:11px;color:#475569;margin-top:2px;}
@@ -55,35 +43,17 @@ input,select,textarea{font-family:inherit;}
 .sb-live{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:11px;color:#10b981;}
 .live-dot{width:7px;height:7px;border-radius:50%;background:#10b981;animation:pulse 2s infinite;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-
-/* CONTENT */
 #content{padding:14px;min-height:calc(100vh - 48px);}
-
-/* CARDS */
 .card{background:#fff;border-radius:13px;padding:13px 15px;box-shadow:0 1px 4px rgba(0,0,0,0.07);margin-bottom:9px;}
 .card.warn{border:1.5px solid #fecaca;background:#fff5f5;}
-
-/* KPI */
-.kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:16px;}@media(max-width:400px){.kpi-grid{grid-template-columns:1fr 1fr;}}
-.kpi{background:#fff;border-radius:12px;padding:13px;box-shadow:0 1px 3px rgba(0,0,0,0.07);display:flex;align-items:center;gap:11px;transition:box-shadow .15s,transform .15s;}
-.kpi:hover{box-shadow:0 4px 12px rgba(0,0,0,0.12);transform:translateY(-1px);}
-.kpi-ic{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
-.kpi-v{font-size:22px;font-weight:800;}
-.kpi-l{font-size:11px;color:#94a3b8;}
-
-/* STATUS */
 .status{display:inline-block;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:600;white-space:nowrap;}
-
-/* FORM */
 .field{margin-bottom:12px;}
 .field label{display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;}
 .field input,.field select,.field textarea{width:100%;padding:9px 13px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:14px;outline:none;background:#f8fafc;font-family:inherit;transition:border-color .15s;}
 .field input:focus,.field select:focus,.field textarea:focus{border-color:#2563eb;background:#fff;}
 .field textarea{resize:vertical;min-height:75px;}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
-
-/* MODAL */
-.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);z-index:1000;align-items:flex-end;justify-content:center;padding:0;}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);z-index:1000;align-items:flex-end;justify-content:center;}
 .modal-bg.open{display:flex;}
 @media(min-width:600px){.modal-bg{align-items:center;padding:16px;}}
 .modal{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:680px;max-height:92vh;overflow-y:auto;box-shadow:0 -8px 40px rgba(0,0,0,0.2);}
@@ -92,8 +62,6 @@ input,select,textarea{font-family:inherit;}
 .modal-head h3{font-size:16px;font-weight:700;}
 .btn-x{background:none;border:none;font-size:22px;color:#94a3b8;line-height:1;}
 .modal-body{padding:18px;}
-
-/* BUTTONS */
 .btn{padding:9px 16px;border-radius:9px;border:none;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .15s;}
 .btn:hover{opacity:.88;}
 .btn-primary{background:#2563eb;color:#fff;}
@@ -101,116 +69,82 @@ input,select,textarea{font-family:inherit;}
 .btn-danger{background:#fff5f5;color:#ef4444;border:1.5px solid #fee2e2;}
 .btn-green{background:#ecfdf5;color:#10b981;border:1.5px solid #d1fae5;}
 .btn-purple{background:#7c3aed;color:#fff;}
-.btn-orange{background:#fff7ed;color:#f59e0b;border:1.5px solid #fed7aa;}
 .btn-sm{padding:3px 9px;font-size:11px;border-radius:7px;}
 .btn-full{width:100%;justify-content:center;}
-
-/* MAP */
 .map-wrap{border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.12);margin-bottom:14px;}
 .map-bar{background:#0f172a;padding:10px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 .map-bar span{color:#94a3b8;font-weight:700;font-size:13px;}
-.map-legend{display:flex;gap:10px;margin-left:auto;flex-wrap:wrap;}
-.leg{display:flex;align-items:center;gap:4px;font-size:11px;color:#94a3b8;}
-.leg-dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
-#map-main,#map-full{background:#e8eaed;}
-
+/* STATUT CHANTIER */
+.ch-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;}
+.ch-ouverture{background:#f3e8ff;color:#7c3aed;}
+.ch-en_cours{background:#fefce8;color:#ca8a04;}
+.ch-sav{background:#fef2f2;color:#ef4444;border:1.5px solid #fecaca;}
+.ch-livre{background:#d1fae5;color:#065f46;}
+.ch-reserve{background:#fee2e2;color:#991b1b;}
+/* STATUT SAV */
+.s-nouveau{background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;}
+.s-attente{background:#fffbeb;color:#d97706;border:1px solid #fde68a;}
+.s-en_retard{background:#fef2f2;color:#ef4444;border:1px solid #fecaca;}
+.s-intervenu{background:#f5f3ff;color:#7c3aed;border:1px solid #ddd6fe;}
+.s-resolu{background:#ecfdf5;color:#10b981;border:1px solid #a7f3d0;}
 /* CLIENT LIST */
 .cli-item{background:#fff;border-radius:11px;padding:10px 13px;box-shadow:0 1px 3px rgba(0,0,0,0.06);display:flex;align-items:center;gap:10px;border:1.5px solid transparent;cursor:pointer;margin-bottom:7px;transition:border-color .15s;}
 .cli-item:hover{border-color:#2563eb22;}
-.cli-item.retard{border-color:#fecaca;}
 .cli-av{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;}
 .cli-name{font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .cli-addr{font-size:11px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-
-/* SAV ITEM */
+/* SAV */
 .sav-item{border-radius:11px;padding:12px;margin-bottom:8px;border:1.5px solid #e2e8f0;background:#fff;}
 .sav-item.retard{background:#fff5f5;border-color:#fecaca;}
-
 /* SEARCH */
 .search-wrap{position:relative;margin-bottom:12px;}
 .search-wrap input{width:100%;padding:9px 13px 9px 35px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none;background:#f8fafc;}
 .search-wrap input:focus{border-color:#2563eb;background:#fff;}
 .search-ic{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:15px;}
-
-/* FULLSCREEN MAP */
-#dash-map-container.fullscreen{position:fixed;inset:0;z-index:500;background:#fff;padding:12px;overflow-y:auto;}
-#dash-map-container.fullscreen #map-main{height:calc(100vh - 180px) !important;}
-#dash-map-container.fullscreen #fs-btn{background:#0f172a;color:#fff;border-color:#0f172a;}
-
 /* TOAST */
 #toast{position:fixed;top:14px;right:14px;z-index:2000;padding:10px 16px;border-radius:11px;font-weight:600;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,0.2);display:none;}
-
 /* LIGHTBOX */
 #lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:3000;flex-direction:column;align-items:center;justify-content:center;padding:14px;}
 #lightbox.open{display:flex;}
 #lightbox img{max-width:95vw;max-height:72vh;border-radius:10px;object-fit:contain;}
-#lb-cap{color:#94a3b8;font-size:12px;margin-top:10px;}
-#lb-acts{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;justify-content:center;}
-
 /* CHIP */
 .chip{padding:5px 13px;border-radius:20px;border:2px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:12px;font-family:inherit;transition:all .15s;}
 .chip.on{border-color:#2563eb;background:#eff6ff;color:#2563eb;font-weight:600;}
-
-/* STATUT COLORS */
-.s-nouveau{background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;}
-.s-attente{background:#fffbeb;color:#d97706;border:1px solid #fde68a;}
-.s-retard{background:#fef2f2;color:#ef4444;border:1px solid #fecaca;}
-.s-intervenu{background:#f5f3ff;color:#7c3aed;border:1px solid #ddd6fe;}
-.s-resolu{background:#ecfdf5;color:#10b981;border:1px solid #a7f3d0;}
-
+/* STATUS MENU */
+.statut-menu{position:absolute;top:100%;left:0;background:#fff;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);border:1.5px solid #e2e8f0;z-index:200;min-width:160px;overflow:hidden;display:none;}
+.statut-menu.open{display:block;}
+.statut-menu button{width:100%;padding:9px 14px;border:none;background:#fff;text-align:left;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;}
+.statut-menu button:hover{background:#f8fafc;}
+.statut-wrap{position:relative;display:inline-block;}
 /* NAV GPS */
 .nav-gps{background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:11px;padding:13px;margin-bottom:13px;}
 .nav-gps-title{font-weight:700;font-size:13px;color:#0369a1;margin-bottom:9px;}
 .nav-btns{display:flex;gap:7px;flex-wrap:wrap;}
 .nav-app{flex:1;min-width:80px;padding:9px 6px;border-radius:9px;border:none;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.1);cursor:pointer;font-size:12px;font-weight:700;color:#374151;display:flex;align-items:center;justify-content:center;gap:5px;font-family:inherit;}
-
-/* PHOTO GRID */
+/* PHOTO */
 .photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
 .ph-thumb{aspect-ratio:1;border-radius:9px;overflow:hidden;cursor:pointer;position:relative;box-shadow:0 2px 6px rgba(0,0,0,0.12);}
 .ph-thumb img{width:100%;height:100%;object-fit:cover;}
-.ph-date{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,0.65));padding:3px 5px;color:#fff;font-size:9px;font-weight:600;}
 .ph-add{aspect-ratio:1;border-radius:9px;border:2px dashed #cbd5e1;background:#f8fafc;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#94a3b8;font-size:11px;}
 .ph-empty{width:100%;padding:20px;border-radius:11px;border:2px dashed #cbd5e1;background:#f8fafc;cursor:pointer;color:#94a3b8;font-size:13px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;}
-
-/* CLIENT HEADER */
 .cli-head{background:linear-gradient(135deg,#1e40af,#2563eb);border-radius:11px;padding:15px;margin-bottom:13px;color:#fff;}
-
-/* STATUT CHANTIER BADGE */
-.ch-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;}
-.ch-en_cours{background:#fefce8;color:#ca8a04;}
-.ch-livre{background:#d1fae5;color:#065f46;}
-.ch-ouverture{background:#f3e8ff;color:#7c3aed;}
-.ch-sav{background:#fff7ed;color:#d97706;border:1.5px solid #fed7aa;}
-.ch-reserve{background:#fee2e2;color:#991b1b;}
-.statut-menu{position:absolute;top:100%;left:0;background:#fff;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);border:1.5px solid #e2e8f0;z-index:200;min-width:150px;overflow:hidden;display:none;}
-.statut-menu.open{display:block;}
-.statut-menu button{width:100%;padding:9px 14px;border:none;background:#fff;text-align:left;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;}
-.statut-menu button:hover{background:#f8fafc;}
-.statut-wrap{position:relative;display:inline-block;}
-
-/* EMPTY STATE */
 .empty{text-align:center;padding:32px 20px;color:#94a3b8;}
 .empty .big{font-size:36px;margin-bottom:8px;}
-.empty p{font-size:13px;}
-
-/* DATA TOOLBAR */
-.dtoolbar{background:#1e293b;border-radius:11px;padding:10px 13px;margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-.dtoolbar span{color:#94a3b8;font-size:12px;flex:1;}
-
+/* FULLSCREEN MAP */
+#dash-map-container.fullscreen{position:fixed;inset:0;z-index:500;background:#fff;padding:12px;overflow-y:auto;}
+#dash-map-container.fullscreen #map-main{height:calc(100vh - 180px) !important;}
+#dash-map-container.fullscreen #fs-btn{background:#0f172a;color:#fff;border-color:#0f172a;}
 @media(max-width:380px){.grid2{grid-template-columns:1fr;}.nav-btns{flex-direction:column;}}
 </style>
 </head>
 <body>
-
 <div id="loader">
   <div class="logo">SAV Manager</div>
   <div class="sub">MA 17 SUD — Chargement en cours…</div>
   <div class="spinner"></div>
 </div>
-
 <div id="sync"></div>
 <div id="toast"></div>
-
 <div id="topbar">
   <button id="hamburger" onclick="toggleSB()">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
@@ -220,7 +154,6 @@ input,select,textarea{font-family:inherit;}
   <div class="page-title" id="page-title">Tableau de bord</div>
   <button id="alert-pill" onclick="goView('alertes')">⚠ <span id="alert-count">0</span></button>
 </div>
-
 <div id="overlay" onclick="closeSB()"></div>
 <div id="sidebar">
   <div class="sb-head">
@@ -229,7 +162,6 @@ input,select,textarea{font-family:inherit;}
   </div>
   <div class="sb-nav">
     <button class="nav-btn active" onclick="goView('dashboard')" data-v="dashboard"><span class="icon">🏠</span>Tableau de bord</button>
-
     <button class="nav-btn" onclick="goView('clients')" data-v="clients"><span class="icon">🏡</span>Chantiers</button>
     <button class="nav-btn" onclick="goView('sav')" data-v="sav"><span class="icon">🔧</span>Tous les SAV</button>
     <button class="nav-btn" onclick="goView('artisans')" data-v="artisans"><span class="icon">👷</span>Artisans</button>
@@ -240,76 +172,61 @@ input,select,textarea{font-family:inherit;}
     <div class="sb-live"><span class="live-dot"></span>Temps réel — Supabase</div>
   </div>
 </div>
-
 <div id="content"></div>
-
-<!-- LIGHTBOX -->
 <div id="lightbox" onclick="closeLB()">
   <img id="lb-img" src="" alt=""/>
-  <div id="lb-cap"></div>
-  <div id="lb-acts">
+  <div id="lb-cap" style="color:#94a3b8;font-size:12px;margin-top:10px;"></div>
+  <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;justify-content:center;">
     <button onclick="event.stopPropagation();lbPrev()" id="lb-prev" class="btn btn-secondary">← Préc.</button>
     <button onclick="event.stopPropagation();lbNext()" id="lb-next" class="btn btn-secondary">Suiv. →</button>
     <button onclick="event.stopPropagation();lbDel()" class="btn btn-danger">🗑 Supprimer</button>
   </div>
   <div style="color:#475569;font-size:11px;margin-top:8px">Touchez n'importe où pour fermer</div>
 </div>
-
 <!-- MODALS -->
-<div class="modal-bg" id="m-client">
-  <div class="modal">
-    <div class="modal-head"><h3 id="m-client-title">Nouveau chantier</h3><button class="btn-x" onclick="closeM('m-client')">✕</button></div>
-    <div class="modal-body" id="m-client-body"></div>
-  </div>
-</div>
-<div class="modal-bg" id="m-artisan">
-  <div class="modal">
-    <div class="modal-head"><h3 id="m-artisan-title">Nouvel artisan</h3><button class="btn-x" onclick="closeM('m-artisan')">✕</button></div>
-    <div class="modal-body" id="m-artisan-body"></div>
-  </div>
-</div>
-<div class="modal-bg" id="m-sav">
-  <div class="modal">
-    <div class="modal-head"><h3 id="m-sav-title">Nouveau SAV</h3><button class="btn-x" onclick="closeM('m-sav')">✕</button></div>
-    <div class="modal-body" id="m-sav-body"></div>
-  </div>
-</div>
-<div class="modal-bg" id="m-detail">
-  <div class="modal" style="max-width:720px;">
-    <div class="modal-head"><h3 id="m-detail-title">Fiche chantier</h3><button class="btn-x" onclick="closeM('m-detail')">✕</button></div>
-    <div class="modal-body" id="m-detail-body"></div>
-  </div>
-</div>
-
+<div class="modal-bg" id="m-client"><div class="modal">
+  <div class="modal-head"><h3 id="m-client-title">Nouveau chantier</h3><button class="btn-x" onclick="closeM('m-client')">✕</button></div>
+  <div class="modal-body" id="m-client-body"></div>
+</div></div>
+<div class="modal-bg" id="m-artisan"><div class="modal">
+  <div class="modal-head"><h3 id="m-artisan-title">Nouvel artisan</h3><button class="btn-x" onclick="closeM('m-artisan')">✕</button></div>
+  <div class="modal-body" id="m-artisan-body"></div>
+</div></div>
+<div class="modal-bg" id="m-sav"><div class="modal">
+  <div class="modal-head"><h3 id="m-sav-title">Nouveau SAV</h3><button class="btn-x" onclick="closeM('m-sav')">✕</button></div>
+  <div class="modal-body" id="m-sav-body"></div>
+</div></div>
+<div class="modal-bg" id="m-detail"><div class="modal" style="max-width:720px;">
+  <div class="modal-head"><h3 id="m-detail-title">Fiche chantier</h3><button class="btn-x" onclick="closeM('m-detail')">✕</button></div>
+  <div class="modal-body" id="m-detail-body"></div>
+</div></div>
 <script>
-// ═══════════════════════════════════════════════════════
-// SUPABASE CONFIG
-// ═══════════════════════════════════════════════════════
-const SUPA_URL = 'https://kmryofzzmyssgsejsmem.supabase.co';
-const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImttcnlvZnp6bXlzc2dzZWpzbWVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNjQ5NzQsImV4cCI6MjA5NDg0MDk3NH0.cJ82pNpXoUAno8m_5_4-8vN98COR57V1lnHIooVOSSM';
-const HDR = {'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'return=representation'};
-
-async function db(method, table, body=null, query=''){
-  const url = `${SUPA_URL}/rest/v1/${table}${query}`;
-  const opts = {method, headers:HDR};
-  if(body) opts.body = JSON.stringify(body);
-  const r = await fetch(url, opts);
-  if(!r.ok){ const e=await r.text(); throw new Error(e); }
-  if(r.status===204) return null;
+// ══════════════════════════════════════════════
+// SUPABASE
+// ══════════════════════════════════════════════
+const SUPA_URL='https://kmryofzzmyssgsejsmem.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImttcnlvZnp6bXlzc2dzZWpzbWVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNjQ5NzQsImV4cCI6MjA5NDg0MDk3NH0.cJ82pNpXoUAno8m_5_4-8vN98COR57V1lnHIooVOSSM';
+const HDR={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'return=representation'};
+async function db(method,table,body=null,query=''){
+  const r=await fetch(`${SUPA_URL}/rest/v1/${table}${query}`,{method,headers:HDR,body:body?JSON.stringify(body):null});
+  if(!r.ok){const e=await r.text();throw new Error(e);}
+  if(r.status===204)return null;
   return r.json();
 }
 
-// ═══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════
 // STATE
-// ═══════════════════════════════════════════════════════
-let clients=[], artisans=[], savList=[], chantierArtisans=[];
-let currentView='dashboard', lbPhotos=[], lbIdx=0, lbClientId=null;
-let mapInst=null, mapMarkers=[];
+// ══════════════════════════════════════════════
+let clients=[],artisans=[],savList=[],chantierArtisans=[];
+let currentView='dashboard',lbPhotos=[],lbIdx=0,lbClientId=null;
+let activeLayers=new Set(['ouverture','en_cours','sav_en_cours','livre','sav']);
+let dashMapInst=null,dashMapMarkers=[];
+let savStatutFilter=null;
 
 const STATUTS={
   nouveau:{l:'Nouveau',cls:'s-nouveau'},
   attente_intervention:{l:'Attente artisan',cls:'s-attente'},
-  en_retard:{l:'En retard',cls:'s-retard'},
+  en_retard:{l:'En retard',cls:'s-en_retard'},
   intervenu:{l:'Artisan intervenu',cls:'s-intervenu'},
   resolu:{l:'Résolu',cls:'s-resolu'}
 };
@@ -327,75 +244,50 @@ function today(){return new Date().toISOString().slice(0,10);}
 function frDate(d){return d?new Date(d).toLocaleDateString('fr-FR'):'';}
 function genId(){return Math.random().toString(36).slice(2,9);}
 
-// ═══════════════════════════════════════════════════════
-// LOAD DATA
-// ═══════════════════════════════════════════════════════
-async function loadAll(){
-  // Timeout de sécurité - si ça prend plus de 10s, afficher l'erreur
-  const timeout = setTimeout(()=>{
-    document.getElementById('loader').innerHTML=`
-      <div style="text-align:center;padding:20px">
-        <div style="font-size:32px;margin-bottom:12px">⚠️</div>
-        <div style="font-size:18px;font-weight:800;color:#ef4444;margin-bottom:8px">Connexion impossible</div>
-        <div style="color:#64748b;font-size:13px;margin-bottom:16px">Vérifiez votre connexion internet.<br/>Supabase est peut-être temporairement indisponible.</div>
-        <button onclick="location.reload()" style="padding:10px 20px;background:#2563eb;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700">🔄 Réessayer</button>
-      </div>`;
-  }, 10000);
+// ══════════════════════════════════════════════
+// LOAD & POLLING
+// ══════════════════════════════════════════════
+const timeout=setTimeout(()=>{
+  document.getElementById('loader').innerHTML=`<div style="text-align:center;padding:20px"><div style="font-size:32px;margin-bottom:12px">⚠️</div><div style="font-size:18px;font-weight:800;color:#ef4444;margin-bottom:8px">Connexion impossible</div><div style="color:#64748b;font-size:13px;margin-bottom:16px">Vérifiez votre connexion internet.</div><button onclick="location.reload()" style="padding:10px 20px;background:#2563eb;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700">🔄 Réessayer</button></div>`;
+},10000);
 
-  try {
-    const [c, a, s, ca] = await Promise.all([
+async function loadAll(){
+  try{
+    const [c,a,s,ca]=await Promise.all([
       db('GET','clients','','?order=nom'),
       db('GET','artisans','','?order=nom'),
       db('GET','sav','','?order=created_at.desc'),
       db('GET','chantier_artisans','','')
     ]);
     clearTimeout(timeout);
-    clients=c||[]; artisans=a||[];
-    savList=s||[]; chantierArtisans=ca||[];
+    clients=c||[];artisans=a||[];savList=s||[];chantierArtisans=ca||[];
     updateUI();
     document.getElementById('loader').style.display='none';
     goView(currentView);
-  } catch(e){
+  }catch(e){
     clearTimeout(timeout);
-    document.getElementById('loader').innerHTML=`
-      <div style="text-align:center;padding:20px">
-        <div style="font-size:32px;margin-bottom:12px">⚠️</div>
-        <div style="font-size:18px;font-weight:800;color:#ef4444;margin-bottom:8px">Erreur de connexion</div>
-        <div style="color:#64748b;font-size:13px;margin-bottom:8px">${e.message}</div>
-        <div style="color:#94a3b8;font-size:11px;margin-bottom:16px">Si vous ouvrez le fichier en local (file://),<br/>utilisez un serveur web ou déployez sur Vercel.</div>
-        <button onclick="location.reload()" style="padding:10px 20px;background:#2563eb;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700">🔄 Réessayer</button>
-      </div>`;
+    document.getElementById('loader').innerHTML=`<div style="text-align:center;padding:20px"><div style="font-size:32px;margin-bottom:12px">⚠️</div><div style="font-size:18px;font-weight:800;color:#ef4444;margin-bottom:8px">Erreur de connexion</div><div style="color:#64748b;font-size:13px;margin-bottom:8px">${e.message}</div><button onclick="location.reload()" style="padding:10px 20px;background:#2563eb;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700">🔄 Réessayer</button></div>`;
   }
 }
-
-
 function startPolling(){
   setInterval(async()=>{
     try{
-      const [nc,ns,na]=await Promise.all([
-        db('GET','clients','','?order=nom'),
-        db('GET','sav','','?order=created_at.desc'),
-        db('GET','chantier_artisans','','')
-      ]);
-      clients=nc||clients; savList=ns||savList; chantierArtisans=na||chantierArtisans;
-      updateUI();
-      showSync('🔄 Synchronisé','#10b981');
+      const [c,s]=await Promise.all([db('GET','clients','','?order=nom'),db('GET','sav','','?order=created_at.desc')]);
+      clients=c||clients;savList=s||savList;
+      updateUI();showSync('🔄 Synchronisé');
+      if(currentView==='dashboard')renderDashSav();
     }catch{}
   },15000);
 }
 
-function showSync(msg,color='#10b981'){
+function showSync(msg){
   const s=document.getElementById('sync');
-  s.textContent=msg; s.style.background=color; s.style.display='block';
+  s.textContent=msg;s.style.display='block';
   setTimeout(()=>s.style.display='none',2000);
 }
-
-// ═══════════════════════════════════════════════════════
-// UI HELPERS
-// ═══════════════════════════════════════════════════════
 function toast(msg,color='#10b981'){
   const t=document.getElementById('toast');
-  t.textContent=msg; t.style.background=color; t.style.color='#fff'; t.style.display='block';
+  t.textContent=msg;t.style.background=color;t.style.color='#fff';t.style.display='block';
   setTimeout(()=>t.style.display='none',3000);
 }
 function openM(id){document.getElementById(id).classList.add('open');}
@@ -405,196 +297,173 @@ function closeSB(){document.getElementById('sidebar').classList.remove('open');d
 
 function clientSav(cid){return savList.filter(s=>s.client_id===cid);}
 function clientArtisans(cid){return chantierArtisans.filter(x=>x.client_id===cid).map(x=>artisans.find(a=>a.id===x.artisan_id)).filter(Boolean);}
-function clientRetards(cid){return clientSav(cid).filter(s=>s.statut!=='resolu'&&s.statut!=='intervenu'&&jours(s.date_signalement)>DELAI).length;}
-
 function alertes(){
-  const list=[];
-  clients.forEach(c=>{
-    clientSav(c.id).forEach(s=>{
-      const j=jours(s.date_signalement);
-      if(s.statut!=='resolu'&&s.statut!=='intervenu'&&j>DELAI)
-        list.push({client:c,sav:s,jours:j});
-    });
-  });
-  return list;
+  return savList.filter(s=>s.statut!=='resolu'&&s.statut!=='intervenu'&&jours(s.date_signalement)>DELAI).map(s=>({sav:s,client:clients.find(c=>c.id===s.client_id),j:jours(s.date_signalement)})).filter(x=>x.client);
 }
-
 function statusBadge(statut){
   const s=STATUTS[statut]||STATUTS.nouveau;
   return `<span class="status ${s.cls}">${s.l}</span>`;
 }
-
 function updateUI(){
   const al=alertes().length;
-  const ap=document.getElementById('alert-pill'), sb=document.getElementById('sb-nb');
-  if(al>0){ap.style.display='flex';ap.querySelector('#alert-count').textContent=al;sb.style.display='inline';sb.textContent=al;}
+  const ap=document.getElementById('alert-pill'),sb=document.getElementById('sb-nb');
+  if(al>0){ap.style.display='flex';document.getElementById('alert-count').textContent=al;sb.style.display='inline';sb.textContent=al;}
   else{ap.style.display='none';sb.style.display='none';}
   document.getElementById('sb-counts').textContent=`${clients.length} chantiers · ${savList.length} SAV`;
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.v===currentView));
-  const titles={dashboard:'Tableau de bord',carte:'Carte interactive',clients:'Chantiers',sav:'Tous les SAV',artisans:'Artisans',alertes:'Alertes'};
+  const titles={dashboard:'Tableau de bord',clients:'Chantiers',sav:'Tous les SAV',artisans:'Artisans',alertes:'Alertes'};
   document.getElementById('page-title').textContent=titles[currentView]||'';
 }
 
-// ═══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════
 // VIEWS
-// ═══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════
 function goView(v){
-  currentView=v; closeSB(); updateUI();
+  currentView=v;closeSB();updateUI();
   const c=document.getElementById('content');
-  if(v==='dashboard') renderDashboard(c);
-
-  else if(v==='clients') renderClients(c);
-  else if(v==='sav') renderSav(c);
-  else if(v==='artisans') renderArtisans(c);
-  else if(v==='alertes') renderAlertes(c);
+  if(v==='dashboard')renderDashboard(c);
+  else if(v==='clients')renderClients(c);
+  else if(v==='sav')renderSav(c);
+  else if(v==='artisans')renderArtisans(c);
+  else if(v==='alertes')renderAlertes(c);
 }
 
 // ── DASHBOARD
-function renderDashboard(el){
-  const al=alertes(), sv=savList;
-  const nbOpen=sv.filter(s=>s.statut!=='resolu').length;
-  const nbResolu=sv.filter(s=>s.statut==='resolu').length;
-  const nbEnCours=clients.filter(c=>c.statut==='en_cours').length;
-  const nbLivre=clients.filter(c=>c.statut==='livre').length;
-
-  el.innerHTML=`
+function renderDashboard(c){
+  c.innerHTML=`
     <h1 style="font-size:21px;font-weight:800;margin-bottom:3px">Tableau de bord</h1>
     <p style="color:#64748b;font-size:13px;margin-bottom:15px">MA 17 SUD — Vue d'ensemble en temps réel</p>
-
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <div style="font-weight:700;font-size:15px">🔧 Derniers SAV enregistrés</div>
+      <div style="font-weight:700;font-size:15px">🔧 SAV en cours</div>
       <button onclick="goView('sav')" style="padding:5px 12px;border-radius:8px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:12px;font-weight:600">Voir tout →</button>
     </div>
-    ${sv.length===0?'<div class="empty"><div class="big">🔧</div><p>Aucun SAV enregistré</p></div>':sv.slice(0,10).map(s=>{
-      const client=clients.find(x=>x.id===s.client_id);
-      const artisan=artisans.find(a=>a.id===s.artisan_id);
-      const j=jours(s.date_signalement);
-      const retard=s.statut!=='resolu'&&s.statut!=='intervenu'&&j>DELAI;
-      return '<div class="card'+(retard?' warn':'')+'" style="padding:11px 14px;cursor:pointer;margin-bottom:7px" onclick="openDetail(\''+s.client_id+'\')"">'+
-        '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">'+
-          '<div style="flex:1;min-width:0">'+
-            '<div style="font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+s.titre+'</div>'+
-            '<div style="font-size:11px;color:#2563eb;font-weight:600;margin-top:2px">'+( client?.nom||'—')+'</div>'+
-            '<div style="font-size:11px;color:#64748b;margin-top:1px">'+frDate(s.date_signalement)+' · '+j+'j'+(artisan?' · '+artisan.nom:'')+'</div>'+
-            (retard?'<div style="font-size:11px;color:#ef4444;font-weight:600">⚠ Retard '+j+'j</div>':'')+
-          '</div>'+
-          statusBadge(s.statut)+
-        '</div>'+
-      '</div>';
-    }).join('')}
-
-    <!-- CARTE DASHBOARD -->
-    <div id="dash-map-container" style="margin-bottom:14px">
+    <div id="dash-sav-list"></div>
+    <!-- CARTE -->
+    <div id="dash-map-container" style="margin-top:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <div style="font-weight:700;font-size:14px">Carte des chantiers</div>
         <button onclick="toggleMapFullscreen()" id="fs-btn" style="padding:5px 11px;border-radius:8px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#374151;cursor:pointer;font-size:12px;font-weight:600">⛶ Plein écran</button>
       </div>
-      <div style="display:flex;gap:6px;margin-bottom:9px;flex-wraid="dash-map-filters">
+      <div style="display:flex;gap:6px;margin-bottom:9px;flex-wrap:wrap" id="dash-map-filters">
         <button onclick="toggleMapLayer('ouverture')" id="df-ouverture" style="padding:4px 11px;border-radius:20px;border:2px solid #7c3aed;background:#f3e8ff;color:#7c3aed;cursor:pointer;font-size:11px;font-weight:700">🔜 Ouverture (${clients.filter(c=>c.statut==='ouverture').length})</button>
         <button onclick="toggleMapLayer('en_cours')" id="df-en_cours" style="padding:4px 11px;border-radius:20px;border:2px solid #ca8a04;background:#fefce8;color:#ca8a04;cursor:pointer;font-size:11px;font-weight:700">🏗 En cours (${clients.filter(c=>c.statut==='en_cours').length})</button>
-        <button onclick="toggleMapLayer('livre')" id="df-livre" style="padding:4px 11px;border-radius:20px;border:2px solid #10b981;background:#d1fae5;color:#065f46;cursor:pointer;font-size:11px;font-weight:700">✅ Livrés (${nbLivre})</button>
-        <button onclick="toggleMapLayer('sav')" id="df-sav" style="padding:4px 11px;border-radius:20px;border:2px solid #f59e0b;background:#fff7ed;color:#d97706;cursor:pointer;font-size:11px;font-weight:700">🔧 SAV en cours (${clients.filter(c=>c.statut==='sav_en_cours'||clientSav(c.id).length>0).length})</button>
+        <button onclick="toggleMapLayer('sav_en_cours')" id="df-sav_en_cours" style="padding:4px 11px;border-radius:20px;border:2px solid #ef4444;background:#fee2e2;color:#ef4444;cursor:pointer;font-size:11px;font-weight:700">🔧 SAV (${clients.filter(c=>clientSav(c.id).filter(s=>s.statut==='nouveau'||s.statut==='attente_intervention').length>0).length})</button>
+        <button onclick="toggleMapLayer('livre')" id="df-livre" style="padding:4px 11px;border-radius:20px;border:2px solid #10b981;background:#d1fae5;color:#065f46;cursor:pointer;font-size:11px;font-weight:700">✅ Livrés (${clients.filter(c=>c.statut==='livre').length})</button>
       </div>
       <div class="map-wrap">
-        <div class="map-bar">
-          <span id="dash-map-label">🗺️ MA 17 SUD — Tous les chantiers</span>
-          <div class="map-legend">
-            <span class="leg"><span class="leg-dot" style="background:#f59e0b"></span>En cours</span>
-            <span class="leg"><span class="leg-dot" style="background:#10b981"></span>Livré</span>
-            <span class="leg"><span class="leg-dot" style="background:#ef4444"></span>Retard</span>
-            <span class="leg"><span class="leg-dot" style="background:#3b82f6"></span>SAV</span>
-          </div>
-        </div>
+        <div class="map-bar"><span id="dash-map-label">🗺️ MA 17 SUD — Tous les chantiers</span></div>
         <div id="map-main" style="height:380px;width:100%;transition:height .3s"></div>
       </div>
     </div>
-
-
   `;
+  renderDashSav();
   renderDashMap();
-
 }
 
-// ── CARTE
-function renderCarte(c){
-  const filtreLabels={null:'Tous les chantiers',en_cours:'Chantiers en cours',livre:'Maisons livrées',reserve:'Chantiers avec réserves',sav:'Chantiers avec SAV',retard:'Retards SAV'};
-  const filtreClients = carteFiltre === null ? clients
-    : carteFiltre === 'sav' ? clients.filter(x=>clientSav(x.id).length>0)
-    : carteFiltre === 'retard' ? clients.filter(x=>clientRetards(x.id)>0)
-    : clients.filter(x=>x.statut===carteFiltre);
-  const label = filtreLabels[carteFiltre]||'Tous les chantiers';
-
-  c.innerHTML=`
-    <h1 style="font-size:20px;font-weight:800;margin-bottom:3px">Carte interactive</h1>
-    <p style="color:#64748b;font-size:13px;margin-bottom:13px">Tapez sur un marqueur pour ouvrir la fiche chantier</p>
-    <div style="display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap">
-      ${[
-        [null,'🏡 Tous','#2563eb'],
-        ['en_cours','🏗 En cours','#d97706'],
-        ['livre','✅ Livrés','#10b981'],
-        ['reserve','⚠️ Réserves','#ef4444'],
-        ['sav','🔧 Avec SAV','#f59e0b'],
-        ['retard','🔔 Retards','#ef4444'],
-      ].map(([f,l,col])=>`<button onclick="carteFiltre=${f===null?'null':"'"+f+"'"};renderCarte(document.getElementById('content'))"
-        style="padding:5px 12px;border-radius:20px;border:2px solid ${f===carteFiltre?col:'#e2e8f0'};background:${f===carteFiltre?col+'18':'#fff'};color:${f===carteFiltre?col:'#64748b'};cursor:pointer;font-size:12px;font-weight:${f===carteFiltre?700:400}">${l} (${
-          f===null?clients.length:f==='sav'?clients.filter(x=>clientSav(x.id).length>0).length:f==='retard'?clients.filter(x=>clientRetards(x.id)>0).length:clients.filter(x=>x.statut===f).length
-        })</button>`).join('')}
-    </div>
-    <div class="map-wrap">
-      <div class="map-bar">
-        <span>🗺️ ${filtreClients.length} chantiers — ${label}</span>
-        <div class="map-legend">
-          <span class="leg"><span class="leg-dot" style="background:#f59e0b"></span>En cours</span>
-          <span class="leg"><span class="leg-dot" style="background:#10b981"></span>Livré</span>
-          <span class="leg"><span class="leg-dot" style="background:#ef4444"></span>Retard</span>
-          <span class="leg"><span class="leg-dot" style="background:#3b82f6"></span>SAV actif</span>
+function renderDashSav(){
+  const el=document.getElementById('dash-sav-list');
+  if(!el)return;
+  const active=savList.filter(s=>s.statut==='nouveau'||s.statut==='attente_intervention');
+  if(active.length===0){
+    el.innerHTML='<div class="empty" style="padding:20px"><div class="big">✅</div><p style="color:#10b981;font-weight:700">Aucun SAV en cours !</p></div>';
+    return;
+  }
+  el.innerHTML=active.slice(0,10).map(s=>{
+    const client=clients.find(c=>c.id===s.client_id);
+    const artisan=artisans.find(a=>a.id===s.artisan_id);
+    const j=jours(s.date_signalement);
+    return `<div class="card" style="padding:10px 13px;cursor:pointer;margin-bottom:7px;border-left:3px solid #ef4444" onclick="openDetail('${s.client_id}')">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div style="min-width:0">
+          <div style="font-size:11px;color:#ef4444;font-weight:700">${client?.nom||'—'}</div>
+          <div style="font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.titre}</div>
+          <div style="font-size:11px;color:#64748b">${frDate(s.date_signalement)} · ${j}j${artisan?' · '+artisan.nom:''}</div>
         </div>
+        ${statusBadge(s.statut)}
       </div>
-      <div id="map-full" style="height:calc(100vh - 310px);width:100%"></div>
-    </div>
-  `;
-  initMap('map-full', null, filtreClients);
+    </div>`;
+  }).join('');
 }
 
-// ── INIT MAP
-function initMap(divId, height, filteredClients){
+// ── CARTE DASHBOARD
+function renderDashMap(){
   setTimeout(()=>{
-    const el=document.getElementById(divId);
-    if(!el) return;
-    const map=L.map(el,{zoomControl:true}).setView([45.748,-0.62],9);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(map);
-    const mapClients = filteredClients || clients;
-    mapClients.forEach(c=>{
-      if(!c.lat||!c.lng) return;
-      const r=clientRetards(c.id);
-      const sv=clientSav(c.id);
-      const color=c.statut==='sav_en_cours'||sv.length>0?'#f59e0b':c.statut==='livre'?'#10b981':c.statut==='ouverture'?'#8b5cf6':c.statut==='en_cours'?'#eab308':'#94a3b8';
-      const label=c.statut==='livre'?'✓':sv.length>0?sv.length.toString():'';
-
-      const icon=L.divIcon({className:'',
-        html:`<div style="width:30px;height:30px;border-radius:50% 50% 50% 0;background:${color};border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;cursor:pointer">
-          <span style="transform:rotate(45deg);color:#fff;font-size:10px;font-weight:800">${label}</span></div>`,
-        iconSize:[30,30],iconAnchor:[15,30],popupAnchor:[0,-34]});
-
-      const sv_info=sv.length>0?`<div style="color:${color};font-size:12px;font-weight:600;margin-top:4px">● ${sv.length} SAV${r>0?' dont '+r+' en retard':''}</div>`:'<div style="color:#10b981;font-size:12px;margin-top:4px">✓ Aucun SAV</div>';
-      const statut=CHANTIER_STATUTS[c.statut]||CHANTIER_STATUTS.en_cours;
-
-      L.marker([c.lat,c.lng],{icon}).addTo(map).bindPopup(`
-        <div style="font-family:-apple-system,sans-serif;min-width:200px;padding:2px">
-          <div style="font-weight:800;font-size:14px;color:#0f172a">${c.nom}</div>
-          <span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:${statut.cls.includes('cours')?'#fef3c7':statut.cls.includes('livre')?'#d1fae5':'#fee2e2'};color:${statut.cls.includes('cours')?'#d97706':statut.cls.includes('livre')?'#065f46':'#991b1b'};margin-top:3px">${statut.l}</span>
-          <div style="font-size:11px;color:#64748b;margin-top:4px">${c.adresse||''}</div>
-          ${c.tel?`<div style="font-size:11px;margin-top:3px">📞 ${c.tel}</div>`:''}
-          ${sv_info}
-          <button onclick="window.__od('${c.id}')" style="margin-top:9px;width:100%;padding:8px;border:none;background:#2563eb;color:#fff;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;font-family:-apple-system,sans-serif">Ouvrir la fiche →</button>
-        </div>`,{maxWidth:260});
+    const el=document.getElementById('map-main');
+    if(!el)return;
+    if(dashMapInst){dashMapInst.remove();dashMapInst=null;}
+    dashMapMarkers=[];
+    activeLayers=new Set(['ouverture','en_cours','sav_en_cours','livre','sav']);
+    ['ouverture','en_cours','sav_en_cours','livre'].forEach(l=>{
+      const btn=document.getElementById('df-'+l);
+      if(btn){btn.style.opacity='1';btn.style.textDecoration='none';}
     });
+    const map=L.map(el,{zoomControl:true}).setView([45.748,-0.62],9);
+    dashMapInst=map;
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(map);
+    clients.forEach(c=>{
+      if(!c.lat||!c.lng)return;
+      const sv=clientSav(c.id);
+      const activeSav=sv.filter(s=>s.statut==='nouveau'||s.statut==='attente_intervention');
+      const color=activeSav.length>0?'#ef4444':c.statut==='livre'?'#10b981':c.statut==='ouverture'?'#8b5cf6':c.statut==='en_cours'?'#eab308':'#94a3b8';
+      const label=c.statut==='livre'?'✓':activeSav.length>0?activeSav.length.toString():'';
+      const icon=L.divIcon({className:'',
+        html:`<div style="width:28px;height:28px;border-radius:50% 50% 50% 0;background:${color};border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);transform:rotate(-45deg);display:flex;align-items:center;justify-content:center"><span style="transform:rotate(45deg);color:#fff;font-size:9px;font-weight:800">${label}</span></div>`,
+        iconSize:[28,28],iconAnchor:[14,28],popupAnchor:[0,-32]});
+      const statut=CHANTIER_STATUTS[c.statut]||CHANTIER_STATUTS.en_cours;
+      const sv_info=activeSav.length>0?`<div style="color:#ef4444;font-size:12px;font-weight:600;margin-top:4px">🔧 ${activeSav.length} SAV actif(s)</div>`:'<div style="color:#10b981;font-size:12px;margin-top:4px">✓ Aucun SAV</div>';
+      const marker=L.marker([c.lat,c.lng],{icon});
+      marker.bindPopup(`<div style="font-family:-apple-system,sans-serif;min-width:200px;padding:2px">
+        <div style="font-weight:800;font-size:14px">${c.nom}</div>
+        <span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:${statut.cls.includes('sav')?'#fee2e2':statut.cls.includes('livre')?'#d1fae5':statut.cls.includes('ouverture')?'#f3e8ff':'#fefce8'};color:${statut.cls.includes('sav')?'#ef4444':statut.cls.includes('livre')?'#065f46':statut.cls.includes('ouverture')?'#7c3aed':'#ca8a04'}">${statut.l}</span>
+        <div style="font-size:11px;color:#64748b;margin-top:4px">${c.adresse||''}</div>
+        ${c.tel?`<div style="font-size:11px;margin-top:3px">📞 ${c.tel}</div>`:''}
+        ${sv_info}
+        <button onclick="window.__od('${c.id}')" style="margin-top:9px;width:100%;padding:8px;border:none;background:#2563eb;color:#fff;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;font-family:-apple-system,sans-serif">Ouvrir la fiche →</button>
+      </div>`,{maxWidth:260});
+      // Determine layers
+      const mLayers=activeSav.length>0?['sav_en_cours','sav']:[c.statut];
+      marker.addTo(map);
+      dashMapMarkers.push({marker,layers:mLayers});
+    });
+    // Géolocalisation
+    if(navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(pos=>{
+        const lat=pos.coords.latitude,lng=pos.coords.longitude;
+        const myIcon=L.divIcon({className:'',html:'<div style="width:20px;height:20px;border-radius:50%;background:#2563eb;border:3px solid #fff;box-shadow:0 0 0 4px rgba(37,99,235,0.3);"></div>',iconSize:[20,20],iconAnchor:[10,10]});
+        L.marker([lat,lng],{icon:myIcon,zIndexOffset:1000}).addTo(map).bindPopup('<div style="font-family:-apple-system,sans-serif;font-weight:700;color:#2563eb">📍 Votre position</div>',{maxWidth:200});
+        L.circle([lat,lng],{radius:pos.coords.accuracy,color:'#2563eb',fillColor:'#2563eb',fillOpacity:0.08,weight:1}).addTo(map);
+      },()=>{},{enableHighAccuracy:true,timeout:10000});
+    }
     window.__od=id=>openDetail(id);
   },150);
 }
 
+function toggleMapLayer(layer){
+  if(activeLayers.has(layer)){activeLayers.delete(layer);}
+  else{activeLayers.add(layer);}
+  const btn=document.getElementById('df-'+layer);
+  if(btn){btn.style.opacity=activeLayers.has(layer)?'1':'0.4';btn.style.textDecoration=activeLayers.has(layer)?'none':'line-through';}
+  dashMapMarkers.forEach(({marker,layers})=>{
+    const visible=layers.some(l=>activeLayers.has(l));
+    if(visible&&!dashMapInst.hasLayer(marker))marker.addTo(dashMapInst);
+    else if(!visible&&dashMapInst.hasLayer(marker))dashMapInst.removeLayer(marker);
+  });
+}
+
+function toggleMapFullscreen(){
+  const container=document.getElementById('dash-map-container');
+  const btn=document.getElementById('fs-btn');
+  const mapEl=document.getElementById('map-main');
+  const isFs=container.classList.toggle('fullscreen');
+  btn.textContent=isFs?'✕ Fermer':'⛶ Plein écran';
+  mapEl.style.height=isFs?'calc(100vh - 180px)':'380px';
+  setTimeout(()=>{if(dashMapInst)dashMapInst.invalidateSize();},350);
+}
+
 // ── CLIENTS
+let cliFilter='';
 function renderClients(c){
+  const nbLivre=clients.filter(c=>c.statut==='livre').length;
   c.innerHTML=`
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px">
       <div><h1 style="font-size:20px;font-weight:800">Chantiers</h1><p style="color:#64748b;font-size:12px" id="cli-count">${clients.length} chantiers</p></div>
@@ -602,10 +471,10 @@ function renderClients(c){
     </div>
     <div style="display:flex;gap:7px;margin-bottom:11px;flex-wrap:wrap">
       <button class="btn btn-sm" style="background:#f1f5f9;color:#374151" onclick="filterCli('')">Tous (${clients.length})</button>
-      <button class="btn btn-sm ch-ouverture" onclick="filterCli('ouverture')">Ouverture à venir (${clients.filter(c=>c.statut==='ouverture').length})</button>
+      <button class="btn btn-sm ch-ouverture" onclick="filterCli('ouverture')">Ouverture (${clients.filter(c=>c.statut==='ouverture').length})</button>
       <button class="btn btn-sm ch-en_cours" onclick="filterCli('en_cours')">En cours (${clients.filter(c=>c.statut==='en_cours').length})</button>
       <button class="btn btn-sm ch-sav" onclick="filterCli('sav_en_cours')">SAV en cours (${clients.filter(c=>c.statut==='sav_en_cours').length})</button>
-      <button class="btn btn-sm ch-livre" onclick="filterCli('livre')">Livrés (${clients.filter(c=>c.statut==='livre').length})</button>
+      <button class="btn btn-sm ch-livre" onclick="filterCli('livre')">Livrés (${nbLivre})</button>
       <button class="btn btn-sm ch-reserve" onclick="filterCli('reserve')">Réserves (${clients.filter(c=>c.statut==='reserve').length})</button>
     </div>
     <div class="search-wrap"><span class="search-ic">🔍</span><input type="text" placeholder="Rechercher un chantier…" oninput="searchCli(this.value)" id="cli-search"/></div>
@@ -613,71 +482,86 @@ function renderClients(c){
   `;
   renderCliList(clients);
 }
-
-let cliFilter='';
-function filterCli(f){
-  cliFilter=f;
-  const inp=document.getElementById('cli-search');
-  if(inp) inp.value='';
-  searchCli('');
-}
+function filterCli(f){cliFilter=f;const inp=document.getElementById('cli-search');if(inp)inp.value='';searchCli('');}
 function searchCli(q){
   let list=cliFilter?clients.filter(c=>c.statut===cliFilter):clients;
-  if(q) list=list.filter(c=>c.nom.toLowerCase().includes(q.toLowerCase())||( c.adresse||'').toLowerCase().includes(q.toLowerCase()));
+  if(q)list=list.filter(c=>c.nom.toLowerCase().includes(q.toLowerCase())||(c.adresse||'').toLowerCase().includes(q.toLowerCase()));
   renderCliList(list);
   const cc=document.getElementById('cli-count');
-  if(cc) cc.textContent=`${list.length} / ${clients.length}`;
+  if(cc)cc.textContent=`${list.length} / ${clients.length}`;
 }
 function renderCliList(list){
   const el=document.getElementById('cli-list');
-  if(!el) return;
+  if(!el)return;
   if(list.length===0){el.innerHTML=`<div class="empty"><div class="big">🏡</div><p>Aucun chantier trouvé</p></div>`;return;}
-  const st=CHANTIER_STATUTS;
   el.innerHTML=list.map(c=>{
-    const r=clientRetards(c.id), sv=clientSav(c.id).length;
-    const s=st[c.statut]||st.en_cours;
-    return `<div class="cli-item${r>0?' retard':''}" onclick="openDetail('${c.id}')">
-      <div class="cli-av" style="background:${c.statut==='sav_en_cours'?'#fff7ed':c.statut==='livre'?'#d1fae5':c.statut==='ouverture'?'#f3e8ff':c.statut==='en_cours'?'#fefce8':'#dbeafe'};color:${c.statut==='sav_en_cours'?'#d97706':c.statut==='livre'?'#065f46':c.statut==='ouverture'?'#7c3aed':c.statut==='en_cours'?'#ca8a04':'#2563eb'}">${c.nom[0]}</div>
+    const sv=clientSav(c.id).length;
+    const s=CHANTIER_STATUTS[c.statut]||CHANTIER_STATUTS.en_cours;
+    return `<div class="cli-item" onclick="openDetail('${c.id}')">
+      <div class="cli-av" style="background:${c.statut==='sav_en_cours'?'#fee2e2':c.statut==='livre'?'#d1fae5':c.statut==='ouverture'?'#f3e8ff':c.statut==='en_cours'?'#fefce8':'#dbeafe'};color:${c.statut==='sav_en_cours'?'#ef4444':c.statut==='livre'?'#065f46':c.statut==='ouverture'?'#7c3aed':c.statut==='en_cours'?'#ca8a04':'#2563eb'}">${c.nom[0]}</div>
       <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:4px;overflow:hidden">
-          <span style="font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.nom}</span>
-          ${r>0?'<span style="color:#ef4444;font-size:10px;flex-shrink:0">⚠'+r+'</span>':''}
-          <button onclick="event.stopPropagation();openClientModal('${c.id}')" style="flex-shrink:0;padding:2px 6px;border-radius:6px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:11px;line-height:1.4">✏</button>
+        <div style="display:flex;align-items:center;gap:6px;overflow:hidden">
+          <span class="cli-name">${c.nom}</span>
+          <button onclick="event.stopPropagation();openClientModal('${c.id}')" style="margin-left:auto;flex-shrink:0;padding:3px 8px;border-radius:7px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:11px">✏</button>
         </div>
         <div class="cli-addr">${c.adresse||'Adresse non renseignée'}</div>
         <div class="statut-wrap" onclick="event.stopPropagation()">
-          <span class="ch-badge ${s.cls}" style="cursor:pointer" onclick="toggleStatutMenu('menu-${c.id}',event)">${s.l} ▾</span>
+          <span class="ch-badge ${s.cls}" style="cursor:pointer;margin-top:3px;display:inline-block" onclick="toggleStatutMenu('menu-${c.id}',event)">${s.l} ▾</span>
           <div class="statut-menu" id="menu-${c.id}">
             <button onclick="chgStatutClient('${c.id}','ouverture','menu-${c.id}')"><span style="background:#f3e8ff;color:#7c3aed;padding:2px 8px;border-radius:20px;font-size:11px">Ouverture à venir</span></button>
             <button onclick="chgStatutClient('${c.id}','en_cours','menu-${c.id}')"><span style="background:#fefce8;color:#ca8a04;padding:2px 8px;border-radius:20px;font-size:11px">En cours</span></button>
-            <button onclick="chgStatutClient('${c.id}','sav_en_cours','menu-${c.id}')"><span style="background:#fff7ed;color:#d97706;padding:2px 8px;border-radius:20px;font-size:11px">SAV en cours 🔧</span></button>
+            <button onclick="chgStatutClient('${c.id}','sav_en_cours','menu-${c.id}')"><span style="background:#fee2e2;color:#ef4444;padding:2px 8px;border-radius:20px;font-size:11px">SAV en cours 🔧</span></button>
             <button onclick="chgStatutClient('${c.id}','livre','menu-${c.id}')"><span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:20px;font-size:11px">Livré ✓</span></button>
             <button onclick="chgStatutClient('${c.id}','reserve','menu-${c.id}')"><span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:20px;font-size:11px">Réserves ⚠</span></button>
           </div>
         </div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0">
-        <div style="display:flex;align-items:center;gap:8px">
+        <div style="display:flex;align-items:center;gap:5px">
           <div style="text-align:right"><div style="font-size:18px;font-weight:800;color:#2563eb">${sv}</div><div style="font-size:10px;color:#94a3b8">SAV</div></div>
         </div>
-        <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">
-          ${c.tel?`<a href="tel:${c.tel}" onclick="event.stopPropagation()" title="${c.conjoint1||c.tel}" style="padding:5px 8px;border-radius:8px;background:#dbeafe;color:#2563eb;font-size:12px;font-weight:700;text-decoration:none">📞1</a>`:''}
-          ${c.tel2?`<a href="tel:${c.tel2}" onclick="event.stopPropagation()" title="${c.conjoint2||c.tel2}" style="padding:5px 8px;border-radius:8px;background:#e0e7ff;color:#4338ca;font-size:12px;font-weight:700;text-decoration:none">📞2</a>`:''}
-          ${c.email?`<a href="mailto:${c.email}${c.email2?','+c.email2:''}" onclick="event.stopPropagation()" title="Envoyer à ${[c.conjoint1,c.conjoint2].filter(Boolean).join(' & ')}" style="padding:5px 8px;border-radius:8px;background:#ecfdf5;color:#10b981;font-size:12px;font-weight:700;text-decoration:none">✉</a>`:''}
+        <div style="display:flex;gap:4px">
+          ${c.tel?'<a href="tel:'+c.tel+'" onclick="event.stopPropagation()" title="'+(c.conjoint1||c.tel)+'" style="padding:5px 8px;border-radius:8px;background:#dbeafe;color:#2563eb;font-size:12px;font-weight:700;text-decoration:none">📞1</a>':''}
+          ${c.tel2?'<a href="tel:'+c.tel2+'" onclick="event.stopPropagation()" title="'+(c.conjoint2||c.tel2)+'" style="padding:5px 8px;border-radius:8px;background:#e0e7ff;color:#4338ca;font-size:12px;font-weight:700;text-decoration:none">📞2</a>':''}
+          ${c.email?'<a href="mailto:'+c.email+(c.email2?','+c.email2:'')+'" onclick="event.stopPropagation()" style="padding:5px 8px;border-radius:8px;background:#ecfdf5;color:#10b981;font-size:12px;font-weight:700;text-decoration:none">✉</a>':''}
           ${c.lat&&c.lng?'<button onclick="event.stopPropagation();quickNav(\''+c.id+'\')" style="padding:5px 8px;border-radius:8px;background:#fef3c7;color:#d97706;border:none;cursor:pointer;font-size:12px;font-weight:700">🧭</button>':''}
-
         </div>
         <div style="font-size:10px;color:#64748b;text-align:right;line-height:1.5">
-          ${c.tel?'<div>'+(c.conjoint1?'<b>'+c.conjoint1.split(' ').slice(-1)[0]+'</b> ':'')+c.tel+'</div>':''} 
-          ${c.tel2?'<div>'+(c.conjoint2?'<b>'+c.conjoint2.split(' ').slice(-1)[0]+'</b> ':'')+c.tel2+'</div>':''} 
+          ${c.tel?'<div>'+(c.conjoint1?'<b>'+c.conjoint1.split(' ').slice(-1)[0]+'</b> ':'') +c.tel+'</div>':''}
+          ${c.tel2?'<div>'+(c.conjoint2?'<b>'+c.conjoint2.split(' ').slice(-1)[0]+'</b> ':'')+c.tel2+'</div>':''}
         </div>
       </div>
     </div>`;
   }).join('');
 }
 
+function toggleStatutMenu(menuId,event){
+  event.stopPropagation();
+  document.querySelectorAll('.statut-menu.open').forEach(m=>{if(m.id!==menuId)m.classList.remove('open');});
+  document.getElementById(menuId)?.classList.toggle('open');
+}
+document.addEventListener('click',()=>{document.querySelectorAll('.statut-menu.open').forEach(m=>m.classList.remove('open'));});
+
+async function chgStatutClient(clientId,statut,menuId){
+  document.getElementById(menuId)?.classList.remove('open');
+  try{
+    await db('PATCH','clients',{statut,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+    clients=clients.map(c=>c.id===clientId?{...c,statut}:c);
+    const labels={ouverture:'Ouverture à venir',en_cours:'En cours',sav_en_cours:'SAV en cours',livre:'Livré',reserve:'Réserves'};
+    toast(`Statut → ${labels[statut]}`);
+    updateUI();goView('clients');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+function quickNav(clientId){
+  const c=clients.find(x=>x.id===clientId);
+  if(!c||!c.lat||!c.lng)return;
+  window.open(`https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}&travelmode=driving`,'_blank');
+}
+
 // ── SAV LIST
 function renderSav(c){
+  savStatutFilter=null;
   const sv=savList;
   c.innerHTML=`
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px">
@@ -686,10 +570,11 @@ function renderSav(c){
     </div>
     <div class="search-wrap" style="margin-bottom:10px">
       <span class="search-ic">🔍</span>
-      <input type="text" id="sav-search" placeholder="Rechercher par client, titre…" oninput="filterSavList(this.value)"/>
+      <input type="text" id="sav-search" placeholder="Rechercher par client, titre…" oninput="applyAllSavFilters(this.value)"/>
     </div>
     <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
-      ${Object.entries(STATUTS).map(([k,v])=>`<span class="status ${v.cls}">${v.l} (${sv.filter(s=>s.statut===k).length})</span>`).join('')}
+      <button onclick="filterSavByStatut(null)" id="sf-all" style="padding:4px 12px;border-radius:20px;border:2px solid #2563eb;background:#eff6ff;color:#2563eb;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit">Tous (${sv.length})</button>
+      ${Object.entries(STATUTS).map(([k,v])=>`<button onclick="filterSavByStatut('${k}')" id="sf-${k}" class="status ${v.cls}" style="cursor:pointer;font-family:inherit">${v.l} (${sv.filter(s=>s.statut===k).length})</button>`).join('')}
     </div>
     <div id="sav-list-container"></div>
   `;
@@ -698,28 +583,27 @@ function renderSav(c){
 
 function renderSavItems(list){
   const el=document.getElementById('sav-list-container');
-  if(!el) return;
+  if(!el)return;
   if(list.length===0){el.innerHTML='<div class="empty"><div class="big">🔧</div><p>Aucun dossier SAV</p></div>';return;}
   el.innerHTML=list.map(s=>{
     const client=clients.find(c=>c.id===s.client_id);
     const artisan=artisans.find(a=>a.id===s.artisan_id);
     const j=jours(s.date_signalement);
     const retard=s.statut!=='resolu'&&s.statut!=='intervenu'&&j>DELAI;
-    const cid=s.client_id;
-    const sid=s.id;
+    const cid=s.client_id,sid=s.id;
     const cc=[client?.email,client?.email2].filter(Boolean).join(',');
     const tels=[
       client?.tel?(client?.conjoint1?client.conjoint1+' : '+client.tel:client.tel):'',
       client?.tel2?(client?.conjoint2?client.conjoint2+' : '+client.tel2:client.tel2):''
     ].filter(Boolean).join('%0A');
     const body='Bonjour,%0A%0A'
-      +'Nous faisons suite au dossier SAV :%0A'
+      +'Nous faisons suite au dossier SAV suivant :%0A'
       +'━━━━━━━━━━━━━━━━━━━━%0A'
       +'Client : '+(client?.nom||'')+'%0A'
       +'Adresse : '+encodeURIComponent(client?.adresse||'')+'%0A'
       +'%0ATéléphones :%0A'+tels+'%0A'
       +'━━━━━━━━━━━━━━━━━━━━%0A'
-      +'Intervention :%0A'
+      +'Intervention à réaliser :%0A'
       +encodeURIComponent(s.titre)+(s.notes?'%0A'+encodeURIComponent(s.notes):'')+'%0A'
       +'━━━━━━━━━━━━━━━━━━━━%0A%0A'
       +'Merci de confirmer votre disponibilité.%0A%0ACordialement';
@@ -745,16 +629,29 @@ function renderSavItems(list){
   }).join('');
 }
 
-
-function filterSavList(q){
-  const lq=q.toLowerCase();
-  const filtered=q?savList.filter(s=>{
-    const client=clients.find(c=>c.id===s.client_id);
-    return (client?.nom||'').toLowerCase().includes(lq)||s.titre.toLowerCase().includes(lq)||(s.notes||'').toLowerCase().includes(lq);
-  }):savList;
-  renderSavItems(filtered);
+function filterSavByStatut(statut){
+  savStatutFilter=statut;
+  const allBtn=document.getElementById('sf-all');
+  if(allBtn){allBtn.style.borderColor=statut===null?'#2563eb':'#e2e8f0';allBtn.style.background=statut===null?'#eff6ff':'#fff';allBtn.style.fontWeight=statut===null?'700':'400';}
+  Object.keys(STATUTS).forEach(k=>{
+    const btn=document.getElementById('sf-'+k);
+    if(btn){btn.style.fontWeight=statut===k?'700':'400';btn.style.opacity=statut===k||statut===null?'1':'0.5';}
+  });
+  applyAllSavFilters(document.getElementById('sav-search')?.value||'');
 }
 
+function applyAllSavFilters(q){
+  let list=savList;
+  if(savStatutFilter)list=list.filter(s=>s.statut===savStatutFilter);
+  if(q){
+    const lq=q.toLowerCase();
+    list=list.filter(s=>{
+      const client=clients.find(c=>c.id===s.client_id);
+      return (client?.nom||'').toLowerCase().includes(lq)||s.titre.toLowerCase().includes(lq)||(s.notes||'').toLowerCase().includes(lq);
+    });
+  }
+  renderSavItems(list);
+}
 
 // ── ARTISANS
 function renderArtisans(c){
@@ -772,7 +669,7 @@ function renderArtisans(c){
         <div style="flex:1;min-width:0">
           <div style="font-weight:700;font-size:13px">${a.entreprise||a.nom} <span style="color:#64748b;font-weight:400">— ${a.metier||''}</span></div>
           <div style="font-size:12px;color:#64748b">${a.nom}${a.tel?' · '+a.tel:''}${a.email?' · '+a.email:''}</div>
-          <div style="font-size:11px;color:#94a3b8;margin-top:2px">${nb} chantier(s) · ${nbSav} SAV assigné(s)</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:2px">${nb} chantier(s) · ${nbSav} SAV</div>
         </div>
         <div style="display:flex;gap:5px;flex-shrink:0">
           ${a.tel?`<a href="tel:${a.tel}" class="btn btn-primary" style="padding:7px 10px;font-size:13px;text-decoration:none">📞</a>`:''}
@@ -789,24 +686,23 @@ function renderAlertes(c){
   const al=alertes();
   c.innerHTML=`
     <h1 style="font-size:20px;font-weight:800;margin-bottom:3px">Alertes</h1>
-    <p style="color:#64748b;font-size:13px;margin-bottom:13px">Dossiers nécessitant une action immédiate</p>
-    ${al.length===0?`<div class="empty"><div class="big">✅</div><p style="font-weight:700;color:#10b981">Aucun retard en cours !</p><p>Tous vos dossiers SAV sont dans les délais.</p></div>`:
-    al.map(a=>{
-      const artisan=artisans.find(x=>x.id===a.sav.artisan_id);
+    <p style="color:#64748b;font-size:13px;margin-bottom:13px">Dossiers en retard (> ${DELAI} jours)</p>
+    ${al.length===0?`<div class="empty"><div class="big">✅</div><p style="font-weight:700;color:#10b981">Aucun retard en cours !</p></div>`:
+    al.map(({sav:s,client:cl,j})=>{
+      const artisan=artisans.find(x=>x.id===s.artisan_id);
       return `<div class="card warn" style="margin-bottom:10px">
-        <span style="background:#fee2e2;color:#ef4444;border-radius:7px;padding:2px 9px;font-size:11px;font-weight:700">⚠ Intervention en retard</span>
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-top:8px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
           <div style="flex:1;min-width:0">
-            <div style="font-weight:700;font-size:14px">${a.sav.titre}</div>
-            <div style="font-size:12px;color:#2563eb;font-weight:600;cursor:pointer" onclick="openDetail('${a.client.id}')">${a.client.nom}</div>
-            <div style="font-size:12px;color:#64748b">${a.client.adresse||''}</div>
-            <div style="font-size:12px;color:#ef4444;font-weight:600;margin-top:4px">⏱ ${a.jours} jours depuis signalement</div>
-            ${artisan?`<div style="font-size:12px;color:#374151;margin-top:2px">Artisan: ${artisan.nom}${artisan.tel?' · '+artisan.tel:''}</div>`:''}
+            <div style="font-weight:700;font-size:14px">${s.titre}</div>
+            <div style="font-size:12px;color:#2563eb;font-weight:600;cursor:pointer" onclick="openDetail('${cl.id}')">${cl.nom}</div>
+            <div style="font-size:12px;color:#64748b">${cl.adresse||''}</div>
+            <div style="font-size:12px;color:#ef4444;font-weight:600;margin-top:4px">⏱ ${j} jours</div>
+            ${artisan?`<div style="font-size:12px;color:#374151;margin-top:2px">${artisan.nom}${artisan.tel?' · '+artisan.tel:''}</div>`:''}
           </div>
           <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">
-            ${artisan?.tel?`<a href="tel:${artisan.tel}" class="btn btn-primary" style="font-size:12px;padding:6px 11px;text-decoration:none">📞 Appeler</a>`:''}
-            ${artisan?.email?`<a href="mailto:${artisan.email}?subject=URGENT SAV: ${encodeURIComponent(a.sav.titre)}" class="btn btn-danger" style="font-size:12px;padding:6px 11px;text-decoration:none">✉ Urgent</a>`:''}
-            <button class="btn btn-green" style="font-size:12px;padding:6px 11px" onclick="chgStatut('${a.sav.id}','resolu','${a.client.id}')">✓ Résoudre</button>
+            ${artisan?.tel?`<a href="tel:${artisan.tel}" class="btn btn-primary" style="font-size:12px;padding:6px 11px;text-decoration:none">📞</a>`:''}
+            ${artisan?.email?`<a href="mailto:${artisan.email}?subject=URGENT SAV: ${encodeURIComponent(s.titre)}" class="btn btn-danger" style="font-size:12px;padding:6px 11px;text-decoration:none">✉</a>`:''}
+            <button class="btn btn-green" style="font-size:12px;padding:6px 11px" onclick="chgStatut('${s.id}','resolu','${cl.id}')">✓ Résoudre</button>
           </div>
         </div>
       </div>`;
@@ -814,17 +710,16 @@ function renderAlertes(c){
   `;
 }
 
-// ═══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════
 // CLIENT DETAIL
-// ═══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════
 function openDetail(clientId){
   const c=clients.find(x=>x.id===clientId);
-  if(!c) return;
+  if(!c)return;
   const ac=clientArtisans(clientId);
   const sv=clientSav(clientId);
   const photos=JSON.parse(localStorage.getItem('photos_'+clientId)||'[]');
   const statut=CHANTIER_STATUTS[c.statut]||CHANTIER_STATUTS.en_cours;
-
   document.getElementById('m-detail-title').textContent=c.nom;
   document.getElementById('m-detail-body').innerHTML=`
     <div class="cli-head">
@@ -837,51 +732,34 @@ function openDetail(clientId){
       </div>
       <div style="opacity:.85;font-size:13px;margin-top:8px">${c.adresse||'Adresse non renseignée'}</div>
       <div style="display:flex;flex-direction:column;gap:6px;margin-top:10px">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          ${c.conjoint1?'<span style="font-size:12px;opacity:.9;font-weight:600">'+c.conjoint1+'</span>':''}
-          ${c.tel?'<a href="tel:'+c.tel+'" style="color:#93c5fd;font-size:12px">📞 '+c.tel+'</a>':''}
-          ${c.email?'<a href="mailto:'+c.email+'" style="color:#93c5fd;font-size:12px">✉ '+c.email+'</a>':''}
-        </div>
-        ${c.conjoint2||c.tel2?'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+(c.conjoint2?'<span style="font-size:12px;opacity:.9;font-weight:600">'+c.conjoint2+'</span>':'')+( c.tel2?'<a href="tel:'+c.tel2+'" style="color:#93c5fd;font-size:12px">📞 '+c.tel2+'</a>':'')+( c.email2?'<a href="mailto:'+c.email2+'" style="color:#93c5fd;font-size:12px">✉ '+c.email2+'</a>':'')+'</div>':''}
+        ${c.conjoint1||c.tel?'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+(c.conjoint1?'<span style="font-size:12px;opacity:.9;font-weight:600">'+c.conjoint1+'</span>':'')+(c.tel?'<a href="tel:'+c.tel+'" style="color:#93c5fd;font-size:12px">📞 '+c.tel+'</a>':'')+(c.email?'<a href="mailto:'+c.email+'" style="color:#93c5fd;font-size:12px">✉ '+c.email+'</a>':'')+'</div>':''}
+        ${c.conjoint2||c.tel2?'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+(c.conjoint2?'<span style="font-size:12px;opacity:.9;font-weight:600">'+c.conjoint2+'</span>':'')+(c.tel2?'<a href="tel:'+c.tel2+'" style="color:#93c5fd;font-size:12px">📞 '+c.tel2+'</a>':'')+(c.email2?'<a href="mailto:'+c.email2+'" style="color:#93c5fd;font-size:12px">✉ '+c.email2+'</a>':'')+'</div>':''}
         ${c.date_reception?'<div style="font-size:12px;opacity:.7">🏠 Réception : '+frDate(c.date_reception)+'</div>':''}
       </div>
       ${c.email&&c.email2?'<div style="margin-top:10px"><a href="mailto:'+c.email+','+c.email2+'" style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.15);color:#fff;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;text-decoration:none">✉ Écrire aux deux</a></div>':''}
     </div>
-
     <div class="nav-gps">
       <div class="nav-gps-title">🧭 Itinéraire vers ce chantier</div>
       <div class="nav-btns">
-        <button class="nav-app" onclick="openNav('google','${clientId}')"><span style="font-size:16px">🗺️</span>Google Maps</button>
-        <button class="nav-app" onclick="openNav('apple','${clientId}')"><span style="font-size:16px">🍎</span>Plans Apple</button>
-        <button class="nav-app" onclick="openNav('waze','${clientId}')"><span style="font-size:16px">🔵</span>Waze</button>
+        <button class="nav-app" onclick="openNav('google','${c.id}')"><span style="font-size:16px">🗺️</span>Google Maps</button>
+        <button class="nav-app" onclick="openNav('apple','${c.id}')"><span style="font-size:16px">🍎</span>Plans Apple</button>
+        <button class="nav-app" onclick="openNav('waze','${c.id}')"><span style="font-size:16px">🔵</span>Waze</button>
       </div>
-      ${c.lat?`<div style="font-size:10px;color:#64748b;margin-top:5px;text-align:center">GPS: ${c.lat}, ${c.lng}</div>`:''}
     </div>
-
     <div style="margin-bottom:15px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">
         <div style="font-weight:700;font-size:13px">📸 Photos (${photos.length})</div>
         <button class="btn btn-purple btn-sm" onclick="document.getElementById('ph-in-${clientId}').click()">+ Ajouter</button>
         <input type="file" id="ph-in-${clientId}" accept="image/*" multiple style="display:none" onchange="addPhotos('${clientId}',this)"/>
       </div>
-      ${photos.length===0?`
-        <div class="ph-empty" onclick="document.getElementById('ph-in-${clientId}').click()">
-          <span style="font-size:28px">📷</span>
-          <span style="font-weight:600">Appuyez pour ajouter des photos</span>
-          <span style="font-size:11px">JPG, PNG, HEIC — plusieurs à la fois</span>
-        </div>
-      `:`<div class="photo-grid">
-        ${photos.map((p,i)=>`<div class="ph-thumb" onclick="openLB('${clientId}',${i})"><img src="${p.url}" alt=""/><div class="ph-date">${p.date}</div></div>`).join('')}
-        <div class="ph-add" onclick="document.getElementById('ph-in-${clientId}').click()"><span style="font-size:18px">+</span>Photo</div>
-      </div>`}
+      ${photos.length===0?`<div class="ph-empty" onclick="document.getElementById('ph-in-${clientId}').click()"><span style="font-size:28px">📷</span><span style="font-weight:600">Appuyez pour ajouter des photos</span></div>`:`<div class="photo-grid">${photos.map((p,i)=>`<div class="ph-thumb" onclick="openLB('${clientId}',${i})"><img src="${p.url}" alt=""/></div>`).join('')}<div class="ph-add" onclick="document.getElementById('ph-in-${clientId}').click()"><span style="font-size:18px">+</span>Photo</div></div>`}
     </div>
-
     <div style="margin-bottom:14px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">
-        <div style="font-weight:700;font-size:13px">👷 Artisans du chantier (${ac.length})</div>
+        <div style="font-weight:700;font-size:13px">👷 Artisans (${ac.length})</div>
         <button class="btn btn-secondary btn-sm" onclick="openClientModal('${c.id}');closeM('m-detail')">Gérer</button>
       </div>
-      ${ac.length===0?`<p style="color:#94a3b8;font-size:13px">Aucun artisan associé à ce chantier</p>`:
+      ${ac.length===0?`<p style="color:#94a3b8;font-size:13px">Aucun artisan associé</p>`:
       ac.map(a=>`<div class="card" style="display:flex;align-items:center;gap:10px;margin-bottom:7px;padding:10px 13px">
         <div style="flex:1;min-width:0">
           <div style="font-weight:600;font-size:13px">${a.entreprise||a.nom} <span style="color:#64748b;font-weight:400">— ${a.metier||''}</span></div>
@@ -890,12 +768,11 @@ function openDetail(clientId){
         ${a.tel?`<a href="tel:${a.tel}" class="btn btn-primary" style="font-size:12px;padding:6px 11px;text-decoration:none;flex-shrink:0">📞</a>`:''}
       </div>`).join('')}
     </div>
-
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">
       <div style="font-weight:700;font-size:13px">🔧 SAV (${sv.length})</div>
       <button class="btn btn-primary btn-sm" onclick="openSavModal('${clientId}',null)">+ Nouveau SAV</button>
     </div>
-    ${sv.length===0?`<p style="color:#94a3b8;font-size:13px">Aucun dossier SAV pour ce chantier</p>`:
+    ${sv.length===0?`<p style="color:#94a3b8;font-size:13px">Aucun dossier SAV</p>`:
     sv.map(s=>{
       const artisan=artisans.find(a=>a.id===s.artisan_id);
       const j=jours(s.date_signalement);
@@ -907,7 +784,7 @@ function openDetail(clientId){
             <div style="font-size:11px;color:#64748b">Signalé le ${frDate(s.date_signalement)} · ${j}j</div>
             ${artisan?`<div style="font-size:11px;color:#2563eb">→ ${artisan.metier||''}: ${artisan.nom}${artisan.tel?' ('+artisan.tel+')':''}</div>`:''}
             ${s.notes?`<div style="font-size:11px;color:#94a3b8;font-style:italic">${s.notes}</div>`:''}
-            ${retard?`<div style="font-size:11px;color:#ef4444;font-weight:600">⚠ ${j} jours sans intervention</div>`:''}
+            ${retard?`<div style="font-size:11px;color:#ef4444;font-weight:600">⚠ ${j} jours</div>`:''}
           </div>
           ${statusBadge(s.statut)}
         </div>
@@ -915,7 +792,7 @@ function openDetail(clientId){
           ${Object.entries(STATUTS).filter(([k])=>k!==s.statut).slice(0,3).map(([k,v])=>`<button class="btn btn-sm ${v.cls}" onclick="chgStatut('${s.id}','${k}','${clientId}')">→ ${v.l}</button>`).join('')}
           <button class="btn btn-secondary btn-sm" onclick="openSavModal('${clientId}','${s.id}')">✏</button>
           <button class="btn btn-danger btn-sm" onclick="delSav('${s.id}','${clientId}')">🗑</button>
-          ${artisan?.email?`<a href="mailto:${artisan.email}?subject=SAV: ${encodeURIComponent(s.titre)}&body=Bonjour ${artisan.nom},%0A%0ASAV : ${encodeURIComponent(s.titre)}%0AClient : ${encodeURIComponent(c.nom)}%0AAdresse : ${encodeURIComponent(c.adresse||'')}%0A%0AMerci de confirmer votre disponibilité." class="btn btn-green btn-sm" style="text-decoration:none">✉ Intervention</a>`:''}
+          ${artisan?.email?`<a href="mailto:${artisan.email}?subject=SAV: ${encodeURIComponent(s.titre)}&body=Bonjour ${artisan.nom},%0A%0ASAV : ${encodeURIComponent(s.titre)}%0AClient : ${encodeURIComponent(c.nom)}%0AAdresse : ${encodeURIComponent(c.adresse||'')}%0A%0AMerci." class="btn btn-green btn-sm" style="text-decoration:none">✉</a>`:''}
         </div>
       </div>`;
     }).join('')}
@@ -923,14 +800,11 @@ function openDetail(clientId){
   openM('m-detail');
 }
 
-// ═══════════════════════════════════════════════════════
-// GPS NAV
-// ═══════════════════════════════════════════════════════
 function openNav(app,clientId){
   const c=clients.find(x=>x.id===clientId);
-  if(!c) return;
+  if(!c)return;
   const addr=encodeURIComponent(c.adresse||c.nom);
-  const lat=c.lat, lng=c.lng;
+  const lat=c.lat,lng=c.lng;
   const urls={
     google:lat&&lng?`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`:`https://www.google.com/maps/dir/?api=1&destination=${addr}`,
     apple:lat&&lng?`maps://?daddr=${lat},${lng}&dirflg=d`:`maps://?daddr=${addr}&dirflg=d`,
@@ -939,13 +813,13 @@ function openNav(app,clientId){
   window.open(urls[app],'_blank');
 }
 
-// ═══════════════════════════════════════════════════════
-// PHOTOS (localStorage)
-// ═══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════
+// PHOTOS
+// ══════════════════════════════════════════════
 function addPhotos(clientId,input){
   const files=Array.from(input.files);
-  if(!files.length) return;
-  let loaded=0; const newP=[];
+  if(!files.length)return;
+  let loaded=0;const newP=[];
   files.forEach(file=>{
     const reader=new FileReader();
     reader.onload=ev=>{
@@ -962,18 +836,16 @@ function addPhotos(clientId,input){
   });
   input.value='';
 }
-
 function openLB(clientId,index){
   const photos=JSON.parse(localStorage.getItem('photos_'+clientId)||'[]');
-  lbPhotos=photos; lbIdx=index; lbClientId=clientId;
-  updateLB();
-  document.getElementById('lightbox').classList.add('open');
+  lbPhotos=photos;lbIdx=index;lbClientId=clientId;
+  updateLB();document.getElementById('lightbox').classList.add('open');
 }
 function updateLB(){
   const p=lbPhotos[lbIdx];
-  if(!p) return;
+  if(!p)return;
   document.getElementById('lb-img').src=p.url;
-  document.getElementById('lb-cap').textContent=`${p.name} — ${p.date} (${lbIdx+1}/${lbPhotos.length})`;
+  document.getElementById('lb-cap').textContent=`${p.name} (${lbIdx+1}/${lbPhotos.length})`;
   document.getElementById('lb-prev').style.display=lbIdx>0?'inline-flex':'none';
   document.getElementById('lb-next').style.display=lbIdx<lbPhotos.length-1?'inline-flex':'none';
 }
@@ -981,17 +853,136 @@ function closeLB(){document.getElementById('lightbox').classList.remove('open');
 function lbPrev(){if(lbIdx>0){lbIdx--;updateLB();}}
 function lbNext(){if(lbIdx<lbPhotos.length-1){lbIdx++;updateLB();}}
 function lbDel(){
-  if(!confirm('Supprimer cette photo ?')) return;
+  if(!confirm('Supprimer cette photo ?'))return;
   lbPhotos.splice(lbIdx,1);
   localStorage.setItem('photos_'+lbClientId,JSON.stringify(lbPhotos));
-  closeLB(); openDetail(lbClientId); toast('Photo supprimée');
+  closeLB();openDetail(lbClientId);toast('Photo supprimée');
 }
 
-// ═══════════════════════════════════════════════════════
-// NOUVEAU SAV DEPUIS LISTE SAV
-// ═══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════
+// CRUD CLIENTS
+// ══════════════════════════════════════════════
+function openClientModal(clientId){
+  const c=clientId?clients.find(x=>x.id===clientId):null;
+  const cArt=clientId?chantierArtisans.filter(x=>x.client_id===clientId).map(x=>x.artisan_id):[];
+  document.getElementById('m-client-title').textContent=c?'Modifier le chantier':'Nouveau chantier';
+  document.getElementById('m-client-body').innerHTML=`
+    <div class="grid2">
+      <div class="field"><label>Nom du client</label><input id="fc-nom" value="${c?.nom||''}"/></div>
+      <div class="field"><label>Statut chantier</label>
+        <select id="fc-statut">
+          <option value="ouverture"${c?.statut==='ouverture'?' selected':''}>🔜 Ouverture à venir</option>
+          <option value="en_cours"${c?.statut==='en_cours'?' selected':''}>🏗 En cours</option>
+          <option value="sav_en_cours"${c?.statut==='sav_en_cours'?' selected':''}>🔧 SAV en cours</option>
+          <option value="livre"${c?.statut==='livre'?' selected':''}>✅ Livré</option>
+          <option value="reserve"${c?.statut==='reserve'?' selected':''}>⚠️ Réserves</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>Adresse complète</label><input id="fc-adr" value="${c?.adresse||''}"/></div>
+    <div class="grid2">
+      <div class="field"><label>Conjoint 1</label><input id="fc-c1" value="${c?.conjoint1||''}"/></div>
+      <div class="field"><label>Conjoint 2</label><input id="fc-c2" value="${c?.conjoint2||''}"/></div>
+      <div class="field"><label>Téléphone 1</label><input id="fc-tel" value="${c?.tel||''}"/></div>
+      <div class="field"><label>Téléphone 2</label><input id="fc-tel2" value="${c?.tel2||''}"/></div>
+      <div class="field"><label>Email 1</label><input type="email" id="fc-email" value="${c?.email||''}"/></div>
+      <div class="field"><label>Email 2</label><input type="email" id="fc-email2" value="${c?.email2||''}"/></div>
+      <div class="field"><label>Date de réception</label><input type="date" id="fc-date" value="${c?.date_reception||''}"/></div>
+      <div class="field"><label>Latitude GPS</label><input id="fc-lat" value="${c?.lat||''}" placeholder="45.748"/></div>
+    </div>
+    <div class="field"><label>Longitude GPS</label><input id="fc-lng" value="${c?.lng||''}" placeholder="-0.620"/></div>
+    <div class="field"><label>Artisans associés</label>
+      <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:5px">
+        ${artisans.map(a=>`<button type="button" class="chip${cArt.includes(a.id)?' on':''}" onclick="this.classList.toggle('on')" data-id="${a.id}">${a.entreprise||a.nom}<br><small style="opacity:.7">${a.metier||''}</small></button>`).join('')}
+        ${artisans.length===0?`<p style="color:#94a3b8;font-size:13px">Ajoutez d'abord des artisans</p>`:''}
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding-top:14px;border-top:1.5px solid #f1f5f9">
+      ${clientId?`<button class="btn btn-danger" onclick="if(confirm('Supprimer ce chantier ?')){closeM('m-client');delClient('${clientId}')}">🗑 Supprimer</button>`:'<div></div>'}
+      <div style="display:flex;gap:9px">
+        <button class="btn btn-secondary" onclick="closeM('m-client')">Annuler</button>
+        <button class="btn btn-primary" onclick="saveClient('${clientId||''}')">💾 Enregistrer</button>
+      </div>
+    </div>
+  `;
+  closeM('m-detail');openM('m-client');
+}
+
+async function saveClient(clientId){
+  const nom=document.getElementById('fc-nom').value.trim();
+  if(!nom){toast('Le nom est obligatoire','#ef4444');return;}
+  const data={nom,statut:document.getElementById('fc-statut').value,adresse:document.getElementById('fc-adr').value.trim(),conjoint1:document.getElementById('fc-c1').value.trim()||null,conjoint2:document.getElementById('fc-c2').value.trim()||null,tel:document.getElementById('fc-tel').value.trim(),tel2:document.getElementById('fc-tel2').value.trim()||null,email:document.getElementById('fc-email').value.trim(),email2:document.getElementById('fc-email2').value.trim()||null,date_reception:document.getElementById('fc-date').value||null,lat:parseFloat(document.getElementById('fc-lat').value)||null,lng:parseFloat(document.getElementById('fc-lng').value)||null,updated_at:new Date().toISOString()};
+  const selectedArt=Array.from(document.querySelectorAll('.chip.on')).map(b=>b.dataset.id);
+  try{
+    let cid=clientId;
+    if(clientId){await db('PATCH','clients',data,`?id=eq.${clientId}`);clients=clients.map(c=>c.id===clientId?{...c,...data}:c);}
+    else{const res=await db('POST','clients',data);cid=res[0].id;clients.push(res[0]);}
+    await db('DELETE','chantier_artisans','',`?client_id=eq.${cid}`);
+    if(selectedArt.length>0)await db('POST','chantier_artisans',selectedArt.map(aid=>({client_id:cid,artisan_id:aid})));
+    chantierArtisans=chantierArtisans.filter(x=>x.client_id!==cid);
+    selectedArt.forEach(aid=>chantierArtisans.push({client_id:cid,artisan_id:aid}));
+    closeM('m-client');updateUI();goView(currentView);
+    toast('Chantier enregistré ✓');showSync('💾 Sauvegardé');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+async function delClient(clientId){
+  try{
+    await db('DELETE','clients','',`?id=eq.${clientId}`);
+    clients=clients.filter(c=>c.id!==clientId);
+    savList=savList.filter(s=>s.client_id!==clientId);
+    chantierArtisans=chantierArtisans.filter(x=>x.client_id!==clientId);
+    updateUI();goView('clients');toast('Chantier supprimé');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+// ══════════════════════════════════════════════
+// CRUD ARTISANS
+// ══════════════════════════════════════════════
+function openArtisanModal(artisanId){
+  const a=artisanId?artisans.find(x=>x.id===artisanId):null;
+  document.getElementById('m-artisan-title').textContent=a?'Modifier artisan':'Nouvel artisan';
+  document.getElementById('m-artisan-body').innerHTML=`
+    <div class="grid2">
+      <div class="field"><label>Nom</label><input id="fa-nom" value="${a?.nom||''}"/></div>
+      <div class="field"><label>Entreprise</label><input id="fa-ent" value="${a?.entreprise||''}"/></div>
+      <div class="field"><label>Métier</label><input id="fa-met" value="${a?.metier||''}" placeholder="Plomberie, Menuiserie…"/></div>
+      <div class="field"><label>Téléphone</label><input id="fa-tel" value="${a?.tel||''}"/></div>
+    </div>
+    <div class="field"><label>Email</label><input type="email" id="fa-email" value="${a?.email||''}"/></div>
+    <div style="display:flex;justify-content:flex-end;gap:9px;margin-top:10px">
+      <button class="btn btn-secondary" onclick="closeM('m-artisan')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveArtisan('${artisanId||''}')">💾 Enregistrer</button>
+    </div>
+  `;
+  openM('m-artisan');
+}
+
+async function saveArtisan(artisanId){
+  const nom=document.getElementById('fa-nom').value.trim();
+  if(!nom){toast('Le nom est obligatoire','#ef4444');return;}
+  const data={nom,entreprise:document.getElementById('fa-ent').value.trim(),metier:document.getElementById('fa-met').value.trim(),tel:document.getElementById('fa-tel').value.trim(),email:document.getElementById('fa-email').value.trim()};
+  try{
+    if(artisanId){await db('PATCH','artisans',data,`?id=eq.${artisanId}`);artisans=artisans.map(a=>a.id===artisanId?{...a,...data}:a);}
+    else{const res=await db('POST','artisans',data);artisans.push(res[0]);}
+    closeM('m-artisan');updateUI();goView('artisans');toast('Artisan enregistré ✓');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+async function delArtisan(artisanId){
+  if(!confirm('Supprimer cet artisan ?'))return;
+  try{
+    await db('DELETE','artisans','',`?id=eq.${artisanId}`);
+    artisans=artisans.filter(a=>a.id!==artisanId);
+    chantierArtisans=chantierArtisans.filter(x=>x.artisan_id!==artisanId);
+    updateUI();goView('artisans');toast('Artisan supprimé');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+// ══════════════════════════════════════════════
+// CRUD SAV
+// ══════════════════════════════════════════════
 function openSavFromList(){
-  // Open a modal to pick a client first
   document.getElementById('m-sav-title').textContent='Nouveau SAV — Choisir un chantier';
   document.getElementById('m-sav-body').innerHTML=`
     <div class="field">
@@ -1022,8 +1013,8 @@ function openSavFromList(){
 
 function filterSavClientPicker(q){
   const list=document.getElementById('sav-client-list');
-  if(!list) return;
-  const filtered=q?clients.filter(c=>c.nom.toLowerCase().includes(q.toLowerCase())||( c.adresse||'').toLowerCase().includes(q.toLowerCase())):clients;
+  if(!list)return;
+  const filtered=q?clients.filter(c=>c.nom.toLowerCase().includes(q.toLowerCase())||(c.adresse||'').toLowerCase().includes(q.toLowerCase())):clients;
   list.innerHTML=filtered.map(c=>`<div onclick="selectSavClient('${c.id}')"
     style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:10px"
     onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='#fff'">
@@ -1035,156 +1026,8 @@ function filterSavClientPicker(q){
   </div>`).join('');
 }
 
-function selectSavClient(clientId){
-  closeM('m-sav');
-  openSavModal(clientId, null);
-}
+function selectSavClient(clientId){closeM('m-sav');openSavModal(clientId,null);}
 
-// ═══════════════════════════════════════════════════════
-// CRUD — CLIENTS
-// ═══════════════════════════════════════════════════════
-function openClientModal(clientId){
-  const c=clientId?clients.find(x=>x.id===clientId):null;
-  const cArt=clientId?chantierArtisans.filter(x=>x.client_id===clientId).map(x=>x.artisan_id):[];
-  document.getElementById('m-client-title').textContent=c?'Modifier le chantier':'Nouveau chantier';
-  document.getElementById('m-client-body').innerHTML=`
-    <div class="grid2">
-      <div class="field"><label>Nom du client</label><input id="fc-nom" value="${c?.nom||''}"/></div>
-      <div class="field"><label>Statut chantier</label>
-        <select id="fc-statut">
-          <option value="ouverture"${c?.statut==='ouverture'?' selected':''}>🔜 Ouverture à venir</option>
-          <option value="en_cours"${c?.statut==='en_cours'?' selected':''}>🏗 En cours</option>
-          <option value="sav_en_cours"${c?.statut==='sav_en_cours'?' selected':''}>🔧 SAV en cours</option>
-          <option value="livre"${c?.statut==='livre'?' selected':''}>✅ Livré</option>
-          <option value="reserve"${c?.statut==='reserve'?' selected':''}>⚠️ Réserves</option>
-        </select>
-      </div>
-    </div>
-    <div class="field"><label>Adresse complète</label><input id="fc-adr" value="${c?.adresse||''}" placeholder="12 Rue des Fleurs, 17100 Saintes"/></div>
-    <div class="grid2">
-      <div class="field"><label>Téléphone</label><input id="fc-tel" value="${c?.tel||''}"/></div>
-      <div class="field"><label>Email</label><input type="email" id="fc-email" value="${c?.email||''}"/></div>
-      <div class="field"><label>Date de réception</label><input type="date" id="fc-date" value="${c?.date_reception||''}"/></div>
-      <div class="field"><label>Latitude GPS</label><input id="fc-lat" value="${c?.lat||''}" placeholder="45.748"/></div>
-    </div>
-    <div class="field"><label>Longitude GPS</label><input id="fc-lng" value="${c?.lng||''}" placeholder="-0.620"/></div>
-    <div class="field"><label>Artisans associés à ce chantier</label>
-      <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:5px">
-        ${artisans.map(a=>`<button type="button" class="chip${cArt.includes(a.id)?' on':''}" onclick="this.classList.toggle('on')" data-id="${a.id}">${a.entreprise||a.nom}<br><small style="opacity:.7">${a.metier||''}</small></button>`).join('')}
-        ${artisans.length===0?`<p style="color:#94a3b8;font-size:13px">Ajoutez d'abord des artisans dans l'onglet Artisans</p>`:''}
-      </div>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding-top:14px;border-top:1.5px solid #f1f5f9">
-      ${clientId?`<button class="btn btn-danger" onclick="if(confirm('Supprimer ce client et tous ses SAV ?')){closeM('m-client');delClient('`+clientId+`')}">🗑 Supprimer</button>`:'<div></div>'}
-      <div style="display:flex;gap:9px">
-        <button class="btn btn-secondary" onclick="closeM('m-client')">Annuler</button>
-        <button class="btn btn-primary" onclick="saveClient('${clientId||''}')">💾 Enregistrer</button>
-      </div>
-    </div>
-  `;
-  closeM('m-detail');
-  openM('m-client');
-}
-
-async function saveClient(clientId){
-  const nom=document.getElementById('fc-nom').value.trim();
-  if(!nom){toast('Le nom est obligatoire','#ef4444');return;}
-  const data={
-    nom, statut:document.getElementById('fc-statut').value,
-    adresse:document.getElementById('fc-adr').value.trim(),
-    tel:document.getElementById('fc-tel').value.trim(),
-    email:document.getElementById('fc-email').value.trim(),
-    date_reception:document.getElementById('fc-date').value||null,
-    lat:parseFloat(document.getElementById('fc-lat').value)||null,
-    lng:parseFloat(document.getElementById('fc-lng').value)||null,
-    updated_at:new Date().toISOString()
-  };
-  const selectedArt=Array.from(document.querySelectorAll('.chip.on')).map(b=>b.dataset.id);
-  try{
-    let cid=clientId;
-    if(clientId){
-      await db('PATCH','clients',data,`?id=eq.${clientId}`);
-      clients=clients.map(c=>c.id===clientId?{...c,...data}:c);
-    } else {
-      const res=await db('POST','clients',data);
-      cid=res[0].id;
-      clients.push(res[0]);
-    }
-    // Gérer artisans
-    await db('DELETE','chantier_artisans','',`?client_id=eq.${cid}`);
-    if(selectedArt.length>0){
-      await db('POST','chantier_artisans',selectedArt.map(aid=>({client_id:cid,artisan_id:aid})));
-    }
-    chantierArtisans=chantierArtisans.filter(x=>x.client_id!==cid);
-    selectedArt.forEach(aid=>chantierArtisans.push({client_id:cid,artisan_id:aid}));
-    closeM('m-client'); updateUI(); goView(currentView);
-    toast('Chantier enregistré ✓'); showSync('💾 Sauvegardé sur Supabase');
-  } catch(e){toast('Erreur: '+e.message,'#ef4444');}
-}
-
-async function delClient(clientId){
-  if(!confirm('Supprimer ce chantier et tous ses SAV ?')) return;
-  try{
-    await db('DELETE','clients','',`?id=eq.${clientId}`);
-    clients=clients.filter(c=>c.id!==clientId);
-    savList=savList.filter(s=>s.client_id!==clientId);
-    chantierArtisans=chantierArtisans.filter(x=>x.client_id!==clientId);
-    updateUI(); goView('clients'); toast('Chantier supprimé');
-  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
-}
-
-// ═══════════════════════════════════════════════════════
-// CRUD — ARTISANS
-// ═══════════════════════════════════════════════════════
-function openArtisanModal(artisanId){
-  const a=artisanId?artisans.find(x=>x.id===artisanId):null;
-  document.getElementById('m-artisan-title').textContent=a?'Modifier artisan':'Nouvel artisan';
-  document.getElementById('m-artisan-body').innerHTML=`
-    <div class="grid2">
-      <div class="field"><label>Nom</label><input id="fa-nom" value="${a?.nom||''}"/></div>
-      <div class="field"><label>Entreprise</label><input id="fa-ent" value="${a?.entreprise||''}"/></div>
-      <div class="field"><label>Métier / Spécialité</label><input id="fa-met" value="${a?.metier||''}" placeholder="Plomberie, Menuiserie…"/></div>
-      <div class="field"><label>Téléphone</label><input id="fa-tel" value="${a?.tel||''}"/></div>
-    </div>
-    <div class="field"><label>Email</label><input type="email" id="fa-email" value="${a?.email||''}"/></div>
-    <div style="display:flex;justify-content:flex-end;gap:9px;margin-top:10px">
-      <button class="btn btn-secondary" onclick="closeM('m-artisan')">Annuler</button>
-      <button class="btn btn-primary" onclick="saveArtisan('${artisanId||''}')">💾 Enregistrer</button>
-    </div>
-  `;
-  openM('m-artisan');
-}
-
-async function saveArtisan(artisanId){
-  const nom=document.getElementById('fa-nom').value.trim();
-  if(!nom){toast('Le nom est obligatoire','#ef4444');return;}
-  const data={nom,entreprise:document.getElementById('fa-ent').value.trim(),metier:document.getElementById('fa-met').value.trim(),tel:document.getElementById('fa-tel').value.trim(),email:document.getElementById('fa-email').value.trim()};
-  try{
-    if(artisanId){
-      await db('PATCH','artisans',data,`?id=eq.${artisanId}`);
-      artisans=artisans.map(a=>a.id===artisanId?{...a,...data}:a);
-    } else {
-      const res=await db('POST','artisans',data);
-      artisans.push(res[0]);
-    }
-    closeM('m-artisan'); updateUI(); goView('artisans');
-    toast('Artisan enregistré ✓'); showSync('💾 Sauvegardé');
-  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
-}
-
-async function delArtisan(artisanId){
-  if(!confirm('Supprimer cet artisan ?')) return;
-  try{
-    await db('DELETE','artisans','',`?id=eq.${artisanId}`);
-    artisans=artisans.filter(a=>a.id!==artisanId);
-    chantierArtisans=chantierArtisans.filter(x=>x.artisan_id!==artisanId);
-    updateUI(); goView('artisans'); toast('Artisan supprimé');
-  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
-}
-
-// ═══════════════════════════════════════════════════════
-// CRUD — SAV
-// ═══════════════════════════════════════════════════════
 function openSavModal(clientId,savId){
   const s=savId?savList.find(x=>x.id===savId):null;
   const ac=clientArtisans(clientId);
@@ -1201,27 +1044,26 @@ function openSavModal(clientId,savId){
     </div>
     <div class="field"><label>Artisan responsable</label>
       <select id="fs-artisan">
-        <option value="">— Sélectionner un artisan —</option>
+        <option value="">— Sélectionner —</option>
         ${ac.length>0?`<optgroup label="Artisans du chantier">${ac.map(a=>`<option value="${a.id}"${s?.artisan_id===a.id?' selected':''}>${a.metier||''} – ${a.nom}</option>`).join('')}</optgroup>`:''}
         <optgroup label="Tous les artisans">
           ${artisans.filter(a=>!ac.find(x=>x.id===a.id)).map(a=>`<option value="${a.id}"${s?.artisan_id===a.id?' selected':''}>${a.metier||''} – ${a.nom}</option>`).join('')}
         </optgroup>
       </select>
     </div>
-    <div class="field"><label>Notes / Détails</label><textarea id="fs-notes" placeholder="Détails, relances, observations…">${s?.notes||''}</textarea></div>
+    <div class="field"><label>Notes</label><textarea id="fs-notes" placeholder="Détails, relances…">${s?.notes||''}</textarea></div>
     <div style="display:flex;justify-content:flex-end;gap:9px;margin-top:10px">
       <button class="btn btn-secondary" onclick="closeM('m-sav')">Annuler</button>
       <button class="btn btn-primary" onclick="saveSav('${clientId}','${savId||''}')">💾 Enregistrer</button>
     </div>
   `;
-  closeM('m-detail');
-  openM('m-sav');
+  closeM('m-detail');openM('m-sav');
 }
 
 async function saveSav(clientId,savId){
   const titre=document.getElementById('fs-titre').value.trim();
   if(!titre){toast('Le titre est obligatoire','#ef4444');return;}
-  const savStatut=document.getElementById('fs-statut').value;
+  const savStatut=document.getElementById('fs-statut').value||'nouveau';
   const data={titre,date_signalement:document.getElementById('fs-date').value,statut:savStatut,artisan_id:document.getElementById('fs-artisan').value||null,notes:document.getElementById('fs-notes').value.trim(),client_id:clientId,updated_at:new Date().toISOString()};
   try{
     if(savId){
@@ -1230,7 +1072,7 @@ async function saveSav(clientId,savId){
     } else {
       const res=await db('POST','sav',{...data,created_at:new Date().toISOString()});
       savList.unshift(res[0]);
-      // Passer automatiquement le client en "SAV en cours" si le SAV n'est pas résolu
+      // Passer client en sav_en_cours
       if(savStatut!=='resolu'&&savStatut!=='intervenu'){
         const client=clients.find(c=>c.id===clientId);
         if(client&&client.statut!=='sav_en_cours'){
@@ -1239,198 +1081,60 @@ async function saveSav(clientId,savId){
         }
       }
     }
-    closeM('m-sav'); updateUI(); openDetail(clientId);
-    toast('SAV enregistré ✓ — Client passé en SAV en cours'); showSync('💾 Sauvegardé');
+    closeM('m-sav');updateUI();
+    if(currentView==='sav'){goView('sav');}
+    else{openDetail(clientId);}
+    toast('SAV enregistré ✓');showSync('💾 Sauvegardé');
   }catch(e){toast('Erreur: '+e.message,'#ef4444');}
 }
 
 async function delSav(savId,clientId){
-  if(!confirm('Supprimer ce dossier SAV ?')) return;
+  if(!confirm('Supprimer ce dossier SAV ?'))return;
   try{
     await db('DELETE','sav','',`?id=eq.${savId}`);
     savList=savList.filter(s=>s.id!==savId);
-    updateUI(); openDetail(clientId); toast('SAV supprimé');
+    // Si plus de SAV actifs, repasser en livré
+    const remaining=savList.filter(s=>s.client_id===clientId&&s.statut!=='resolu'&&s.statut!=='intervenu');
+    if(remaining.length===0){
+      const client=clients.find(c=>c.id===clientId);
+      if(client&&client.statut==='sav_en_cours'){
+        await db('PATCH','clients',{statut:'livre',updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+        clients=clients.map(c=>c.id===clientId?{...c,statut:'livre'}:c);
+      }
+    }
+    updateUI();openDetail(clientId);toast('SAV supprimé');
   }catch(e){toast('Erreur: '+e.message,'#ef4444');}
 }
 
 async function chgStatut(savId,statut,clientId){
   try{
     const upd={statut,updated_at:new Date().toISOString()};
-    if(statut==='intervenu'||statut==='resolu') upd.date_intervention=today();
+    if(statut==='intervenu'||statut==='resolu')upd.date_intervention=today();
     await db('PATCH','sav',upd,`?id=eq.${savId}`);
     savList=savList.map(s=>s.id===savId?{...s,...upd}:s);
-    // Si tous les SAV du client sont résolus, repasser en "livré" ou "en_cours"
+    // Si résolu, vérifier si tous les SAV sont résolus → repasser en livré
     if(statut==='resolu'){
       const clientSavs=savList.filter(s=>s.client_id===clientId);
       const allResolved=clientSavs.every(s=>s.id===savId?true:s.statut==='resolu'||s.statut==='intervenu');
       if(allResolved){
         const client=clients.find(c=>c.id===clientId);
         if(client&&client.statut==='sav_en_cours'){
-          // Repasser en livré si c'était une maison livrée, sinon en_cours
-          const newStatut=client._prev_statut||'livre';
-          await db('PATCH','clients',{statut:newStatut,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
-          clients=clients.map(c=>c.id===clientId?{...c,statut:newStatut}:c);
-          toast(`Statut → ${STATUTS[statut]?.l} · Tous SAV résolus — Client repassé en ${CHANTIER_STATUTS[newStatut]?.l}`);
-        }else{
-          toast(`Statut → ${STATUTS[statut]?.l}`);
-        }
-      }else{
-        toast(`Statut → ${STATUTS[statut]?.l}`);
-      }
-    } else {
-      toast(`Statut → ${STATUTS[statut]?.l}`);
-    }
-    showSync('💾 Sauvegardé'); updateUI();
-    if(clientId) openDetail(clientId);
-    else goView(currentView);
+          await db('PATCH','clients',{statut:'livre',updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+          clients=clients.map(c=>c.id===clientId?{...c,statut:'livre'}:c);
+          toast('✅ Tous SAV résolus — Client repassé en Livré');
+        }else{toast(`Statut → ${STATUTS[statut]?.l}`);}
+      }else{toast(`Statut → ${STATUTS[statut]?.l}`);}
+    }else{toast(`Statut → ${STATUTS[statut]?.l}`);}
+    showSync('💾 Sauvegardé');updateUI();
+    if(currentView==='sav'){goView('sav');}
+    else if(clientId){openDetail(clientId);}
+    else{goView(currentView);}
   }catch(e){toast('Erreur: '+e.message,'#ef4444');}
 }
 
-// ═══════════════════════════════════════════════════════
-// CARTE DASHBOARD INTÉGRÉE
-// ═══════════════════════════════════════════════════════
-// Active layers - all on by default
-let activeLayers = new Set(['ouverture','en_cours','livre','sav']);
-let dashMapInst = null;
-let dashMapMarkers = []; // {marker, layers:[]} 
-
-function toggleMapLayer(layer){
-  if(activeLayers.has(layer)){
-    activeLayers.delete(layer);
-  } else {
-    activeLayers.add(layer);
-  }
-  // Update button style
-  const colors={ouverture:'#7c3aed',en_cours:'#d97706',livre:'#10b981',sav:'#f59e0b',retard:'#ef4444'};
-  const bgs={ouverture:'#f3e8ff',en_cours:'#fef3c7',livre:'#d1fae5',sav:'#fff7ed',retard:'#fee2e2'};
-  const btn=document.getElementById('df-'+layer);
-  if(btn){
-    const active=activeLayers.has(layer);
-    btn.style.opacity=active?'1':'0.4';
-    btn.style.textDecoration=active?'none':'line-through';
-  }
-  // Show/hide markers
-  dashMapMarkers.forEach(({marker,layers})=>{
-    const visible=layers.some(l=>activeLayers.has(l));
-    if(visible && !dashMapInst.hasLayer(marker)){
-      marker.addTo(dashMapInst);
-    } else if(!visible && dashMapInst.hasLayer(marker)){
-      dashMapInst.removeLayer(marker);
-    }
-  });
-}
-
-function renderDashMap(){
-  setTimeout(()=>{
-    const el=document.getElementById('map-main');
-    if(!el) return;
-    if(dashMapInst){dashMapInst.remove();dashMapInst=null;}
-    dashMapMarkers=[];
-    // Reset all layers active
-    activeLayers = new Set(['ouverture','en_cours','livre','sav']);
-    ['ouverture','en_cours','livre','sav'].forEach(l=>{
-      const btn=document.getElementById('df-'+l);
-      if(btn){btn.style.opacity='1';btn.style.textDecoration='none';}
-    });
-    const map=L.map(el,{zoomControl:true}).setView([45.748,-0.62],9);
-    dashMapInst=map;
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(map);
-    clients.forEach(c=>{
-      if(!c.lat||!c.lng) return;
-      const r=clientRetards(c.id), sv=clientSav(c.id);
-      const color=c.statut==='sav_en_cours'||sv.length>0?'#f59e0b':c.statut==='livre'?'#10b981':c.statut==='ouverture'?'#8b5cf6':c.statut==='en_cours'?'#eab308':'#94a3b8';
-      const label=c.statut==='livre'?'✓':sv.length>0?sv.length.toString():'';
-      const icon=L.divIcon({className:'',
-        html:`<div style="width:28px;height:28px;border-radius:50% 50% 50% 0;background:${color};border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);transform:rotate(-45deg);display:flex;align-items:center;justify-content:center"><span style="transform:rotate(45deg);color:#fff;font-size:9px;font-weight:800">${label}</span></div>`,
-        iconSize:[28,28],iconAnchor:[14,28],popupAnchor:[0,-32]});
-      const statut=CHANTIER_STATUTS[c.statut]||CHANTIER_STATUTS.en_cours;
-      const sv_info=sv.length>0?`<div style="color:${color};font-size:12px;font-weight:600;margin-top:4px">● ${sv.length} SAV${r>0?' dont '+r+' retard':''}</div>`:'<div style="color:#10b981;font-size:12px;margin-top:4px">✓ Aucun SAV</div>';
-      // Determine which layers this marker belongs to
-      const markerLayers=[c.statut]; // ouverture, en_cours, livre
-      if(sv.length>0) markerLayers.push('sav');
-      if(r>0) markerLayers.push('retard');
-      const marker=L.marker([c.lat,c.lng],{icon});
-      marker.bindPopup(`
-        <div style="font-family:-apple-system,sans-serif;min-width:200px;padding:2px">
-          <div style="font-weight:800;font-size:14px">${c.nom}</div>
-          <div style="font-size:11px;color:#64748b;margin-top:3px">${c.adresse||''}</div>
-          ${c.tel?`<div style="font-size:11px;margin-top:3px">📞 ${c.tel}</div>`:''}
-          ${sv_info}
-          <button onclick="window.__od('${c.id}')" style="margin-top:9px;width:100%;padding:8px;border:none;background:#2563eb;color:#fff;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;font-family:-apple-system,sans-serif">Ouvrir la fiche →</button>
-        </div>`,{maxWidth:260});
-      // Track marker for layer toggle
-      // Si le chantier a des SAV, il appartient UNIQUEMENT à la couche 'sav'
-      // Sinon il appartient à sa couche de statut
-      const mLayers = (c.statut==='sav_en_cours'||sv.length>0) ? ['sav'] : [c.statut];
-      marker.addTo(map);
-      dashMapMarkers.push({marker,layers:mLayers});
-    });
-    window.__od=id=>openDetail(id);
-  },150);
-}
-
-
-
-
-function toggleMapFullscreen(){
-  const container=document.getElementById('dash-map-container');
-  const btn=document.getElementById('fs-btn');
-  const mapEl=document.getElementById('map-main');
-  const isFs=container.classList.toggle('fullscreen');
-  btn.textContent=isFs?'✕ Fermer':'⛶ Plein écran';
-  mapEl.style.height=isFs?'calc(100vh - 180px)':'380px';
-  setTimeout(()=>{if(dashMapInst)dashMapInst.invalidateSize();},350);
-}
-
-// ═══════════════════════════════════════════════════════
-// CARTE AVEC FILTRE DEPUIS TABLEAU DE BORD
-// ═══════════════════════════════════════════════════════
-let carteFiltre = null; // null=tous, 'en_cours','livre','reserve','sav','retard'
-
-function goCarteFiltre(filtre){
-  goView('dashboard');
-}
-
-// ═══════════════════════════════════════════════════════
-// NAVIGATION RAPIDE DEPUIS LISTE
-// ═══════════════════════════════════════════════════════
-function quickNav(clientId){
-  const c=clients.find(x=>x.id===clientId);
-  if(!c||!c.lat||!c.lng) return;
-  // Ouvre Google Maps par défaut (fonctionne sur tous les appareils)
-  const url=`https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}&travelmode=driving`;
-  window.open(url,'_blank');
-}
-
-// ═══════════════════════════════════════════════════════
-// STATUT CHANTIER RAPIDE
-// ═══════════════════════════════════════════════════════
-function toggleStatutMenu(menuId, event){
-  event.stopPropagation();
-  // Close all other menus first
-  document.querySelectorAll('.statut-menu.open').forEach(m=>{if(m.id!==menuId)m.classList.remove('open');});
-  document.getElementById(menuId)?.classList.toggle('open');
-}
-// Close menus when clicking elsewhere
-document.addEventListener('click',()=>{
-  document.querySelectorAll('.statut-menu.open').forEach(m=>m.classList.remove('open'));
-});
-
-async function chgStatutClient(clientId, statut, menuId){
-  document.getElementById(menuId)?.classList.remove('open');
-  try{
-    await db('PATCH','clients',{statut,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
-    clients=clients.map(c=>c.id===clientId?{...c,statut}:c);
-    const labels={en_cours:'En cours',livre:'Livré',reserve:'Réserves'};
-    toast(`Statut → ${labels[statut]}`);
-    updateUI();
-    goView('clients');
-  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
-}
-
-// ═══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════
 // INIT
-// ═══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════
 loadAll().then(()=>startPolling());
 </script>
 </body>
