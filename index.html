@@ -177,8 +177,10 @@ input,select,textarea{font-family:inherit;}
 
 /* STATUT CHANTIER BADGE */
 .ch-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;}
-.ch-en_cours{background:#fef3c7;color:#d97706;}
+.ch-en_cours{background:#fefce8;color:#ca8a04;}
 .ch-livre{background:#d1fae5;color:#065f46;}
+.ch-ouverture{background:#f3e8ff;color:#7c3aed;}
+.ch-sav{background:#fff7ed;color:#d97706;border:1.5px solid #fed7aa;}
 .ch-reserve{background:#fee2e2;color:#991b1b;}
 .statut-menu{position:absolute;top:100%;left:0;background:#fff;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);border:1.5px solid #e2e8f0;z-index:200;min-width:150px;overflow:hidden;display:none;}
 .statut-menu.open{display:block;}
@@ -312,7 +314,9 @@ const STATUTS={
   resolu:{l:'Résolu',cls:'s-resolu'}
 };
 const CHANTIER_STATUTS={
+  ouverture:{l:'Ouverture à venir',cls:'ch-ouverture'},
   en_cours:{l:'En cours',cls:'ch-en_cours'},
+  sav_en_cours:{l:'SAV en cours',cls:'ch-sav'},
   livre:{l:'Livré',cls:'ch-livre'},
   reserve:{l:'Réserves',cls:'ch-reserve'}
 };
@@ -485,13 +489,11 @@ function renderDashboard(el){
         <div style="font-weight:700;font-size:14px">Carte des chantiers</div>
         <button onclick="toggleMapFullscreen()" id="fs-btn" style="padding:5px 11px;border-radius:8px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#374151;cursor:pointer;font-size:12px;font-weight:600">⛶ Plein écran</button>
       </div>
-      <div style="display:flex;gap:6px;margin-bottom:9px;flex-wrap:wrap" id="dash-map-filters">
-        <button onclick="setDashMapFiltre(null)" id="df-null" style="padding:4px 11px;border-radius:20px;border:2px solid #2563eb;background:#eff6ff;color:#2563eb;cursor:pointer;font-size:11px;font-weight:700">🏡 Tous (${clients.length})</button>
-        <button onclick="setDashMapFiltre('en_cours')" id="df-en_cours" style="padding:4px 11px;border-radius:20px;border:2px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;font-size:11px;font-weight:400">🏗 En cours (${clients.filter(c=>c.statut==='en_cours').length})</button>
-        <button onclick="setDashMapFiltre('livre')" id="df-livre" style="padding:4px 11px;border-radius:20px;border:2px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;font-size:11px;font-weight:400">✅ Livrés (${nbLivre})</button>
-        <button onclick="setDashMapFiltre('reserve')" id="df-reserve" style="padding:4px 11px;border-radius:20px;border:2px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;font-size:11px;font-weight:400">⚠️ Réserves (${clients.filter(c=>c.statut==='reserve').length})</button>
-        <button onclick="setDashMapFiltre('sav')" id="df-sav" style="padding:4px 11px;border-radius:20px;border:2px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;font-size:11px;font-weight:400">🔧 Avec SAV (${clients.filter(c=>clientSav(c.id).length>0).length})</button>
-        <button onclick="setDashMapFiltre('retard')" id="df-retard" style="padding:4px 11px;border-radius:20px;border:2px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;font-size:11px;font-weight:400">🔔 Retards (${alertes().length})</button>
+      <div style="display:flex;gap:6px;margin-bottom:9px;flex-wraid="dash-map-filters">
+        <button onclick="toggleMapLayer('ouverture')" id="df-ouverture" style="padding:4px 11px;border-radius:20px;border:2px solid #7c3aed;background:#f3e8ff;color:#7c3aed;cursor:pointer;font-size:11px;font-weight:700">🔜 Ouverture (${clients.filter(c=>c.statut==='ouverture').length})</button>
+        <button onclick="toggleMapLayer('en_cours')" id="df-en_cours" style="padding:4px 11px;border-radius:20px;border:2px solid #ca8a04;background:#fefce8;color:#ca8a04;cursor:pointer;font-size:11px;font-weight:700">🏗 En cours (${clients.filter(c=>c.statut==='en_cours').length})</button>
+        <button onclick="toggleMapLayer('livre')" id="df-livre" style="padding:4px 11px;border-radius:20px;border:2px solid #10b981;background:#d1fae5;color:#065f46;cursor:pointer;font-size:11px;font-weight:700">✅ Livrés (${nbLivre})</button>
+        <button onclick="toggleMapLayer('sav')" id="df-sav" style="padding:4px 11px;border-radius:20px;border:2px solid #f59e0b;background:#fff7ed;color:#d97706;cursor:pointer;font-size:11px;font-weight:700">🔧 SAV en cours (${clients.filter(c=>c.statut==='sav_en_cours'||clientSav(c.id).length>0).length})</button>
       </div>
       <div class="map-wrap">
         <div class="map-bar">
@@ -566,7 +568,7 @@ function initMap(divId, height, filteredClients){
       if(!c.lat||!c.lng) return;
       const r=clientRetards(c.id);
       const sv=clientSav(c.id);
-      const color=r>0?'#ef4444':sv.length>0?'#3b82f6':c.statut==='livre'?'#10b981':'#f59e0b';
+      const color=c.statut==='sav_en_cours'||sv.length>0?'#f59e0b':c.statut==='livre'?'#10b981':c.statut==='ouverture'?'#8b5cf6':c.statut==='en_cours'?'#eab308':'#94a3b8';
       const label=c.statut==='livre'?'✓':sv.length>0?sv.length.toString():'';
 
       const icon=L.divIcon({className:'',
@@ -600,7 +602,9 @@ function renderClients(c){
     </div>
     <div style="display:flex;gap:7px;margin-bottom:11px;flex-wrap:wrap">
       <button class="btn btn-sm" style="background:#f1f5f9;color:#374151" onclick="filterCli('')">Tous (${clients.length})</button>
+      <button class="btn btn-sm ch-ouverture" onclick="filterCli('ouverture')">Ouverture à venir (${clients.filter(c=>c.statut==='ouverture').length})</button>
       <button class="btn btn-sm ch-en_cours" onclick="filterCli('en_cours')">En cours (${clients.filter(c=>c.statut==='en_cours').length})</button>
+      <button class="btn btn-sm ch-sav" onclick="filterCli('sav_en_cours')">SAV en cours (${clients.filter(c=>c.statut==='sav_en_cours').length})</button>
       <button class="btn btn-sm ch-livre" onclick="filterCli('livre')">Livrés (${clients.filter(c=>c.statut==='livre').length})</button>
       <button class="btn btn-sm ch-reserve" onclick="filterCli('reserve')">Réserves (${clients.filter(c=>c.statut==='reserve').length})</button>
     </div>
@@ -633,7 +637,7 @@ function renderCliList(list){
     const r=clientRetards(c.id), sv=clientSav(c.id).length;
     const s=st[c.statut]||st.en_cours;
     return `<div class="cli-item${r>0?' retard':''}" onclick="openDetail('${c.id}')">
-      <div class="cli-av" style="background:${r>0?'#fee2e2':c.statut==='livre'?'#d1fae5':'#dbeafe'};color:${r>0?'#ef4444':c.statut==='livre'?'#065f46':'#2563eb'}">${c.nom[0]}</div>
+      <div class="cli-av" style="background:${c.statut==='sav_en_cours'?'#fff7ed':c.statut==='livre'?'#d1fae5':c.statut==='ouverture'?'#f3e8ff':c.statut==='en_cours'?'#fefce8':'#dbeafe'};color:${c.statut==='sav_en_cours'?'#d97706':c.statut==='livre'?'#065f46':c.statut==='ouverture'?'#7c3aed':c.statut==='en_cours'?'#ca8a04':'#2563eb'}">${c.nom[0]}</div>
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:4px;overflow:hidden">
           <span style="font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.nom}</span>
@@ -644,7 +648,9 @@ function renderCliList(list){
         <div class="statut-wrap" onclick="event.stopPropagation()">
           <span class="ch-badge ${s.cls}" style="cursor:pointer" onclick="toggleStatutMenu('menu-${c.id}',event)">${s.l} ▾</span>
           <div class="statut-menu" id="menu-${c.id}">
-            <button onclick="chgStatutClient('${c.id}','en_cours','menu-${c.id}')"><span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:20px;font-size:11px">En cours</span></button>
+            <button onclick="chgStatutClient('${c.id}','ouverture','menu-${c.id}')"><span style="background:#f3e8ff;color:#7c3aed;padding:2px 8px;border-radius:20px;font-size:11px">Ouverture à venir</span></button>
+            <button onclick="chgStatutClient('${c.id}','en_cours','menu-${c.id}')"><span style="background:#fefce8;color:#ca8a04;padding:2px 8px;border-radius:20px;font-size:11px">En cours</span></button>
+            <button onclick="chgStatutClient('${c.id}','sav_en_cours','menu-${c.id}')"><span style="background:#fff7ed;color:#d97706;padding:2px 8px;border-radius:20px;font-size:11px">SAV en cours 🔧</span></button>
             <button onclick="chgStatutClient('${c.id}','livre','menu-${c.id}')"><span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:20px;font-size:11px">Livré ✓</span></button>
             <button onclick="chgStatutClient('${c.id}','reserve','menu-${c.id}')"><span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:20px;font-size:11px">Réserves ⚠</span></button>
           </div>
@@ -1046,7 +1052,9 @@ function openClientModal(clientId){
       <div class="field"><label>Nom du client</label><input id="fc-nom" value="${c?.nom||''}"/></div>
       <div class="field"><label>Statut chantier</label>
         <select id="fc-statut">
+          <option value="ouverture"${c?.statut==='ouverture'?' selected':''}>🔜 Ouverture à venir</option>
           <option value="en_cours"${c?.statut==='en_cours'?' selected':''}>🏗 En cours</option>
+          <option value="sav_en_cours"${c?.statut==='sav_en_cours'?' selected':''}>🔧 SAV en cours</option>
           <option value="livre"${c?.statut==='livre'?' selected':''}>✅ Livré</option>
           <option value="reserve"${c?.statut==='reserve'?' selected':''}>⚠️ Réserves</option>
         </select>
@@ -1213,7 +1221,8 @@ function openSavModal(clientId,savId){
 async function saveSav(clientId,savId){
   const titre=document.getElementById('fs-titre').value.trim();
   if(!titre){toast('Le titre est obligatoire','#ef4444');return;}
-  const data={titre,date_signalement:document.getElementById('fs-date').value,statut:document.getElementById('fs-statut').value,artisan_id:document.getElementById('fs-artisan').value||null,notes:document.getElementById('fs-notes').value.trim(),client_id:clientId,updated_at:new Date().toISOString()};
+  const savStatut=document.getElementById('fs-statut').value;
+  const data={titre,date_signalement:document.getElementById('fs-date').value,statut:savStatut,artisan_id:document.getElementById('fs-artisan').value||null,notes:document.getElementById('fs-notes').value.trim(),client_id:clientId,updated_at:new Date().toISOString()};
   try{
     if(savId){
       await db('PATCH','sav',data,`?id=eq.${savId}`);
@@ -1221,9 +1230,17 @@ async function saveSav(clientId,savId){
     } else {
       const res=await db('POST','sav',{...data,created_at:new Date().toISOString()});
       savList.unshift(res[0]);
+      // Passer automatiquement le client en "SAV en cours" si le SAV n'est pas résolu
+      if(savStatut!=='resolu'&&savStatut!=='intervenu'){
+        const client=clients.find(c=>c.id===clientId);
+        if(client&&client.statut!=='sav_en_cours'){
+          await db('PATCH','clients',{statut:'sav_en_cours',updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+          clients=clients.map(c=>c.id===clientId?{...c,statut:'sav_en_cours'}:c);
+        }
+      }
     }
     closeM('m-sav'); updateUI(); openDetail(clientId);
-    toast('SAV enregistré ✓'); showSync('💾 Sauvegardé');
+    toast('SAV enregistré ✓ — Client passé en SAV en cours'); showSync('💾 Sauvegardé');
   }catch(e){toast('Erreur: '+e.message,'#ef4444');}
 }
 
@@ -1242,7 +1259,27 @@ async function chgStatut(savId,statut,clientId){
     if(statut==='intervenu'||statut==='resolu') upd.date_intervention=today();
     await db('PATCH','sav',upd,`?id=eq.${savId}`);
     savList=savList.map(s=>s.id===savId?{...s,...upd}:s);
-    toast(`Statut → ${STATUTS[statut]?.l}`);
+    // Si tous les SAV du client sont résolus, repasser en "livré" ou "en_cours"
+    if(statut==='resolu'){
+      const clientSavs=savList.filter(s=>s.client_id===clientId);
+      const allResolved=clientSavs.every(s=>s.id===savId?true:s.statut==='resolu'||s.statut==='intervenu');
+      if(allResolved){
+        const client=clients.find(c=>c.id===clientId);
+        if(client&&client.statut==='sav_en_cours'){
+          // Repasser en livré si c'était une maison livrée, sinon en_cours
+          const newStatut=client._prev_statut||'livre';
+          await db('PATCH','clients',{statut:newStatut,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+          clients=clients.map(c=>c.id===clientId?{...c,statut:newStatut}:c);
+          toast(`Statut → ${STATUTS[statut]?.l} · Tous SAV résolus — Client repassé en ${CHANTIER_STATUTS[newStatut]?.l}`);
+        }else{
+          toast(`Statut → ${STATUTS[statut]?.l}`);
+        }
+      }else{
+        toast(`Statut → ${STATUTS[statut]?.l}`);
+      }
+    } else {
+      toast(`Statut → ${STATUTS[statut]?.l}`);
+    }
     showSync('💾 Sauvegardé'); updateUI();
     if(clientId) openDetail(clientId);
     else goView(currentView);
@@ -1252,29 +1289,68 @@ async function chgStatut(savId,statut,clientId){
 // ═══════════════════════════════════════════════════════
 // CARTE DASHBOARD INTÉGRÉE
 // ═══════════════════════════════════════════════════════
-let dashMapFiltre = null;
+// Active layers - all on by default
+let activeLayers = new Set(['ouverture','en_cours','livre','sav']);
 let dashMapInst = null;
+let dashMapMarkers = []; // {marker, layers:[]} 
+
+function toggleMapLayer(layer){
+  if(activeLayers.has(layer)){
+    activeLayers.delete(layer);
+  } else {
+    activeLayers.add(layer);
+  }
+  // Update button style
+  const colors={ouverture:'#7c3aed',en_cours:'#d97706',livre:'#10b981',sav:'#f59e0b',retard:'#ef4444'};
+  const bgs={ouverture:'#f3e8ff',en_cours:'#fef3c7',livre:'#d1fae5',sav:'#fff7ed',retard:'#fee2e2'};
+  const btn=document.getElementById('df-'+layer);
+  if(btn){
+    const active=activeLayers.has(layer);
+    btn.style.opacity=active?'1':'0.4';
+    btn.style.textDecoration=active?'none':'line-through';
+  }
+  // Show/hide markers
+  dashMapMarkers.forEach(({marker,layers})=>{
+    const visible=layers.some(l=>activeLayers.has(l));
+    if(visible && !dashMapInst.hasLayer(marker)){
+      marker.addTo(dashMapInst);
+    } else if(!visible && dashMapInst.hasLayer(marker)){
+      dashMapInst.removeLayer(marker);
+    }
+  });
+}
 
 function renderDashMap(){
   setTimeout(()=>{
     const el=document.getElementById('map-main');
     if(!el) return;
     if(dashMapInst){dashMapInst.remove();dashMapInst=null;}
-    const filtreClients = getDashFiltered();
+    dashMapMarkers=[];
+    // Reset all layers active
+    activeLayers = new Set(['ouverture','en_cours','livre','sav']);
+    ['ouverture','en_cours','livre','sav'].forEach(l=>{
+      const btn=document.getElementById('df-'+l);
+      if(btn){btn.style.opacity='1';btn.style.textDecoration='none';}
+    });
     const map=L.map(el,{zoomControl:true}).setView([45.748,-0.62],9);
     dashMapInst=map;
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(map);
-    filtreClients.forEach(c=>{
+    clients.forEach(c=>{
       if(!c.lat||!c.lng) return;
       const r=clientRetards(c.id), sv=clientSav(c.id);
-      const color=r>0?'#ef4444':sv.length>0?'#3b82f6':c.statut==='livre'?'#10b981':'#f59e0b';
+      const color=c.statut==='sav_en_cours'||sv.length>0?'#f59e0b':c.statut==='livre'?'#10b981':c.statut==='ouverture'?'#8b5cf6':c.statut==='en_cours'?'#eab308':'#94a3b8';
       const label=c.statut==='livre'?'✓':sv.length>0?sv.length.toString():'';
       const icon=L.divIcon({className:'',
         html:`<div style="width:28px;height:28px;border-radius:50% 50% 50% 0;background:${color};border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);transform:rotate(-45deg);display:flex;align-items:center;justify-content:center"><span style="transform:rotate(45deg);color:#fff;font-size:9px;font-weight:800">${label}</span></div>`,
         iconSize:[28,28],iconAnchor:[14,28],popupAnchor:[0,-32]});
       const statut=CHANTIER_STATUTS[c.statut]||CHANTIER_STATUTS.en_cours;
       const sv_info=sv.length>0?`<div style="color:${color};font-size:12px;font-weight:600;margin-top:4px">● ${sv.length} SAV${r>0?' dont '+r+' retard':''}</div>`:'<div style="color:#10b981;font-size:12px;margin-top:4px">✓ Aucun SAV</div>';
-      L.marker([c.lat,c.lng],{icon}).addTo(map).bindPopup(`
+      // Determine which layers this marker belongs to
+      const markerLayers=[c.statut]; // ouverture, en_cours, livre
+      if(sv.length>0) markerLayers.push('sav');
+      if(r>0) markerLayers.push('retard');
+      const marker=L.marker([c.lat,c.lng],{icon});
+      marker.bindPopup(`
         <div style="font-family:-apple-system,sans-serif;min-width:200px;padding:2px">
           <div style="font-weight:800;font-size:14px">${c.nom}</div>
           <div style="font-size:11px;color:#64748b;margin-top:3px">${c.adresse||''}</div>
@@ -1282,38 +1358,19 @@ function renderDashMap(){
           ${sv_info}
           <button onclick="window.__od('${c.id}')" style="margin-top:9px;width:100%;padding:8px;border:none;background:#2563eb;color:#fff;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;font-family:-apple-system,sans-serif">Ouvrir la fiche →</button>
         </div>`,{maxWidth:260});
+      // Track marker for layer toggle
+      // Si le chantier a des SAV, il appartient UNIQUEMENT à la couche 'sav'
+      // Sinon il appartient à sa couche de statut
+      const mLayers = (c.statut==='sav_en_cours'||sv.length>0) ? ['sav'] : [c.statut];
+      marker.addTo(map);
+      dashMapMarkers.push({marker,layers:mLayers});
     });
     window.__od=id=>openDetail(id);
   },150);
 }
 
-function getDashFiltered(){
-  if(dashMapFiltre===null) return clients;
-  if(dashMapFiltre==='sav') return clients.filter(c=>clientSav(c.id).length>0);
-  if(dashMapFiltre==='retard') return clients.filter(c=>clientRetards(c.id)>0);
-  return clients.filter(c=>c.statut===dashMapFiltre);
-}
 
-function setDashMapFiltre(f){
-  dashMapFiltre=f;
-  const labels={null:'Tous les chantiers',en_cours:'En cours',livre:'Livrés',reserve:'Réserves',sav:'Avec SAV',retard:'Retards SAV'};
-  const colors={null:'#2563eb',en_cours:'#d97706',livre:'#10b981',reserve:'#ef4444',sav:'#f59e0b',retard:'#ef4444'};
-  const bgs={null:'#eff6ff',en_cours:'#fef3c7',livre:'#d1fae5',reserve:'#fee2e2',sav:'#fff7ed',retard:'#fee2e2'};
-  // Update filter buttons style
-  ['null','en_cours','livre','reserve','sav','retard'].forEach(k=>{
-    const btn=document.getElementById('df-'+k);
-    if(!btn) return;
-    const isActive=(f===null&&k==='null')||(f===k);
-    btn.style.border=`2px solid ${isActive?colors[k]:'#e2e8f0'}`;
-    btn.style.background=isActive?bgs[k]:'#fff';
-    btn.style.color=isActive?colors[k]:'#64748b';
-    btn.style.fontWeight=isActive?700:400;
-  });
-  const lbl=document.getElementById('dash-map-label');
-  const filtered=getDashFiltered();
-  if(lbl) lbl.textContent=`🗺️ MA 17 SUD — ${labels[f]||'Tous'} (${filtered.filter(c=>c.lat).length} sur carte)`;
-  renderDashMap();
-}
+
 
 function toggleMapFullscreen(){
   const container=document.getElementById('dash-map-container');
@@ -1331,7 +1388,6 @@ function toggleMapFullscreen(){
 let carteFiltre = null; // null=tous, 'en_cours','livre','reserve','sav','retard'
 
 function goCarteFiltre(filtre){
-  setDashMapFiltre(filtre);
   goView('dashboard');
 }
 
