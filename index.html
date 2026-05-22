@@ -226,8 +226,6 @@ let savStatutFilter=null;
 const STATUTS={
   nouveau:{l:'Nouveau',cls:'s-nouveau'},
   attente_intervention:{l:'Attente artisan',cls:'s-attente'},
-  en_retard:{l:'En retard',cls:'s-en_retard'},
-  intervenu:{l:'Artisan intervenu',cls:'s-intervenu'},
   resolu:{l:'Résolu',cls:'s-resolu'}
 };
 const CHANTIER_STATUTS={
@@ -404,7 +402,7 @@ function renderDashMap(){
       if(!c.lat||!c.lng)return;
       const sv=clientSav(c.id);
       const activeSav=sv.filter(s=>s.statut==='nouveau'||s.statut==='attente_intervention');
-      const color=activeSav.length>0?'#ef4444':c.statut==='livre'?'#10b981':c.statut==='ouverture'?'#8b5cf6':c.statut==='en_cours'?'#eab308':'#94a3b8';
+      const color=activeSav.length>0||c.statut==='sav_en_cours'?'#ef4444':c.statut==='livre'?'#10b981':c.statut==='ouverture'?'#8b5cf6':c.statut==='en_cours'?'#eab308':'#94a3b8';
       const label=c.statut==='livre'?'✓':activeSav.length>0?activeSav.length.toString():'';
       const icon=L.divIcon({className:'',
         html:`<div style="width:28px;height:28px;border-radius:50% 50% 50% 0;background:${color};border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);transform:rotate(-45deg);display:flex;align-items:center;justify-content:center"><span style="transform:rotate(45deg);color:#fff;font-size:9px;font-weight:800">${label}</span></div>`,
@@ -419,6 +417,7 @@ function renderDashMap(){
         ${c.tel?`<div style="font-size:11px;margin-top:3px">📞 ${c.tel}</div>`:''}
         ${sv_info}
         <button onclick="window.__od('${c.id}')" style="margin-top:9px;width:100%;padding:8px;border:none;background:#2563eb;color:#fff;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;font-family:-apple-system,sans-serif">Ouvrir la fiche →</button>
+        ${c.statut!=='sav_en_cours'?`<button onclick="window.__sav('${c.id}')" style="margin-top:6px;width:100%;padding:8px;border:none;background:#fee2e2;color:#ef4444;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;font-family:-apple-system,sans-serif">🔧 Déclarer un SAV</button>`:''}
       </div>`,{maxWidth:260});
       // Determine layers
       const mLayers=activeSav.length>0?['sav_en_cours','sav']:[c.statut];
@@ -435,6 +434,21 @@ function renderDashMap(){
       },()=>{},{enableHighAccuracy:true,timeout:10000});
     }
     window.__od=id=>openDetail(id);
+    window.__sav=async id=>{
+      const client=clients.find(c=>c.id===id);
+      if(!client)return;
+      const prevStatut=client.statut;
+      if(client.statut!=='sav_en_cours'){
+        try{
+          await db('PATCH','clients',{statut:'sav_en_cours',updated_at:new Date().toISOString()},`?id=eq.${id}`);
+          clients=clients.map(c=>c.id===id?{...c,statut:'sav_en_cours',_prev_statut:prevStatut}:c);
+          updateUI();
+        }catch(e){toast('Erreur: '+e.message,'#ef4444');return;}
+      }
+      // Fermer le popup et ouvrir le formulaire SAV avec revert si annulé
+      if(dashMapInst)dashMapInst.closePopup();
+      setTimeout(()=>openSavModalWithRevert(id,prevStatut),200);
+    };
   },150);
 }
 
@@ -505,6 +519,7 @@ function renderCliList(list){
           <button onclick="event.stopPropagation();openClientModal('${c.id}')" style="margin-left:auto;flex-shrink:0;padding:3px 8px;border-radius:7px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:11px">✏</button>
         </div>
         <div class="cli-addr">${c.adresse||'Adresse non renseignée'}</div>
+        ${c.notes_ct?'<div style="font-size:10px;color:#ca8a04;margin-top:2px">📋 '+(c.ct_responsable?c.ct_responsable+' — ':'')+c.notes_ct.substring(0,40)+(c.notes_ct.length>40?'…':'')+'</div>':''}
         <div class="statut-wrap" onclick="event.stopPropagation()">
           <span class="ch-badge ${s.cls}" style="cursor:pointer;margin-top:3px;display:inline-block" onclick="toggleStatutMenu('menu-${c.id}',event)">${s.l} ▾</span>
           <div class="statut-menu" id="menu-${c.id}">
@@ -545,11 +560,25 @@ document.addEventListener('click',()=>{document.querySelectorAll('.statut-menu.o
 async function chgStatutClient(clientId,statut,menuId){
   document.getElementById(menuId)?.classList.remove('open');
   try{
+    const prevStatut=clients.find(c=>c.id===clientId)?.statut||'en_cours';
     await db('PATCH','clients',{statut,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
-    clients=clients.map(c=>c.id===clientId?{...c,statut}:c);
+    clients=clients.map(c=>c.id===clientId?{...c,statut,_prev_statut:prevStatut}:c);
     const labels={ouverture:'Ouverture à venir',en_cours:'En cours',sav_en_cours:'SAV en cours',livre:'Livré',reserve:'Réserves'};
-    toast(`Statut → ${labels[statut]}`);
-    updateUI();goView('clients');
+    if(statut==='sav_en_cours'){
+      const activeSavs=savList.filter(s=>s.client_id===clientId&&s.statut!=='resolu');
+      toast(`Statut → ${labels[statut]}`);
+      updateUI();
+      if(currentView==='clients')goView('clients');
+      // Ouvrir le formulaire SAV si aucun SAV actif
+      if(activeSavs.length===0){
+        const prevStatut=clients.find(c=>c.id===clientId)?._prev_statut||'en_cours';
+        setTimeout(()=>openSavModalWithRevert(clientId,prevStatut),300);
+      }
+    } else {
+      toast(`Statut → ${labels[statut]}`);
+      updateUI();
+      if(currentView==='clients')goView('clients');
+    }
   }catch(e){toast('Erreur: '+e.message,'#ef4444');}
 }
 
@@ -574,7 +603,9 @@ function renderSav(c){
     </div>
     <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
       <button onclick="filterSavByStatut(null)" id="sf-all" style="padding:4px 12px;border-radius:20px;border:2px solid #2563eb;background:#eff6ff;color:#2563eb;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit">Tous (${sv.length})</button>
-      ${Object.entries(STATUTS).map(([k,v])=>`<button onclick="filterSavByStatut('${k}')" id="sf-${k}" class="status ${v.cls}" style="cursor:pointer;font-family:inherit">${v.l} (${sv.filter(s=>s.statut===k).length})</button>`).join('')}
+      <button onclick="filterSavByStatut('nouveau')" id="sf-nouveau" class="status s-nouveau" style="cursor:pointer;font-family:inherit">Nouveau (${sv.filter(s=>s.statut==='nouveau').length})</button>
+      <button onclick="filterSavByStatut('attente_intervention')" id="sf-attente_intervention" class="status s-attente" style="cursor:pointer;font-family:inherit">Attente artisan (${sv.filter(s=>s.statut==='attente_intervention').length})</button>
+      <button onclick="filterSavByStatut('resolu')" id="sf-resolu" class="status s-resolu" style="cursor:pointer;font-family:inherit">Résolu (${sv.filter(s=>s.statut==='resolu').length})</button>
     </div>
     <div id="sav-list-container"></div>
   `;
@@ -585,48 +616,136 @@ function renderSavItems(list){
   const el=document.getElementById('sav-list-container');
   if(!el)return;
   if(list.length===0){el.innerHTML='<div class="empty"><div class="big">🔧</div><p>Aucun dossier SAV</p></div>';return;}
-  el.innerHTML=list.map(s=>{
-    const client=clients.find(c=>c.id===s.client_id);
-    const artisan=artisans.find(a=>a.id===s.artisan_id);
-    const j=jours(s.date_signalement);
-    const retard=s.statut!=='resolu'&&s.statut!=='intervenu'&&j>DELAI;
-    const cid=s.client_id,sid=s.id;
-    const cc=[client?.email,client?.email2].filter(Boolean).join(',');
-    const tels=[
-      client?.tel?(client?.conjoint1?client.conjoint1+' : '+client.tel:client.tel):'',
-      client?.tel2?(client?.conjoint2?client.conjoint2+' : '+client.tel2:client.tel2):''
-    ].filter(Boolean).join('%0A');
-    const body='Bonjour,%0A%0A'
-      +'Nous faisons suite au dossier SAV suivant :%0A'
-      +'━━━━━━━━━━━━━━━━━━━━%0A'
-      +'Client : '+(client?.nom||'')+'%0A'
-      +'Adresse : '+encodeURIComponent(client?.adresse||'')+'%0A'
-      +'%0ATéléphones :%0A'+tels+'%0A'
-      +'━━━━━━━━━━━━━━━━━━━━%0A'
-      +'Intervention à réaliser :%0A'
-      +encodeURIComponent(s.titre)+(s.notes?'%0A'+encodeURIComponent(s.notes):'')+'%0A'
-      +'━━━━━━━━━━━━━━━━━━━━%0A%0A'
-      +'Merci de confirmer votre disponibilité.%0A%0ACordialement';
-    const mailBtn=artisan?.email
-      ?`<a href="mailto:${artisan.email}?cc=${cc}&subject=${encodeURIComponent('Intervention SAV : '+s.titre)}&body=${body}" class="btn btn-green btn-sm" style="text-decoration:none">✉ Demande intervention</a>`
-      :'';
-    const statutBtns=Object.entries(STATUTS).filter(([k])=>k!==s.statut).map(([k,v])=>`<button class="btn btn-sm ${v.cls}" onclick="chgStatut('${sid}','${k}','${cid}')">→ ${v.l}</button>`).join('');
-    return `<div class="sav-item${retard?' retard':''}">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
-        <div style="flex:1;min-width:0">
-          <div style="font-size:12px;color:#2563eb;font-weight:700;cursor:pointer;margin-bottom:2px" onclick="openDetail('${cid}')">${client?.nom||'—'}</div>
-          <div style="font-weight:700;font-size:13px">${s.titre}</div>
-          <div style="font-size:11px;color:#64748b">${frDate(s.date_signalement)} · ${j}j${artisan?' · '+artisan.nom:''}</div>
-          ${retard?`<div style="color:#ef4444;font-size:11px;font-weight:600">⚠ Retard (${j}j)</div>`:''}
+
+  // Trier: nouveaux sans contact d'abord, puis par client, puis par ancienneté
+  const now=Date.now();
+  const sorted=[...list].sort((a,b)=>{
+    // Priorité 1: en retard (attente > 7j) en premier, les plus vieux en haut
+    const aRetard=a.statut==='attente_intervention'&&jours(a.date_mail||a.date_signalement)>7;
+    const bRetard=b.statut==='attente_intervention'&&jours(b.date_mail||b.date_signalement)>7;
+    if(aRetard&&!bRetard)return -1;
+    if(!aRetard&&bRetard)return 1;
+    // Priorité 2: nouveaux avant attente
+    const order={nouveau:0,attente_intervention:1,resolu:2};
+    if(order[a.statut]!==order[b.statut])return order[a.statut]-order[b.statut];
+    // Priorité 3: par nom de client
+    const cA=clients.find(c=>c.id===a.client_id)?.nom||'';
+    const cB=clients.find(c=>c.id===b.client_id)?.nom||'';
+    if(cA!==cB)return cA.localeCompare(cB);
+    // Priorité 4: plus ancien en premier
+    return new Date(a.date_signalement)-new Date(b.date_signalement);
+  });
+
+  // Grouper par client
+  const grouped=[];
+  const seen=new Set();
+  sorted.forEach(s=>{
+    if(!seen.has(s.client_id)){
+      seen.add(s.client_id);
+      grouped.push({client_id:s.client_id,savs:sorted.filter(x=>x.client_id===s.client_id)});
+    }
+  });
+
+  el.innerHTML=grouped.map(({client_id,savs})=>{
+    const client=clients.find(c=>c.id===client_id);
+    const allResolved=savs.every(s=>s.statut==='resolu');
+    const hasRetard=savs.some(s=>s.statut==='attente_intervention'&&jours(s.date_mail||s.date_signalement)>7);
+    return `<div class="sav-group${allResolved?' resolved':''}${hasRetard?' urgent':''}" style="border-radius:13px;border:1.5px solid ${allResolved?'#a7f3d0':hasRetard?'#fca5a5':'#e2e8f0'};background:${allResolved?'#f0fdf4':hasRetard?'#fff5f5':'#fff'};margin-bottom:12px;overflow:hidden;">
+      <div style="padding:10px 14px;background:${allResolved?'#ecfdf5':hasRetard?'#fee2e2':'#f8fafc'};border-bottom:1px solid ${allResolved?'#a7f3d0':hasRetard?'#fca5a5':'#e2e8f0'};display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="openDetail('${client_id}')">
+        <div>
+          <span style="font-weight:700;font-size:13px;color:${allResolved?'#065f46':hasRetard?'#ef4444':'#0f172a'}">${client?.nom||'—'}</span>
+          <span style="font-size:11px;color:#64748b;margin-left:8px">${savs.length} SAV${allResolved?' · ✅ Tout résolu':''}</span>
         </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
-          ${statusBadge(s.statut)}
-          ${mailBtn}
-        </div>
+        <span style="font-size:11px;color:#94a3b8">Voir fiche →</span>
       </div>
-      <div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap">${statutBtns}</div>
+      ${savs.map(s=>renderOneSav(s,client)).join('')}
     </div>`;
   }).join('');
+}
+
+function renderOneSav(s,client){
+  const artisan=artisans.find(a=>a.id===s.artisan_id);
+  const j=jours(s.date_signalement);
+  const jMail=s.date_mail?jours(s.date_mail):null;
+  const enRetard=s.statut==='attente_intervention'&&jMail>7;
+  const cid=s.client_id,sid=s.id;
+
+  // Mail pré-rempli
+  const cc=[client?.email,client?.email2].filter(Boolean).join(',');
+  const tels=[
+    client?.tel?(client?.conjoint1?client.conjoint1+' : '+client.tel:client.tel):'',
+    client?.tel2?(client?.conjoint2?client.conjoint2+' : '+client.tel2:client.tel2):''
+  ].filter(Boolean).join('%0A');
+  const body='Bonjour,%0A%0A'
+    +'Nous faisons suite au dossier SAV suivant :%0A'
+    +'━━━━━━━━━━━━━━━━━━━━%0A'
+    +'Client : '+(client?.nom||'')+'%0A'
+    +'Adresse : '+encodeURIComponent(client?.adresse||'')+'%0A'
+    +'%0ATéléphones :%0A'+tels+'%0A'
+    +'━━━━━━━━━━━━━━━━━━━━%0A'
+    +'Intervention à réaliser :%0A'
+    +encodeURIComponent(s.titre)+(s.notes?'%0A'+encodeURIComponent(s.notes):'')+'%0A'
+    +'━━━━━━━━━━━━━━━━━━━━%0A%0A'
+    +'Merci de confirmer votre disponibilité.%0A%0ACordialement';
+  const mailHref=artisan?.email?`mailto:${artisan.email}?cc=${cc}&subject=${encodeURIComponent('Intervention SAV : '+s.titre)}&body=${body}`:'';
+  const relanceBody='Bonjour,%0A%0ANous revenons vers vous concernant le dossier SAV ci-dessous, resté sans réponse depuis '+jMail+' jours.%0A%0A'+body;
+  const relanceHref=artisan?.email?`mailto:${artisan.email}?cc=${cc}&subject=${encodeURIComponent('RELANCE - Intervention SAV : '+s.titre)}&body=${relanceBody}`:'';
+
+  return `<div style="padding:12px 14px;border-bottom:1px solid #f1f5f9">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:13px">${s.titre}</div>
+        <div style="font-size:11px;color:#64748b;margin-top:2px">Signalé le ${frDate(s.date_signalement)} · ${j}j${artisan?' · '+artisan.nom:''}</div>
+        ${s.statut==='attente_intervention'&&jMail!==null?`<div style="font-size:11px;font-weight:600;margin-top:2px;color:${enRetard?'#ef4444':'#d97706'}">
+          ${enRetard?'⚠ Relance nécessaire — ':'✉ Mail envoyé — '}${jMail}j sans réponse
+        </div>`:''}
+        ${s.notes?`<div style="font-size:11px;color:#94a3b8;font-style:italic;margin-top:2px">${s.notes}</div>`:''}
+      </div>
+      <!-- PASTILLE STATUT CLIQUABLE -->
+      <div class="statut-wrap" onclick="event.stopPropagation()">
+        <span class="status ${STATUTS[s.statut]?.cls||'s-nouveau'}" style="cursor:pointer" onclick="toggleSavStatutMenu('smenu-${sid}',event)">
+          ${STATUTS[s.statut]?.l||'Nouveau'} ▾
+        </span>
+        <div class="statut-menu" id="smenu-${sid}" style="right:0;left:auto">
+          ${Object.entries(STATUTS).filter(([k])=>k!==s.statut).map(([k,v])=>`
+            <button onclick="chgStatut('${sid}','${k}','${cid}')"><span class="status ${v.cls}">${v.l}</span></button>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+    <!-- ACTIONS selon statut -->
+    <div style="display:flex;gap:7px;margin-top:10px;flex-wrap:wrap;align-items:center;justify-content:space-between">
+      <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+        ${s.statut==='nouveau'&&artisan?.email?
+          `<a href="${mailHref}" class="btn btn-primary btn-sm" style="text-decoration:none" onclick="event.stopPropagation();sendMailAndUpdateStatus('${sid}','${cid}',event)">✉ Demande intervention</a>`:
+         s.statut==='attente_intervention'&&artisan?.email?
+          `<a href="${relanceHref}" class="btn btn-sm" style="text-decoration:none;background:#fff7ed;color:#d97706;border:1.5px solid #fed7aa" onclick="event.stopPropagation()">🔁 Envoyer une relance</a>`:
+         s.statut==='resolu'?
+          `<span style="font-size:12px;color:#10b981;font-weight:600">✅ Résolu${s.date_intervention?' le '+frDate(s.date_intervention):''}</span>`:''}
+      </div>
+      <button onclick="event.stopPropagation();delSavFromList('${sid}','${cid}')" style="padding:4px 9px;border-radius:7px;border:1.5px solid #fee2e2;background:#fff5f5;color:#ef4444;cursor:pointer;font-size:11px;font-family:inherit">🗑</button>
+    </div>
+  </div>`;
+}
+
+
+function toggleSavStatutMenu(menuId,event){
+  event.stopPropagation();
+  document.querySelectorAll('.statut-menu.open').forEach(m=>{if(m.id!==menuId)m.classList.remove('open');});
+  document.getElementById(menuId)?.classList.toggle('open');
+}
+
+async function sendMailAndUpdateStatus(savId,clientId,event){
+  // Enregistrer date_mail et passer en attente_intervention
+  const now=today();
+  try{
+    await db('PATCH','sav',{statut:'attente_intervention',date_mail:now,updated_at:new Date().toISOString()},`?id=eq.${savId}`);
+    savList=savList.map(s=>s.id===savId?{...s,statut:'attente_intervention',date_mail:now}:s);
+    updateUI();
+    if(currentView==='sav')goView('sav');
+    else if(clientId)openDetail(clientId);
+    toast('✉ Mail envoyé — Statut passé en Attente artisan');showSync('💾 Sauvegardé');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
 }
 
 function filterSavByStatut(statut){
@@ -754,6 +873,33 @@ function openDetail(clientId){
       </div>
       ${photos.length===0?`<div class="ph-empty" onclick="document.getElementById('ph-in-${clientId}').click()"><span style="font-size:28px">📷</span><span style="font-weight:600">Appuyez pour ajouter des photos</span></div>`:`<div class="photo-grid">${photos.map((p,i)=>`<div class="ph-thumb" onclick="openLB('${clientId}',${i})"><img src="${p.url}" alt=""/></div>`).join('')}<div class="ph-add" onclick="document.getElementById('ph-in-${clientId}').click()"><span style="font-size:18px">+</span>Photo</div></div>`}
     </div>
+    ${c.statut==='en_cours'||c.statut==='ouverture'?`
+    <div style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">
+        <div style="font-weight:700;font-size:13px">📋 Notes conducteur de travaux</div>
+        <button class="btn btn-secondary btn-sm" onclick="toggleNotesEdit('${c.id}')">✏ Modifier</button>
+      </div>
+      <div id="notes-ct-view-${c.id}">
+        ${c.ct_responsable?'<div style="font-size:12px;color:#2563eb;font-weight:600;margin-bottom:5px">👤 Responsable : '+c.ct_responsable+'</div>':''}
+        ${c.notes_ct
+          ?'<div style="background:#fefce8;border:1.5px solid #fde68a;border-radius:10px;padding:10px 13px;font-size:13px;color:#374151;white-space:pre-wrap">'+c.notes_ct+'</div>'
+          :'<div style="color:#94a3b8;font-size:13px;font-style:italic">Aucune note — cliquez sur Modifier pour en ajouter</div>'}
+      </div>
+      <div id="notes-ct-edit-${c.id}" style="display:none">
+        <div class="field" style="margin-bottom:8px">
+          <label>Responsable / Attribué à</label>
+          <input id="ct-resp-${c.id}" value="${c.ct_responsable||''}" placeholder="Ex: Jean-Pierre, Chef de chantier…" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:13px;outline:none;background:#f8fafc;font-family:inherit"/>
+        </div>
+        <div class="field">
+          <label>Tâches avant livraison</label>
+          <textarea id="ct-notes-${c.id}" placeholder="Ex: Vérifier VMC, reprise enduit angle gauche, nettoyage final…" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:13px;outline:none;background:#f8fafc;font-family:inherit;resize:vertical;min-height:90px">${c.notes_ct||''}</textarea>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button onclick="toggleNotesEdit('${c.id}')" class="btn btn-secondary btn-sm">Annuler</button>
+          <button onclick="saveNotesCT('${c.id}')" class="btn btn-primary btn-sm">💾 Enregistrer</button>
+        </div>
+      </div>
+    </div>`:''}
     <div style="margin-bottom:14px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">
         <div style="font-weight:700;font-size:13px">👷 Artisans (${ac.length})</div>
@@ -798,6 +944,29 @@ function openDetail(clientId){
     }).join('')}
   `;
   openM('m-detail');
+}
+
+function toggleNotesEdit(clientId){
+  const view=document.getElementById('notes-ct-view-'+clientId);
+  const edit=document.getElementById('notes-ct-edit-'+clientId);
+  if(!view||!edit)return;
+  const isEditing=edit.style.display!=='none';
+  view.style.display=isEditing?'block':'none';
+  edit.style.display=isEditing?'none':'block';
+  if(!isEditing){
+    document.getElementById('ct-notes-'+clientId)?.focus();
+  }
+}
+
+async function saveNotesCT(clientId){
+  const notes=document.getElementById('ct-notes-'+clientId)?.value.trim()||null;
+  const resp=document.getElementById('ct-resp-'+clientId)?.value.trim()||null;
+  try{
+    await db('PATCH','clients',{notes_ct:notes,ct_responsable:resp,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+    clients=clients.map(c=>c.id===clientId?{...c,notes_ct:notes,ct_responsable:resp}:c);
+    toast('Notes enregistrées ✓');showSync('💾 Sauvegardé');
+    openDetail(clientId); // Rafraîchir la fiche
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
 }
 
 function openNav(app,clientId){
@@ -1028,6 +1197,31 @@ function filterSavClientPicker(q){
 
 function selectSavClient(clientId){closeM('m-sav');openSavModal(clientId,null);}
 
+function openSavModalWithRevert(clientId,prevStatut){
+  // Override close button to revert statut if cancelled
+  openSavModal(clientId,null);
+  // Store revert info
+  window.__savRevert={clientId,prevStatut};
+  // Override the close button behavior
+  const origClose=document.getElementById('m-sav').querySelector('.btn-x');
+  if(origClose){
+    origClose.onclick=async()=>{
+      closeM('m-sav');
+      if(window.__savRevert){
+        const {clientId:cid,prevStatut:prev}=window.__savRevert;
+        window.__savRevert=null;
+        try{
+          await db('PATCH','clients',{statut:prev,updated_at:new Date().toISOString()},`?id=eq.${cid}`);
+          clients=clients.map(c=>c.id===cid?{...c,statut:prev}:c);
+          toast('Annulé — Statut rétabli');
+          updateUI();
+          if(currentView==='clients')goView('clients');
+        }catch{}
+      }
+    };
+  }
+}
+
 function openSavModal(clientId,savId){
   const s=savId?savList.find(x=>x.id===savId):null;
   const ac=clientArtisans(clientId);
@@ -1072,8 +1266,8 @@ async function saveSav(clientId,savId){
     } else {
       const res=await db('POST','sav',{...data,created_at:new Date().toISOString()});
       savList.unshift(res[0]);
-      // Passer client en sav_en_cours
-      if(savStatut!=='resolu'&&savStatut!=='intervenu'){
+      // Passer automatiquement le client en SAV en cours
+      if(savStatut!=='resolu'){
         const client=clients.find(c=>c.id===clientId);
         if(client&&client.statut!=='sav_en_cours'){
           await db('PATCH','clients',{statut:'sav_en_cours',updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
@@ -1081,10 +1275,35 @@ async function saveSav(clientId,savId){
         }
       }
     }
+    window.__savRevert=null; // Annuler le revert car SAV bien enregistré
     closeM('m-sav');updateUI();
     if(currentView==='sav'){goView('sav');}
     else{openDetail(clientId);}
     toast('SAV enregistré ✓');showSync('💾 Sauvegardé');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+async function delSavFromList(savId,clientId){
+  if(!confirm('Supprimer ce dossier SAV ?'))return;
+  try{
+    await db('DELETE','sav','',`?id=eq.${savId}`);
+    savList=savList.filter(s=>s.id!==savId);
+    // Si plus de SAV actifs → repasser le client en livré
+    const remaining=savList.filter(s=>s.client_id===clientId&&s.statut!=='resolu');
+    if(remaining.length===0){
+      const client=clients.find(c=>c.id===clientId);
+      if(client&&client.statut==='sav_en_cours'){
+        await db('PATCH','clients',{statut:'livre',updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+        clients=clients.map(c=>c.id===clientId?{...c,statut:'livre'}:c);
+        toast('SAV supprimé — Chantier repassé en Livré');
+      } else {
+        toast('SAV supprimé');
+      }
+    } else {
+      toast('SAV supprimé');
+    }
+    updateUI();
+    goView('sav');
   }catch(e){toast('Erreur: '+e.message,'#ef4444');}
 }
 
@@ -1109,7 +1328,8 @@ async function delSav(savId,clientId){
 async function chgStatut(savId,statut,clientId){
   try{
     const upd={statut,updated_at:new Date().toISOString()};
-    if(statut==='intervenu'||statut==='resolu')upd.date_intervention=today();
+    if(statut==='resolu')upd.date_intervention=today();
+    if(statut==='attente_intervention'&&!savList.find(x=>x.id===savId)?.date_mail)upd.date_mail=today();
     await db('PATCH','sav',upd,`?id=eq.${savId}`);
     savList=savList.map(s=>s.id===savId?{...s,...upd}:s);
     // Si résolu, vérifier si tous les SAV sont résolus → repasser en livré
