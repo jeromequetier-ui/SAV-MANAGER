@@ -530,6 +530,29 @@ function renderCliList(list){
             <button onclick="chgStatutClient('${c.id}','reserve','menu-${c.id}')"><span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:20px;font-size:11px">Réserves ⚠</span></button>
           </div>
         </div>
+        ${(c.statut==='en_cours'||c.statut==='ouverture')?`
+        <div id="notes-inline-${c.id}" style="margin-top:6px">
+          ${c.notes_ct||c.ct_responsable?
+            `<div style="background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:6px 10px;font-size:11px;color:#374151;display:flex;align-items:flex-start;justify-content:space-between;gap:6px">
+              <div>
+                ${c.ct_responsable?'<span style="color:#ca8a04;font-weight:700">👤 '+c.ct_responsable+'</span><br>':''}
+                <span>${c.notes_ct||''}</span>
+              </div>
+              <button onclick="event.stopPropagation();toggleInlineNotes('${c.id}')" style="flex-shrink:0;padding:2px 6px;border-radius:6px;border:1px solid #fde68a;background:#fff;color:#ca8a04;cursor:pointer;font-size:10px">✏</button>
+            </div>`
+          :`<button onclick="event.stopPropagation();toggleInlineNotes('${c.id}')" style="padding:3px 9px;border-radius:7px;border:1.5px dashed #e2e8f0;background:#f8fafc;color:#94a3b8;cursor:pointer;font-size:11px;font-family:inherit">📋 + Note CT</button>`}
+          <div id="inline-edit-${c.id}" style="display:none;margin-top:6px;background:#fff;border:1.5px solid #2563eb;border-radius:10px;padding:10px">
+            <div style="margin-bottom:6px">
+              <input id="il-resp-${c.id}" value="${c.ct_responsable||''}" placeholder="Responsable…" onclick="event.stopPropagation()" style="width:100%;padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;font-family:inherit;margin-bottom:5px"/>
+              <textarea id="il-notes-${c.id}" placeholder="Tâches avant livraison…" onclick="event.stopPropagation()" style="width:100%;padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;font-family:inherit;resize:vertical;min-height:60px">${c.notes_ct||''}</textarea>
+            </div>
+            <div style="display:flex;gap:6px;justify-content:flex-end">
+              ${c.notes_ct?`<button onclick="event.stopPropagation();deleteNotesCTInline('${c.id}')" style="padding:4px 8px;border-radius:7px;border:1.5px solid #fee2e2;background:#fff5f5;color:#ef4444;cursor:pointer;font-size:11px;font-family:inherit">🗑</button>`:''}
+              <button onclick="event.stopPropagation();toggleInlineNotes('${c.id}')" style="padding:4px 8px;border-radius:7px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:11px;font-family:inherit">Annuler</button>
+              <button onclick="event.stopPropagation();saveNotesCTInline('${c.id}')" style="padding:4px 8px;border-radius:7px;border:none;background:#2563eb;color:#fff;cursor:pointer;font-size:11px;font-family:inherit">💾 Sauvegarder</button>
+            </div>
+          </div>
+        </div>`:``}
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0">
         <div style="display:flex;align-items:center;gap:5px">
@@ -560,6 +583,26 @@ document.addEventListener('click',()=>{document.querySelectorAll('.statut-menu.o
 async function chgStatutClient(clientId,statut,menuId){
   document.getElementById(menuId)?.classList.remove('open');
   try{
+    // Si passage en Livré → vérifier SAV actifs
+    if(statut==='livre'){
+      const activeSavs=savList.filter(s=>s.client_id===clientId&&s.statut!=='resolu');
+      if(activeSavs.length>0){
+        const client=clients.find(c=>c.id===clientId);
+        const ok=confirm(`⚠️ ${client?.nom} a encore ${activeSavs.length} SAV en cours.
+
+En passant en Livré, ces SAV seront automatiquement marqués comme Résolus.
+
+Confirmer ?`);
+        if(!ok)return;
+        // Résoudre tous les SAV actifs
+        const now=new Date().toISOString();
+        for(const s of activeSavs){
+          await db('PATCH','sav',{statut:'resolu',date_intervention:today(),updated_at:now},`?id=eq.${s.id}`);
+          savList=savList.map(x=>x.id===s.id?{...x,statut:'resolu',date_intervention:today()}:x);
+        }
+        toast(`✅ ${activeSavs.length} SAV marqué(s) Résolu — Chantier Livré`);
+      }
+    }
     const prevStatut=clients.find(c=>c.id===clientId)?.statut||'en_cours';
     await db('PATCH','clients',{statut,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
     clients=clients.map(c=>c.id===clientId?{...c,statut,_prev_statut:prevStatut}:c);
@@ -865,19 +908,15 @@ function openDetail(clientId){
         <button class="nav-app" onclick="openNav('waze','${c.id}')"><span style="font-size:16px">🔵</span>Waze</button>
       </div>
     </div>
-    <div style="margin-bottom:15px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">
-        <div style="font-weight:700;font-size:13px">📸 Photos (${photos.length})</div>
-        <button class="btn btn-purple btn-sm" onclick="document.getElementById('ph-in-${clientId}').click()">+ Ajouter</button>
-        <input type="file" id="ph-in-${clientId}" accept="image/*" multiple style="display:none" onchange="addPhotos('${clientId}',this)"/>
-      </div>
-      ${photos.length===0?`<div class="ph-empty" onclick="document.getElementById('ph-in-${clientId}').click()"><span style="font-size:28px">📷</span><span style="font-weight:600">Appuyez pour ajouter des photos</span></div>`:`<div class="photo-grid">${photos.map((p,i)=>`<div class="ph-thumb" onclick="openLB('${clientId}',${i})"><img src="${p.url}" alt=""/></div>`).join('')}<div class="ph-add" onclick="document.getElementById('ph-in-${clientId}').click()"><span style="font-size:18px">+</span>Photo</div></div>`}
-    </div>
+
     ${c.statut==='en_cours'||c.statut==='ouverture'?`
     <div style="margin-bottom:14px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">
         <div style="font-weight:700;font-size:13px">📋 Notes conducteur de travaux</div>
-        <button class="btn btn-secondary btn-sm" onclick="toggleNotesEdit('${c.id}')">✏ Modifier</button>
+        <div style="display:flex;gap:6px">
+          ${c.notes_ct?`<button class="btn btn-danger btn-sm" onclick="deleteNotesCT('${c.id}')">🗑</button>`:''}
+          <button class="btn btn-secondary btn-sm" onclick="toggleNotesEdit('${c.id}')">✏ Modifier</button>
+        </div>
       </div>
       <div id="notes-ct-view-${c.id}">
         ${c.ct_responsable?'<div style="font-size:12px;color:#2563eb;font-weight:600;margin-bottom:5px">👤 Responsable : '+c.ct_responsable+'</div>':''}
@@ -946,6 +985,17 @@ function openDetail(clientId){
   openM('m-detail');
 }
 
+async function deleteNotesCT(clientId){
+  if(!confirm('Supprimer la note conducteur de travaux ?'))return;
+  try{
+    await db('PATCH','clients',{notes_ct:null,ct_responsable:null,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+    clients=clients.map(c=>c.id===clientId?{...c,notes_ct:null,ct_responsable:null}:c);
+    toast('Note supprimée');
+    closeM('m-detail');
+    filterCli('en_cours');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
 function toggleNotesEdit(clientId){
   const view=document.getElementById('notes-ct-view-'+clientId);
   const edit=document.getElementById('notes-ct-edit-'+clientId);
@@ -956,6 +1006,32 @@ function toggleNotesEdit(clientId){
   if(!isEditing){
     document.getElementById('ct-notes-'+clientId)?.focus();
   }
+}
+
+function toggleInlineNotes(clientId){
+  const el=document.getElementById('inline-edit-'+clientId);
+  if(el)el.style.display=el.style.display==='none'?'block':'none';
+}
+
+async function saveNotesCTInline(clientId){
+  const notes=document.getElementById('il-notes-'+clientId)?.value.trim()||null;
+  const resp=document.getElementById('il-resp-'+clientId)?.value.trim()||null;
+  try{
+    await db('PATCH','clients',{notes_ct:notes,ct_responsable:resp,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+    clients=clients.map(c=>c.id===clientId?{...c,notes_ct:notes,ct_responsable:resp}:c);
+    toast('Note enregistrée ✓');showSync('💾 Sauvegardé');
+    filterCli('en_cours');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+async function deleteNotesCTInline(clientId){
+  if(!confirm('Supprimer la note ?'))return;
+  try{
+    await db('PATCH','clients',{notes_ct:null,ct_responsable:null,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+    clients=clients.map(c=>c.id===clientId?{...c,notes_ct:null,ct_responsable:null}:c);
+    toast('Note supprimée');
+    filterCli('en_cours');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
 }
 
 async function saveNotesCT(clientId){
