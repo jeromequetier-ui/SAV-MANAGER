@@ -135,6 +135,11 @@ input,select,textarea{font-family:inherit;}
 #dash-map-container.fullscreen #map-main{height:calc(100vh - 180px) !important;}
 #dash-map-container.fullscreen #fs-btn{background:#0f172a;color:#fff;border-color:#0f172a;}
 @media(max-width:380px){.grid2{grid-template-columns:1fr;}.nav-btns{flex-direction:column;}}
+.voice-btn{padding:5px 10px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;transition:all .2s;}
+.voice-btn.idle{background:#f3e8ff;color:#7c3aed;}
+.voice-btn.recording{background:#ef4444;color:#fff;animation:voicePulse 1s infinite;}
+@keyframes voicePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.8;transform:scale(1.05)}}
+.ai-processing{font-size:11px;color:#7c3aed;margin-top:4px;display:none;}
 </style>
 </head>
 <body>
@@ -544,11 +549,12 @@ function renderCliList(list){
           <div id="inline-edit-${c.id}" style="display:none;margin-top:6px;background:#fff;border:1.5px solid #2563eb;border-radius:10px;padding:10px">
             <div style="margin-bottom:6px">
               <input id="il-resp-${c.id}" value="${c.ct_responsable||''}" placeholder="Responsable…" onclick="event.stopPropagation()" style="width:100%;padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;font-family:inherit;margin-bottom:5px"/>
-              <div style="position:relative">
-                <textarea id="il-notes-${c.id}" placeholder="Décrivez ce qu'il reste à faire… ou utilisez l'IA ✨" onclick="event.stopPropagation()" style="width:100%;padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;font-family:inherit;resize:vertical;min-height:70px">${c.notes_ct||''}</textarea>
-                <button onclick="event.stopPropagation();genNotesCT('${c.id}')" id="ai-btn-${c.id}" style="position:absolute;bottom:6px;right:6px;padding:3px 8px;border-radius:6px;border:none;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;cursor:pointer;font-size:10px;font-weight:700;font-family:inherit">✨ IA</button>
+              <textarea id="il-notes-${c.id}" placeholder="Parlez ou tapez… L'IA structurera vos notes 🎤" onclick="event.stopPropagation()" style="width:100%;padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;font-family:inherit;resize:vertical;min-height:70px">${c.notes_ct||''}</textarea>
+              <div style="display:flex;gap:5px;margin-top:5px;align-items:center">
+                <button onclick="event.stopPropagation();startVoiceCT('${c.id}','il')" id="voice-btn-${c.id}" class="voice-btn idle">🎤 Dicter</button>
+                <button onclick="event.stopPropagation();genNotesCT('${c.id}')" id="ai-btn-${c.id}" style="padding:4px 9px;border-radius:7px;border:none;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;cursor:pointer;font-size:10px;font-weight:700;font-family:inherit">✨ Structurer avec IA</button>
+                <span id="ai-status-${c.id}" class="ai-processing">✨ Analyse en cours…</span>
               </div>
-              <div id="ai-status-${c.id}" style="font-size:10px;color:#7c3aed;margin-top:3px;display:none">✨ Génération en cours…</div>
             </div>
             <div style="display:flex;gap:6px;justify-content:flex-end">
               ${c.notes_ct?`<button onclick="event.stopPropagation();deleteNotesCTInline('${c.id}')" style="padding:4px 8px;border-radius:7px;border:1.5px solid #fee2e2;background:#fff5f5;color:#ef4444;cursor:pointer;font-size:11px;font-family:inherit">🗑</button>`:''}
@@ -935,11 +941,12 @@ function openDetail(clientId){
         </div>
         <div class="field">
           <label>Tâches avant livraison</label>
-          <div style="position:relative">
-            <textarea id="ct-notes-${c.id}" placeholder="Décrivez ce qu'il reste à faire… ou utilisez l'IA ✨" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:13px;outline:none;background:#f8fafc;font-family:inherit;resize:vertical;min-height:90px">${c.notes_ct||''}</textarea>
-            <button onclick="genNotesCT('${c.id}')" id="ai-btn-${c.id}" style="position:absolute;bottom:8px;right:8px;padding:4px 10px;border-radius:7px;border:none;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit">✨ IA</button>
+          <textarea id="ct-notes-${c.id}" placeholder="Parlez ou tapez… L'IA structurera vos notes 🎤" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:13px;outline:none;background:#f8fafc;font-family:inherit;resize:vertical;min-height:90px">${c.notes_ct||''}</textarea>
+          <div style="display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap">
+            <button onclick="startVoiceCT('${c.id}','ct')" id="voice-btn-${c.id}" class="voice-btn idle">🎤 Dicter</button>
+            <button onclick="genNotesCT('${c.id}')" id="ai-btn-${c.id}" style="padding:5px 11px;border-radius:7px;border:none;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit">✨ Structurer avec IA</button>
+            <span id="ai-status-${c.id}" class="ai-processing">✨ Analyse en cours…</span>
           </div>
-          <div id="ai-status-${c.id}" style="font-size:11px;color:#7c3aed;margin-top:4px;display:none">✨ Génération en cours…</div>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end">
           <button onclick="toggleNotesEdit('${c.id}')" class="btn btn-secondary btn-sm">Annuler</button>
@@ -1388,7 +1395,14 @@ function openSavModal(clientId,savId){
         </optgroup>
       </select>
     </div>
-    <div class="field"><label>Notes</label><textarea id="fs-notes" placeholder="Détails, relances…">${s?.notes||''}</textarea></div>
+    <div class="field">
+      <label>Notes / Description du problème</label>
+      <textarea id="fs-notes" placeholder="Parlez ou tapez pour décrire le problème… 🎤" style="min-height:80px">${s?.notes||''}</textarea>
+      <div style="display:flex;gap:6px;margin-top:6px;align-items:center">
+        <button type="button" onclick="startVoiceSav()" id="voice-sav-btn" class="voice-btn idle">🎤 Dicter</button>
+        <span id="voice-sav-status" style="font-size:11px;color:#64748b;display:none"></span>
+      </div>
+    </div>
     <div style="display:flex;justify-content:flex-end;gap:9px;margin-top:10px">
       <button class="btn btn-secondary" onclick="closeM('m-sav')">Annuler</button>
       <button class="btn btn-primary" onclick="saveSav('${clientId}','${savId||''}')">💾 Enregistrer</button>
@@ -1498,6 +1512,156 @@ async function chgStatut(savId,statut,clientId){
 // ══════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════
+// ══════════════════════════════════════════════
+// DICTÉE VOCALE + IA
+// ══════════════════════════════════════════════
+let voiceRecognition=null;
+let currentVoiceTarget=null;
+
+function startVoiceCT(clientId,prefix){
+  const taId=prefix+'-notes-'+clientId;
+  const btnId='voice-btn-'+clientId;
+  startVoice(taId,btnId,clientId,prefix);
+}
+
+function startVoiceSav(){
+  startVoice('fs-notes','voice-sav-btn',null,null);
+}
+
+function startVoice(taId,btnId,clientId,prefix){
+  if(!('webkitSpeechRecognition' in window)&&!('SpeechRecognition' in window)){
+    toast('Dictée vocale non supportée sur ce navigateur. Utilisez Chrome ou Safari.','#ef4444');
+    return;
+  }
+  const btn=document.getElementById(btnId);
+  const ta=document.getElementById(taId);
+  if(!ta||!btn)return;
+
+  // Si déjà en cours d'enregistrement → arrêter
+  if(voiceRecognition&&currentVoiceTarget===taId){
+    voiceRecognition.stop();
+    return;
+  }
+
+  // Arrêter tout enregistrement précédent
+  if(voiceRecognition)voiceRecognition.stop();
+
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const recognition=new SR();
+  recognition.lang='fr-FR';
+  recognition.continuous=true;
+  recognition.interimResults=true;
+  recognition.maxAlternatives=1;
+
+  let finalTranscript=ta.value||'';
+  let interimTranscript='';
+
+  recognition.onstart=()=>{
+    voiceRecognition=recognition;
+    currentVoiceTarget=taId;
+    btn.className='voice-btn recording';
+    btn.textContent='⏹ Arrêter';
+  };
+
+  recognition.onresult=e=>{
+    interimTranscript='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal){
+        finalTranscript+=e.results[i][0].transcript+' ';
+      } else {
+        interimTranscript+=e.results[i][0].transcript;
+      }
+    }
+    ta.value=finalTranscript+interimTranscript;
+  };
+
+  recognition.onend=()=>{
+    voiceRecognition=null;
+    currentVoiceTarget=null;
+    btn.className='voice-btn idle';
+    btn.textContent='🎤 Dicter';
+    ta.value=finalTranscript.trim();
+    // Si on a du texte et un clientId → proposer de structurer avec IA
+    if(finalTranscript.trim()&&clientId){
+      const statusEl=document.getElementById('ai-status-'+clientId);
+      if(statusEl){
+        statusEl.style.display='block';
+        statusEl.textContent="🎤 Dictée terminée — cliquez ✨ Structurer pour organiser avec l'IA";
+        setTimeout(()=>{statusEl.style.display='none';},4000);
+      }
+    }
+  };
+
+  recognition.onerror=e=>{
+    voiceRecognition=null;
+    currentVoiceTarget=null;
+    btn.className='voice-btn idle';
+    btn.textContent='🎤 Dicter';
+    if(e.error!=='aborted')toast('Erreur micro: '+e.error,'#ef4444');
+  };
+
+  recognition.start();
+}
+
+async function genNotesCT(clientId){
+  const client=clients.find(c=>c.id===clientId);
+  if(!client)return;
+  const ac=clientArtisans(clientId);
+  const sv=clientSav(clientId);
+  const rawText=document.getElementById('ct-notes-'+clientId)?.value||
+                document.getElementById('il-notes-'+clientId)?.value||'';
+  const resp=document.getElementById('il-resp-'+clientId)?.value||
+             document.getElementById('ct-resp-'+clientId)?.value||'';
+
+  const statusDiv=document.getElementById('ai-status-'+clientId);
+  const aiBtn=document.getElementById('ai-btn-'+clientId);
+  if(statusDiv){statusDiv.style.display='block';statusDiv.textContent='✨ Analyse en cours…';statusDiv.style.color='#7c3aed';}
+  if(aiBtn)aiBtn.disabled=true;
+
+  const prompt=`Tu es assistant pour un constructeur de maisons neuves en Charente-Maritime (MA 17 SUD).
+
+Chantier : ${client.nom}
+Adresse : ${client.adresse||''}
+Artisans : ${ac.map(a=>a.metier+' : '+(a.entreprise||a.nom)).join(', ')||'Non renseignés'}
+SAV actifs : ${sv.filter(s=>s.statut!=='resolu').map(s=>s.titre).join(', ')||'Aucun'}
+Responsable : ${resp||'Non désigné'}
+
+Texte brut du conducteur de travaux (dictée vocale ou notes) :
+"${rawText||'Pas de notes pour le moment'}"
+
+Transforme ce texte en liste de tâches structurée et claire pour la livraison du chantier.
+- Utilise des tirets
+- Groupe par thème si possible (ex: menuiserie, plomberie, finitions…)
+- Intègre les SAV actifs s'ils sont pertinents
+- Maximum 10 tâches
+- Sois concis et professionnel
+- Réponds UNIQUEMENT avec la liste, sans titre ni introduction`;
+
+  try{
+    const response=await fetch('/api/claude',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:800,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    if(!response.ok)throw new Error('Erreur serveur '+response.status);
+    const data=await response.json();
+    const text=data.content?.[0]?.text||'';
+    const taInline=document.getElementById('il-notes-'+clientId);
+    const taFiche=document.getElementById('ct-notes-'+clientId);
+    if(taInline)taInline.value=text;
+    if(taFiche)taFiche.value=text;
+    if(statusDiv){statusDiv.textContent="✨ Notes structurées — vérifiez et ajustez si besoin";setTimeout(()=>{statusDiv.style.display='none';},4000);}
+  }catch(e){
+    if(statusDiv){statusDiv.textContent='❌ '+e.message;statusDiv.style.color='#ef4444';setTimeout(()=>{statusDiv.style.display='none';},4000);}
+  }finally{
+    if(aiBtn)aiBtn.disabled=false;
+  }
+}
+
 loadAll().then(()=>startPolling());
 </script>
 </body>
