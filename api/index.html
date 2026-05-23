@@ -1,0 +1,1668 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-title" content="SAV Manager"/>
+<title>SAV Manager — MA 17 SUD</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f1f5f9;color:#0f172a;overscroll-behavior:none;}
+button,a{font-family:inherit;cursor:pointer;}
+input,select,textarea{font-family:inherit;}
+#loader{position:fixed;inset:0;background:#0f172a;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+#loader .logo{font-size:32px;font-weight:800;color:#2563eb;}
+#loader .sub{color:#475569;font-size:14px;}
+#loader .spinner{width:40px;height:40px;border:4px solid #1e293b;border-top-color:#2563eb;border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+#sync{position:fixed;top:60px;right:12px;z-index:500;background:#10b981;color:#fff;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;display:none;}
+#topbar{position:sticky;top:0;z-index:80;background:#0f172a;display:flex;align-items:center;gap:10px;padding:11px 14px;box-shadow:0 2px 8px rgba(0,0,0,0.25);}
+#hamburger{background:#1e293b;border:none;color:#94a3b8;border-radius:9px;padding:7px 9px;display:flex;}
+.page-title{flex:1;font-weight:700;font-size:15px;color:#f1f5f9;}
+#alert-pill{background:#ef4444;border:none;color:#fff;border-radius:20px;padding:5px 11px;font-size:12px;font-weight:700;display:none;}
+#overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:90;}
+#sidebar{position:fixed;top:0;left:0;height:100vh;width:230px;background:#0f172a;z-index:100;transform:translateX(-100%);transition:transform .25s ease;display:flex;flex-direction:column;}
+#sidebar.open{transform:translateX(0);}
+.leaflet-pane{z-index:1 !important;}
+.leaflet-top,.leaflet-bottom{z-index:2 !important;}
+.leaflet-popup-pane{z-index:3 !important;}
+.map-wrap{position:relative;z-index:1;}
+.sb-head{padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1e293b;}
+.sb-brand{font-size:13px;font-weight:800;color:#2563eb;letter-spacing:.08em;text-transform:uppercase;}
+.sb-sub{font-size:11px;color:#475569;margin-top:2px;}
+#close-sb{background:none;border:none;color:#475569;font-size:20px;}
+.sb-nav{flex:1;padding:8px 10px;overflow-y:auto;}
+.nav-btn{width:100%;display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:10px;border:none;background:transparent;color:#94a3b8;font-size:14px;font-weight:400;margin-bottom:2px;text-align:left;transition:background .15s;}
+.nav-btn.active{background:#1e3a5f;color:#60a5fa;font-weight:700;}
+.nav-btn .icon{font-size:16px;width:20px;text-align:center;}
+.nb{background:#ef4444;color:#fff;border-radius:99px;padding:2px 7px;font-size:11px;font-weight:700;margin-left:auto;}
+.sb-foot{padding:12px 14px;border-top:1px solid #1e293b;font-size:11px;color:#475569;}
+.sb-live{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:11px;color:#10b981;}
+.live-dot{width:7px;height:7px;border-radius:50%;background:#10b981;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+#content{padding:14px;min-height:calc(100vh - 48px);}
+.card{background:#fff;border-radius:13px;padding:13px 15px;box-shadow:0 1px 4px rgba(0,0,0,0.07);margin-bottom:9px;}
+.card.warn{border:1.5px solid #fecaca;background:#fff5f5;}
+.status{display:inline-block;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:600;white-space:nowrap;}
+.field{margin-bottom:12px;}
+.field label{display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;}
+.field input,.field select,.field textarea{width:100%;padding:9px 13px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:14px;outline:none;background:#f8fafc;font-family:inherit;transition:border-color .15s;}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#2563eb;background:#fff;}
+.field textarea{resize:vertical;min-height:75px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);z-index:1000;align-items:flex-end;justify-content:center;}
+.modal-bg.open{display:flex;}
+@media(min-width:600px){.modal-bg{align-items:center;padding:16px;}}
+.modal{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:680px;max-height:92vh;overflow-y:auto;box-shadow:0 -8px 40px rgba(0,0,0,0.2);}
+@media(min-width:600px){.modal{border-radius:20px;}}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:15px 18px;border-bottom:1px solid #f1f5f9;position:sticky;top:0;background:#fff;z-index:1;}
+.modal-head h3{font-size:16px;font-weight:700;}
+.btn-x{background:none;border:none;font-size:22px;color:#94a3b8;line-height:1;}
+.modal-body{padding:18px;}
+.btn{padding:9px 16px;border-radius:9px;border:none;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .15s;}
+.btn:hover{opacity:.88;}
+.btn-primary{background:#2563eb;color:#fff;}
+.btn-secondary{background:#f1f5f9;color:#374151;border:1.5px solid #e2e8f0;}
+.btn-danger{background:#fff5f5;color:#ef4444;border:1.5px solid #fee2e2;}
+.btn-green{background:#ecfdf5;color:#10b981;border:1.5px solid #d1fae5;}
+.btn-purple{background:#7c3aed;color:#fff;}
+.btn-sm{padding:3px 9px;font-size:11px;border-radius:7px;}
+.btn-full{width:100%;justify-content:center;}
+.map-wrap{border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.12);margin-bottom:14px;}
+.map-bar{background:#0f172a;padding:10px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.map-bar span{color:#94a3b8;font-weight:700;font-size:13px;}
+/* STATUT CHANTIER */
+.ch-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;}
+.ch-ouverture{background:#f3e8ff;color:#7c3aed;}
+.ch-en_cours{background:#fefce8;color:#ca8a04;}
+.ch-sav{background:#fef2f2;color:#ef4444;border:1.5px solid #fecaca;}
+.ch-livre{background:#d1fae5;color:#065f46;}
+.ch-reserve{background:#fee2e2;color:#991b1b;}
+/* STATUT SAV */
+.s-nouveau{background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;}
+.s-attente{background:#fffbeb;color:#d97706;border:1px solid #fde68a;}
+.s-en_retard{background:#fef2f2;color:#ef4444;border:1px solid #fecaca;}
+.s-intervenu{background:#f5f3ff;color:#7c3aed;border:1px solid #ddd6fe;}
+.s-resolu{background:#ecfdf5;color:#10b981;border:1px solid #a7f3d0;}
+/* CLIENT LIST */
+.cli-item{background:#fff;border-radius:11px;padding:10px 13px;box-shadow:0 1px 3px rgba(0,0,0,0.06);display:flex;align-items:center;gap:10px;border:1.5px solid transparent;cursor:pointer;margin-bottom:7px;transition:border-color .15s;}
+.cli-item:hover{border-color:#2563eb22;}
+.cli-av{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;}
+.cli-name{font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cli-addr{font-size:11px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* SAV */
+.sav-item{border-radius:11px;padding:12px;margin-bottom:8px;border:1.5px solid #e2e8f0;background:#fff;}
+.sav-item.retard{background:#fff5f5;border-color:#fecaca;}
+/* SEARCH */
+.search-wrap{position:relative;margin-bottom:12px;}
+.search-wrap input{width:100%;padding:9px 13px 9px 35px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none;background:#f8fafc;}
+.search-wrap input:focus{border-color:#2563eb;background:#fff;}
+.search-ic{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:15px;}
+/* TOAST */
+#toast{position:fixed;top:14px;right:14px;z-index:2000;padding:10px 16px;border-radius:11px;font-weight:600;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,0.2);display:none;}
+/* LIGHTBOX */
+#lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:3000;flex-direction:column;align-items:center;justify-content:center;padding:14px;}
+#lightbox.open{display:flex;}
+#lightbox img{max-width:95vw;max-height:72vh;border-radius:10px;object-fit:contain;}
+/* CHIP */
+.chip{padding:5px 13px;border-radius:20px;border:2px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:12px;font-family:inherit;transition:all .15s;}
+.chip.on{border-color:#2563eb;background:#eff6ff;color:#2563eb;font-weight:600;}
+/* STATUS MENU */
+.statut-menu{position:absolute;top:100%;left:0;background:#fff;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);border:1.5px solid #e2e8f0;z-index:200;min-width:160px;overflow:hidden;display:none;}
+.statut-menu.open{display:block;}
+.statut-menu button{width:100%;padding:9px 14px;border:none;background:#fff;text-align:left;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;}
+.statut-menu button:hover{background:#f8fafc;}
+.statut-wrap{position:relative;display:inline-block;}
+/* NAV GPS */
+.nav-gps{background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:11px;padding:13px;margin-bottom:13px;}
+.nav-gps-title{font-weight:700;font-size:13px;color:#0369a1;margin-bottom:9px;}
+.nav-btns{display:flex;gap:7px;flex-wrap:wrap;}
+.nav-app{flex:1;min-width:80px;padding:9px 6px;border-radius:9px;border:none;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.1);cursor:pointer;font-size:12px;font-weight:700;color:#374151;display:flex;align-items:center;justify-content:center;gap:5px;font-family:inherit;}
+/* PHOTO */
+.photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+.ph-thumb{aspect-ratio:1;border-radius:9px;overflow:hidden;cursor:pointer;position:relative;box-shadow:0 2px 6px rgba(0,0,0,0.12);}
+.ph-thumb img{width:100%;height:100%;object-fit:cover;}
+.ph-add{aspect-ratio:1;border-radius:9px;border:2px dashed #cbd5e1;background:#f8fafc;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#94a3b8;font-size:11px;}
+.ph-empty{width:100%;padding:20px;border-radius:11px;border:2px dashed #cbd5e1;background:#f8fafc;cursor:pointer;color:#94a3b8;font-size:13px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;}
+.cli-head{background:linear-gradient(135deg,#1e40af,#2563eb);border-radius:11px;padding:15px;margin-bottom:13px;color:#fff;}
+.empty{text-align:center;padding:32px 20px;color:#94a3b8;}
+.empty .big{font-size:36px;margin-bottom:8px;}
+/* FULLSCREEN MAP */
+#dash-map-container.fullscreen{position:fixed;inset:0;z-index:500;background:#fff;padding:12px;overflow-y:auto;}
+#dash-map-container.fullscreen #map-main{height:calc(100vh - 180px) !important;}
+#dash-map-container.fullscreen #fs-btn{background:#0f172a;color:#fff;border-color:#0f172a;}
+@media(max-width:380px){.grid2{grid-template-columns:1fr;}.nav-btns{flex-direction:column;}}
+.voice-btn{padding:5px 10px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;transition:all .2s;}
+.voice-btn.idle{background:#f3e8ff;color:#7c3aed;}
+.voice-btn.recording{background:#ef4444;color:#fff;animation:voicePulse 1s infinite;}
+@keyframes voicePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.8;transform:scale(1.05)}}
+.ai-processing{font-size:11px;color:#7c3aed;margin-top:4px;display:none;}
+</style>
+</head>
+<body>
+<div id="loader">
+  <div class="logo">SAV Manager</div>
+  <div class="sub">MA 17 SUD — Chargement en cours…</div>
+  <div class="spinner"></div>
+</div>
+<div id="sync"></div>
+<div id="toast"></div>
+<div id="topbar">
+  <button id="hamburger" onclick="toggleSB()">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+      <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+    </svg>
+  </button>
+  <div class="page-title" id="page-title">Tableau de bord</div>
+  <button id="alert-pill" onclick="goView('alertes')">⚠ <span id="alert-count">0</span></button>
+</div>
+<div id="overlay" onclick="closeSB()"></div>
+<div id="sidebar">
+  <div class="sb-head">
+    <div><div class="sb-brand">SAV Manager</div><div class="sb-sub">MA 17 SUD</div></div>
+    <button id="close-sb" onclick="closeSB()">✕</button>
+  </div>
+  <div class="sb-nav">
+    <button class="nav-btn active" onclick="goView('dashboard')" data-v="dashboard"><span class="icon">🏠</span>Tableau de bord</button>
+    <button class="nav-btn" onclick="goView('clients')" data-v="clients"><span class="icon">🏡</span>Chantiers</button>
+    <button class="nav-btn" onclick="goView('sav')" data-v="sav"><span class="icon">🔧</span>Tous les SAV</button>
+    <button class="nav-btn" onclick="goView('artisans')" data-v="artisans"><span class="icon">👷</span>Artisans</button>
+    <button class="nav-btn" onclick="goView('alertes')" data-v="alertes"><span class="icon">🔔</span>Alertes<span class="nb" id="sb-nb" style="display:none">0</span></button>
+  </div>
+  <div class="sb-foot">
+    <div id="sb-counts">Chargement…</div>
+    <div class="sb-live"><span class="live-dot"></span>Temps réel — Supabase</div>
+  </div>
+</div>
+<div id="content"></div>
+<div id="lightbox" onclick="closeLB()">
+  <img id="lb-img" src="" alt=""/>
+  <div id="lb-cap" style="color:#94a3b8;font-size:12px;margin-top:10px;"></div>
+  <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;justify-content:center;">
+    <button onclick="event.stopPropagation();lbPrev()" id="lb-prev" class="btn btn-secondary">← Préc.</button>
+    <button onclick="event.stopPropagation();lbNext()" id="lb-next" class="btn btn-secondary">Suiv. →</button>
+    <button onclick="event.stopPropagation();lbDel()" class="btn btn-danger">🗑 Supprimer</button>
+  </div>
+  <div style="color:#475569;font-size:11px;margin-top:8px">Touchez n'importe où pour fermer</div>
+</div>
+<!-- MODALS -->
+<div class="modal-bg" id="m-client"><div class="modal">
+  <div class="modal-head"><h3 id="m-client-title">Nouveau chantier</h3><button class="btn-x" onclick="closeM('m-client')">✕</button></div>
+  <div class="modal-body" id="m-client-body"></div>
+</div></div>
+<div class="modal-bg" id="m-artisan"><div class="modal">
+  <div class="modal-head"><h3 id="m-artisan-title">Nouvel artisan</h3><button class="btn-x" onclick="closeM('m-artisan')">✕</button></div>
+  <div class="modal-body" id="m-artisan-body"></div>
+</div></div>
+<div class="modal-bg" id="m-sav"><div class="modal">
+  <div class="modal-head"><h3 id="m-sav-title">Nouveau SAV</h3><button class="btn-x" onclick="closeM('m-sav')">✕</button></div>
+  <div class="modal-body" id="m-sav-body"></div>
+</div></div>
+<div class="modal-bg" id="m-detail"><div class="modal" style="max-width:720px;">
+  <div class="modal-head"><h3 id="m-detail-title">Fiche chantier</h3><button class="btn-x" onclick="closeM('m-detail')">✕</button></div>
+  <div class="modal-body" id="m-detail-body"></div>
+</div></div>
+<script>
+// ══════════════════════════════════════════════
+// SUPABASE
+// ══════════════════════════════════════════════
+const SUPA_URL='https://kmryofzzmyssgsejsmem.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImttcnlvZnp6bXlzc2dzZWpzbWVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNjQ5NzQsImV4cCI6MjA5NDg0MDk3NH0.cJ82pNpXoUAno8m_5_4-8vN98COR57V1lnHIooVOSSM';
+const HDR={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'return=representation'};
+async function db(method,table,body=null,query=''){
+  const r=await fetch(`${SUPA_URL}/rest/v1/${table}${query}`,{method,headers:HDR,body:body?JSON.stringify(body):null});
+  if(!r.ok){const e=await r.text();throw new Error(e);}
+  if(r.status===204)return null;
+  return r.json();
+}
+
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+let clients=[],artisans=[],savList=[],chantierArtisans=[];
+let currentView='dashboard',lbPhotos=[],lbIdx=0,lbClientId=null;
+let activeLayers=new Set(['ouverture','en_cours','sav_en_cours','livre','sav']);
+let dashMapInst=null,dashMapMarkers=[];
+let savStatutFilter=null;
+
+const STATUTS={
+  nouveau:{l:'Nouveau',cls:'s-nouveau'},
+  attente_intervention:{l:'Attente artisan',cls:'s-attente'},
+  resolu:{l:'Résolu',cls:'s-resolu'}
+};
+const CHANTIER_STATUTS={
+  ouverture:{l:'Ouverture à venir',cls:'ch-ouverture'},
+  en_cours:{l:'En cours',cls:'ch-en_cours'},
+  sav_en_cours:{l:'SAV en cours',cls:'ch-sav'},
+  livre:{l:'Livré',cls:'ch-livre'},
+  reserve:{l:'Réserves',cls:'ch-reserve'}
+};
+const DELAI=30;
+
+function jours(d){return d?Math.floor((Date.now()-new Date(d))/86400000):null;}
+function today(){return new Date().toISOString().slice(0,10);}
+function frDate(d){return d?new Date(d).toLocaleDateString('fr-FR'):'';}
+function genId(){return Math.random().toString(36).slice(2,9);}
+
+// ══════════════════════════════════════════════
+// LOAD & POLLING
+// ══════════════════════════════════════════════
+const timeout=setTimeout(()=>{
+  document.getElementById('loader').innerHTML=`<div style="text-align:center;padding:20px"><div style="font-size:32px;margin-bottom:12px">⚠️</div><div style="font-size:18px;font-weight:800;color:#ef4444;margin-bottom:8px">Connexion impossible</div><div style="color:#64748b;font-size:13px;margin-bottom:16px">Vérifiez votre connexion internet.</div><button onclick="location.reload()" style="padding:10px 20px;background:#2563eb;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700">🔄 Réessayer</button></div>`;
+},10000);
+
+async function loadAll(){
+  try{
+    const [c,a,s,ca]=await Promise.all([
+      db('GET','clients','','?order=nom'),
+      db('GET','artisans','','?order=nom'),
+      db('GET','sav','','?order=created_at.desc'),
+      db('GET','chantier_artisans','','')
+    ]);
+    clearTimeout(timeout);
+    clients=c||[];artisans=a||[];savList=s||[];chantierArtisans=ca||[];
+    updateUI();
+    document.getElementById('loader').style.display='none';
+    goView(currentView);
+  }catch(e){
+    clearTimeout(timeout);
+    document.getElementById('loader').innerHTML=`<div style="text-align:center;padding:20px"><div style="font-size:32px;margin-bottom:12px">⚠️</div><div style="font-size:18px;font-weight:800;color:#ef4444;margin-bottom:8px">Erreur de connexion</div><div style="color:#64748b;font-size:13px;margin-bottom:8px">${e.message}</div><button onclick="location.reload()" style="padding:10px 20px;background:#2563eb;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700">🔄 Réessayer</button></div>`;
+  }
+}
+function startPolling(){
+  setInterval(async()=>{
+    try{
+      const [c,s]=await Promise.all([db('GET','clients','','?order=nom'),db('GET','sav','','?order=created_at.desc')]);
+      clients=c||clients;savList=s||savList;
+      updateUI();showSync('🔄 Synchronisé');
+      if(currentView==='dashboard')renderDashSav();
+    }catch{}
+  },15000);
+}
+
+function showSync(msg){
+  const s=document.getElementById('sync');
+  s.textContent=msg;s.style.display='block';
+  setTimeout(()=>s.style.display='none',2000);
+}
+function toast(msg,color='#10b981'){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.style.background=color;t.style.color='#fff';t.style.display='block';
+  setTimeout(()=>t.style.display='none',3000);
+}
+function openM(id){document.getElementById(id).classList.add('open');}
+function closeM(id){document.getElementById(id).classList.remove('open');}
+function toggleSB(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('overlay').style.display=document.getElementById('sidebar').classList.contains('open')?'block':'none';}
+function closeSB(){document.getElementById('sidebar').classList.remove('open');document.getElementById('overlay').style.display='none';}
+
+function clientSav(cid){return savList.filter(s=>s.client_id===cid);}
+function clientArtisans(cid){return chantierArtisans.filter(x=>x.client_id===cid).map(x=>artisans.find(a=>a.id===x.artisan_id)).filter(Boolean);}
+function alertes(){
+  return savList.filter(s=>s.statut!=='resolu'&&s.statut!=='intervenu'&&jours(s.date_signalement)>DELAI).map(s=>({sav:s,client:clients.find(c=>c.id===s.client_id),j:jours(s.date_signalement)})).filter(x=>x.client);
+}
+function statusBadge(statut){
+  const s=STATUTS[statut]||STATUTS.nouveau;
+  return `<span class="status ${s.cls}">${s.l}</span>`;
+}
+function updateUI(){
+  const al=alertes().length;
+  const ap=document.getElementById('alert-pill'),sb=document.getElementById('sb-nb');
+  if(al>0){ap.style.display='flex';document.getElementById('alert-count').textContent=al;sb.style.display='inline';sb.textContent=al;}
+  else{ap.style.display='none';sb.style.display='none';}
+  document.getElementById('sb-counts').textContent=`${clients.length} chantiers · ${savList.length} SAV`;
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.v===currentView));
+  const titles={dashboard:'Tableau de bord',clients:'Chantiers',sav:'Tous les SAV',artisans:'Artisans',alertes:'Alertes'};
+  document.getElementById('page-title').textContent=titles[currentView]||'';
+}
+
+// ══════════════════════════════════════════════
+// VIEWS
+// ══════════════════════════════════════════════
+function goView(v){
+  currentView=v;closeSB();updateUI();
+  const c=document.getElementById('content');
+  if(v==='dashboard')renderDashboard(c);
+  else if(v==='clients')renderClients(c);
+  else if(v==='sav')renderSav(c);
+  else if(v==='artisans')renderArtisans(c);
+  else if(v==='alertes')renderAlertes(c);
+}
+
+// ── DASHBOARD
+function renderDashboard(c){
+  c.innerHTML=`
+    <h1 style="font-size:21px;font-weight:800;margin-bottom:3px">Tableau de bord</h1>
+    <p style="color:#64748b;font-size:13px;margin-bottom:15px">MA 17 SUD — Vue d'ensemble en temps réel</p>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="font-weight:700;font-size:15px">🔧 SAV en cours</div>
+      <button onclick="goView('sav')" style="padding:5px 12px;border-radius:8px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:12px;font-weight:600">Voir tout →</button>
+    </div>
+    <div id="dash-sav-list"></div>
+    <!-- CARTE -->
+    <div id="dash-map-container" style="margin-top:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-weight:700;font-size:14px">Carte des chantiers</div>
+        <button onclick="toggleMapFullscreen()" id="fs-btn" style="padding:5px 11px;border-radius:8px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#374151;cursor:pointer;font-size:12px;font-weight:600">⛶ Plein écran</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:9px;flex-wrap:wrap" id="dash-map-filters">
+        <button onclick="toggleMapLayer('ouverture')" id="df-ouverture" style="padding:4px 11px;border-radius:20px;border:2px solid #7c3aed;background:#f3e8ff;color:#7c3aed;cursor:pointer;font-size:11px;font-weight:700">🔜 Ouverture (${clients.filter(c=>c.statut==='ouverture').length})</button>
+        <button onclick="toggleMapLayer('en_cours')" id="df-en_cours" style="padding:4px 11px;border-radius:20px;border:2px solid #ca8a04;background:#fefce8;color:#ca8a04;cursor:pointer;font-size:11px;font-weight:700">🏗 En cours (${clients.filter(c=>c.statut==='en_cours').length})</button>
+        <button onclick="toggleMapLayer('sav_en_cours')" id="df-sav_en_cours" style="padding:4px 11px;border-radius:20px;border:2px solid #ef4444;background:#fee2e2;color:#ef4444;cursor:pointer;font-size:11px;font-weight:700">🔧 SAV (${clients.filter(c=>clientSav(c.id).filter(s=>s.statut==='nouveau'||s.statut==='attente_intervention').length>0).length})</button>
+        <button onclick="toggleMapLayer('livre')" id="df-livre" style="padding:4px 11px;border-radius:20px;border:2px solid #10b981;background:#d1fae5;color:#065f46;cursor:pointer;font-size:11px;font-weight:700">✅ Livrés (${clients.filter(c=>c.statut==='livre').length})</button>
+      </div>
+      <div class="map-wrap">
+        <div class="map-bar"><span id="dash-map-label">🗺️ MA 17 SUD — Tous les chantiers</span></div>
+        <div id="map-main" style="height:380px;width:100%;transition:height .3s"></div>
+      </div>
+    </div>
+  `;
+  renderDashSav();
+  renderDashMap();
+}
+
+function renderDashSav(){
+  const el=document.getElementById('dash-sav-list');
+  if(!el)return;
+  const active=savList.filter(s=>s.statut==='nouveau'||s.statut==='attente_intervention');
+  if(active.length===0){
+    el.innerHTML='<div class="empty" style="padding:20px"><div class="big">✅</div><p style="color:#10b981;font-weight:700">Aucun SAV en cours !</p></div>';
+    return;
+  }
+  el.innerHTML=active.slice(0,10).map(s=>{
+    const client=clients.find(c=>c.id===s.client_id);
+    const artisan=artisans.find(a=>a.id===s.artisan_id);
+    const j=jours(s.date_signalement);
+    return `<div class="card" style="padding:10px 13px;cursor:pointer;margin-bottom:7px;border-left:3px solid #ef4444" onclick="openDetail('${s.client_id}')">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div style="min-width:0">
+          <div style="font-size:11px;color:#ef4444;font-weight:700">${client?.nom||'—'}</div>
+          <div style="font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.titre}</div>
+          <div style="font-size:11px;color:#64748b">${frDate(s.date_signalement)} · ${j}j${artisan?' · '+artisan.nom:''}</div>
+        </div>
+        ${statusBadge(s.statut)}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── CARTE DASHBOARD
+function renderDashMap(){
+  setTimeout(()=>{
+    const el=document.getElementById('map-main');
+    if(!el)return;
+    if(dashMapInst){dashMapInst.remove();dashMapInst=null;}
+    dashMapMarkers=[];
+    activeLayers=new Set(['ouverture','en_cours','sav_en_cours','livre','sav']);
+    ['ouverture','en_cours','sav_en_cours','livre'].forEach(l=>{
+      const btn=document.getElementById('df-'+l);
+      if(btn){btn.style.opacity='1';btn.style.textDecoration='none';}
+    });
+    const map=L.map(el,{zoomControl:true}).setView([45.748,-0.62],9);
+    dashMapInst=map;
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(map);
+    clients.forEach(c=>{
+      if(!c.lat||!c.lng)return;
+      const sv=clientSav(c.id);
+      const activeSav=sv.filter(s=>s.statut==='nouveau'||s.statut==='attente_intervention');
+      const color=activeSav.length>0||c.statut==='sav_en_cours'?'#ef4444':c.statut==='livre'?'#10b981':c.statut==='ouverture'?'#8b5cf6':c.statut==='en_cours'?'#eab308':'#94a3b8';
+      const label=c.statut==='livre'?'✓':activeSav.length>0?activeSav.length.toString():'';
+      const icon=L.divIcon({className:'',
+        html:`<div style="width:28px;height:28px;border-radius:50% 50% 50% 0;background:${color};border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);transform:rotate(-45deg);display:flex;align-items:center;justify-content:center"><span style="transform:rotate(45deg);color:#fff;font-size:9px;font-weight:800">${label}</span></div>`,
+        iconSize:[28,28],iconAnchor:[14,28],popupAnchor:[0,-32]});
+      const statut=CHANTIER_STATUTS[c.statut]||CHANTIER_STATUTS.en_cours;
+      const sv_info=activeSav.length>0?`<div style="color:#ef4444;font-size:12px;font-weight:600;margin-top:4px">🔧 ${activeSav.length} SAV actif(s)</div>`:'<div style="color:#10b981;font-size:12px;margin-top:4px">✓ Aucun SAV</div>';
+      const marker=L.marker([c.lat,c.lng],{icon});
+      marker.bindPopup(`<div style="font-family:-apple-system,sans-serif;min-width:200px;padding:2px">
+        <div style="font-weight:800;font-size:14px">${c.nom}</div>
+        <span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:${statut.cls.includes('sav')?'#fee2e2':statut.cls.includes('livre')?'#d1fae5':statut.cls.includes('ouverture')?'#f3e8ff':'#fefce8'};color:${statut.cls.includes('sav')?'#ef4444':statut.cls.includes('livre')?'#065f46':statut.cls.includes('ouverture')?'#7c3aed':'#ca8a04'}">${statut.l}</span>
+        <div style="font-size:11px;color:#64748b;margin-top:4px">${c.adresse||''}</div>
+        ${c.tel?`<div style="font-size:11px;margin-top:3px">📞 ${c.tel}</div>`:''}
+        ${sv_info}
+        <button onclick="window.__od('${c.id}')" style="margin-top:9px;width:100%;padding:8px;border:none;background:#2563eb;color:#fff;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;font-family:-apple-system,sans-serif">Ouvrir la fiche →</button>
+        ${c.statut!=='sav_en_cours'?`<button onclick="window.__sav('${c.id}')" style="margin-top:6px;width:100%;padding:8px;border:none;background:#fee2e2;color:#ef4444;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;font-family:-apple-system,sans-serif">🔧 Déclarer un SAV</button>`:''}
+      </div>`,{maxWidth:260});
+      // Determine layers
+      const mLayers=activeSav.length>0?['sav_en_cours','sav']:[c.statut];
+      marker.addTo(map);
+      dashMapMarkers.push({marker,layers:mLayers});
+    });
+    // Géolocalisation
+    if(navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(pos=>{
+        const lat=pos.coords.latitude,lng=pos.coords.longitude;
+        const myIcon=L.divIcon({className:'',html:'<div style="width:20px;height:20px;border-radius:50%;background:#2563eb;border:3px solid #fff;box-shadow:0 0 0 4px rgba(37,99,235,0.3);"></div>',iconSize:[20,20],iconAnchor:[10,10]});
+        L.marker([lat,lng],{icon:myIcon,zIndexOffset:1000}).addTo(map).bindPopup('<div style="font-family:-apple-system,sans-serif;font-weight:700;color:#2563eb">📍 Votre position</div>',{maxWidth:200});
+        L.circle([lat,lng],{radius:pos.coords.accuracy,color:'#2563eb',fillColor:'#2563eb',fillOpacity:0.08,weight:1}).addTo(map);
+      },()=>{},{enableHighAccuracy:true,timeout:10000});
+    }
+    window.__od=id=>openDetail(id);
+    window.__sav=async id=>{
+      const client=clients.find(c=>c.id===id);
+      if(!client)return;
+      const prevStatut=client.statut;
+      if(client.statut!=='sav_en_cours'){
+        try{
+          await db('PATCH','clients',{statut:'sav_en_cours',updated_at:new Date().toISOString()},`?id=eq.${id}`);
+          clients=clients.map(c=>c.id===id?{...c,statut:'sav_en_cours',_prev_statut:prevStatut}:c);
+          updateUI();
+        }catch(e){toast('Erreur: '+e.message,'#ef4444');return;}
+      }
+      // Fermer le popup et ouvrir le formulaire SAV avec revert si annulé
+      if(dashMapInst)dashMapInst.closePopup();
+      setTimeout(()=>openSavModalWithRevert(id,prevStatut),200);
+    };
+  },150);
+}
+
+function toggleMapLayer(layer){
+  if(activeLayers.has(layer)){activeLayers.delete(layer);}
+  else{activeLayers.add(layer);}
+  const btn=document.getElementById('df-'+layer);
+  if(btn){btn.style.opacity=activeLayers.has(layer)?'1':'0.4';btn.style.textDecoration=activeLayers.has(layer)?'none':'line-through';}
+  dashMapMarkers.forEach(({marker,layers})=>{
+    const visible=layers.some(l=>activeLayers.has(l));
+    if(visible&&!dashMapInst.hasLayer(marker))marker.addTo(dashMapInst);
+    else if(!visible&&dashMapInst.hasLayer(marker))dashMapInst.removeLayer(marker);
+  });
+}
+
+function toggleMapFullscreen(){
+  const container=document.getElementById('dash-map-container');
+  const btn=document.getElementById('fs-btn');
+  const mapEl=document.getElementById('map-main');
+  const isFs=container.classList.toggle('fullscreen');
+  btn.textContent=isFs?'✕ Fermer':'⛶ Plein écran';
+  mapEl.style.height=isFs?'calc(100vh - 180px)':'380px';
+  setTimeout(()=>{if(dashMapInst)dashMapInst.invalidateSize();},350);
+}
+
+// ── CLIENTS
+let cliFilter='';
+function renderClients(c){
+  const nbLivre=clients.filter(c=>c.statut==='livre').length;
+  c.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px">
+      <div><h1 style="font-size:20px;font-weight:800">Chantiers</h1><p style="color:#64748b;font-size:12px" id="cli-count">${clients.length} chantiers</p></div>
+      <button class="btn btn-primary" onclick="openClientModal(null)">+ Nouveau</button>
+    </div>
+    <div style="display:flex;gap:7px;margin-bottom:11px;flex-wrap:wrap">
+      <button class="btn btn-sm" style="background:#f1f5f9;color:#374151" onclick="filterCli('')">Tous (${clients.length})</button>
+      <button class="btn btn-sm ch-ouverture" onclick="filterCli('ouverture')">Ouverture (${clients.filter(c=>c.statut==='ouverture').length})</button>
+      <button class="btn btn-sm ch-en_cours" onclick="filterCli('en_cours')">En cours (${clients.filter(c=>c.statut==='en_cours').length})</button>
+      <button class="btn btn-sm ch-sav" onclick="filterCli('sav_en_cours')">SAV en cours (${clients.filter(c=>c.statut==='sav_en_cours').length})</button>
+      <button class="btn btn-sm ch-livre" onclick="filterCli('livre')">Livrés (${nbLivre})</button>
+      <button class="btn btn-sm ch-reserve" onclick="filterCli('reserve')">Réserves (${clients.filter(c=>c.statut==='reserve').length})</button>
+    </div>
+    <div class="search-wrap"><span class="search-ic">🔍</span><input type="text" placeholder="Rechercher un chantier…" oninput="searchCli(this.value)" id="cli-search"/></div>
+    <div id="cli-list"></div>
+  `;
+  renderCliList(clients);
+}
+function filterCli(f){cliFilter=f;const inp=document.getElementById('cli-search');if(inp)inp.value='';searchCli('');}
+function searchCli(q){
+  let list=cliFilter?clients.filter(c=>c.statut===cliFilter):clients;
+  if(q)list=list.filter(c=>c.nom.toLowerCase().includes(q.toLowerCase())||(c.adresse||'').toLowerCase().includes(q.toLowerCase()));
+  renderCliList(list);
+  const cc=document.getElementById('cli-count');
+  if(cc)cc.textContent=`${list.length} / ${clients.length}`;
+}
+function renderCliList(list){
+  const el=document.getElementById('cli-list');
+  if(!el)return;
+  if(list.length===0){el.innerHTML=`<div class="empty"><div class="big">🏡</div><p>Aucun chantier trouvé</p></div>`;return;}
+  el.innerHTML=list.map(c=>{
+    const sv=clientSav(c.id).length;
+    const s=CHANTIER_STATUTS[c.statut]||CHANTIER_STATUTS.en_cours;
+    return `<div class="cli-item" onclick="openDetail('${c.id}')">
+      <div class="cli-av" style="background:${c.statut==='sav_en_cours'?'#fee2e2':c.statut==='livre'?'#d1fae5':c.statut==='ouverture'?'#f3e8ff':c.statut==='en_cours'?'#fefce8':'#dbeafe'};color:${c.statut==='sav_en_cours'?'#ef4444':c.statut==='livre'?'#065f46':c.statut==='ouverture'?'#7c3aed':c.statut==='en_cours'?'#ca8a04':'#2563eb'}">${c.nom[0]}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:6px;overflow:hidden">
+          <span class="cli-name">${c.nom}</span>
+          <button onclick="event.stopPropagation();openClientModal('${c.id}')" style="margin-left:auto;flex-shrink:0;padding:3px 8px;border-radius:7px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:11px">✏</button>
+        </div>
+        <div class="cli-addr">${c.adresse||'Adresse non renseignée'}</div>
+        ${c.notes_ct?'<div style="font-size:10px;color:#ca8a04;margin-top:2px">📋 '+(c.ct_responsable?c.ct_responsable+' — ':'')+c.notes_ct.substring(0,40)+(c.notes_ct.length>40?'…':'')+'</div>':''}
+        <div class="statut-wrap" onclick="event.stopPropagation()">
+          <span class="ch-badge ${s.cls}" style="cursor:pointer;margin-top:3px;display:inline-block" onclick="toggleStatutMenu('menu-${c.id}',event)">${s.l} ▾</span>
+          <div class="statut-menu" id="menu-${c.id}">
+            <button onclick="chgStatutClient('${c.id}','ouverture','menu-${c.id}')"><span style="background:#f3e8ff;color:#7c3aed;padding:2px 8px;border-radius:20px;font-size:11px">Ouverture à venir</span></button>
+            <button onclick="chgStatutClient('${c.id}','en_cours','menu-${c.id}')"><span style="background:#fefce8;color:#ca8a04;padding:2px 8px;border-radius:20px;font-size:11px">En cours</span></button>
+            <button onclick="chgStatutClient('${c.id}','sav_en_cours','menu-${c.id}')"><span style="background:#fee2e2;color:#ef4444;padding:2px 8px;border-radius:20px;font-size:11px">SAV en cours 🔧</span></button>
+            <button onclick="chgStatutClient('${c.id}','livre','menu-${c.id}')"><span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:20px;font-size:11px">Livré ✓</span></button>
+            <button onclick="chgStatutClient('${c.id}','reserve','menu-${c.id}')"><span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:20px;font-size:11px">Réserves ⚠</span></button>
+          </div>
+        </div>
+        ${(c.statut==='en_cours'||c.statut==='ouverture')?`
+        <div id="notes-inline-${c.id}" style="margin-top:6px">
+          ${c.notes_ct||c.ct_responsable?
+            `<div style="background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:6px 10px;font-size:11px;color:#374151;display:flex;align-items:flex-start;justify-content:space-between;gap:6px">
+              <div>
+                ${c.ct_responsable?'<span style="color:#ca8a04;font-weight:700">👤 '+c.ct_responsable+'</span><br>':''}
+                <span>${c.notes_ct||''}</span>
+              </div>
+              <button onclick="event.stopPropagation();toggleInlineNotes('${c.id}')" style="flex-shrink:0;padding:2px 6px;border-radius:6px;border:1px solid #fde68a;background:#fff;color:#ca8a04;cursor:pointer;font-size:10px">✏</button>
+            </div>`
+          :`<button onclick="event.stopPropagation();toggleInlineNotes('${c.id}')" style="padding:3px 9px;border-radius:7px;border:1.5px dashed #e2e8f0;background:#f8fafc;color:#94a3b8;cursor:pointer;font-size:11px;font-family:inherit">📋 + Note CT</button>`}
+          <div id="inline-edit-${c.id}" style="display:none;margin-top:6px;background:#fff;border:1.5px solid #2563eb;border-radius:10px;padding:10px">
+            <div style="margin-bottom:6px">
+              <input id="il-resp-${c.id}" value="${c.ct_responsable||''}" placeholder="Responsable…" onclick="event.stopPropagation()" style="width:100%;padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;font-family:inherit;margin-bottom:5px"/>
+              <textarea id="il-notes-${c.id}" placeholder="Parlez ou tapez… L'IA structurera vos notes 🎤" onclick="event.stopPropagation()" style="width:100%;padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;font-family:inherit;resize:vertical;min-height:70px">${c.notes_ct||''}</textarea>
+              <div style="display:flex;gap:5px;margin-top:5px;align-items:center">
+                <button onclick="event.stopPropagation();startVoiceCT('${c.id}','il')" id="voice-btn-${c.id}" class="voice-btn idle">🎤 Dicter</button>
+                <button onclick="event.stopPropagation();genNotesCT('${c.id}')" id="ai-btn-${c.id}" style="padding:4px 9px;border-radius:7px;border:none;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;cursor:pointer;font-size:10px;font-weight:700;font-family:inherit">✨ Structurer avec IA</button>
+                <span id="ai-status-${c.id}" class="ai-processing">✨ Analyse en cours…</span>
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;justify-content:flex-end">
+              ${c.notes_ct?`<button onclick="event.stopPropagation();deleteNotesCTInline('${c.id}')" style="padding:4px 8px;border-radius:7px;border:1.5px solid #fee2e2;background:#fff5f5;color:#ef4444;cursor:pointer;font-size:11px;font-family:inherit">🗑</button>`:''}
+              <button onclick="event.stopPropagation();toggleInlineNotes('${c.id}')" style="padding:4px 8px;border-radius:7px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:11px;font-family:inherit">Annuler</button>
+              <button onclick="event.stopPropagation();saveNotesCTInline('${c.id}')" style="padding:4px 8px;border-radius:7px;border:none;background:#2563eb;color:#fff;cursor:pointer;font-size:11px;font-family:inherit">💾 Sauvegarder</button>
+            </div>
+          </div>
+        </div>`:``}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0">
+        <div style="display:flex;align-items:center;gap:5px">
+          <div style="text-align:right"><div style="font-size:18px;font-weight:800;color:#2563eb">${sv}</div><div style="font-size:10px;color:#94a3b8">SAV</div></div>
+        </div>
+        <div style="display:flex;gap:4px">
+          ${c.tel?'<a href="tel:'+c.tel+'" onclick="event.stopPropagation()" title="'+(c.conjoint1||c.tel)+'" style="padding:5px 8px;border-radius:8px;background:#dbeafe;color:#2563eb;font-size:12px;font-weight:700;text-decoration:none">📞1</a>':''}
+          ${c.tel2?'<a href="tel:'+c.tel2+'" onclick="event.stopPropagation()" title="'+(c.conjoint2||c.tel2)+'" style="padding:5px 8px;border-radius:8px;background:#e0e7ff;color:#4338ca;font-size:12px;font-weight:700;text-decoration:none">📞2</a>':''}
+          ${c.email?'<a href="mailto:'+c.email+(c.email2?','+c.email2:'')+'" onclick="event.stopPropagation()" style="padding:5px 8px;border-radius:8px;background:#ecfdf5;color:#10b981;font-size:12px;font-weight:700;text-decoration:none">✉</a>':''}
+          ${c.lat&&c.lng?'<button onclick="event.stopPropagation();quickNav(\''+c.id+'\')" style="padding:5px 8px;border-radius:8px;background:#fef3c7;color:#d97706;border:none;cursor:pointer;font-size:12px;font-weight:700">🧭</button>':''}
+        </div>
+        <div style="font-size:10px;color:#64748b;text-align:right;line-height:1.5">
+          ${c.tel?'<div>'+(c.conjoint1?'<b>'+c.conjoint1.split(' ').slice(-1)[0]+'</b> ':'') +c.tel+'</div>':''}
+          ${c.tel2?'<div>'+(c.conjoint2?'<b>'+c.conjoint2.split(' ').slice(-1)[0]+'</b> ':'')+c.tel2+'</div>':''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleStatutMenu(menuId,event){
+  event.stopPropagation();
+  document.querySelectorAll('.statut-menu.open').forEach(m=>{if(m.id!==menuId)m.classList.remove('open');});
+  document.getElementById(menuId)?.classList.toggle('open');
+}
+document.addEventListener('click',()=>{document.querySelectorAll('.statut-menu.open').forEach(m=>m.classList.remove('open'));});
+
+async function chgStatutClient(clientId,statut,menuId){
+  document.getElementById(menuId)?.classList.remove('open');
+  try{
+    // Si passage en Livré → vérifier SAV actifs
+    if(statut==='livre'){
+      const activeSavs=savList.filter(s=>s.client_id===clientId&&s.statut!=='resolu');
+      if(activeSavs.length>0){
+        const client=clients.find(c=>c.id===clientId);
+        const ok=confirm(`⚠️ ${client?.nom} a encore ${activeSavs.length} SAV en cours.
+
+En passant en Livré, ces SAV seront automatiquement marqués comme Résolus.
+
+Confirmer ?`);
+        if(!ok)return;
+        // Résoudre tous les SAV actifs
+        const now=new Date().toISOString();
+        for(const s of activeSavs){
+          await db('PATCH','sav',{statut:'resolu',date_intervention:today(),updated_at:now},`?id=eq.${s.id}`);
+          savList=savList.map(x=>x.id===s.id?{...x,statut:'resolu',date_intervention:today()}:x);
+        }
+        toast(`✅ ${activeSavs.length} SAV marqué(s) Résolu — Chantier Livré`);
+      }
+    }
+    const prevStatut=clients.find(c=>c.id===clientId)?.statut||'en_cours';
+    await db('PATCH','clients',{statut,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+    clients=clients.map(c=>c.id===clientId?{...c,statut,_prev_statut:prevStatut}:c);
+    const labels={ouverture:'Ouverture à venir',en_cours:'En cours',sav_en_cours:'SAV en cours',livre:'Livré',reserve:'Réserves'};
+    if(statut==='sav_en_cours'){
+      const activeSavs=savList.filter(s=>s.client_id===clientId&&s.statut!=='resolu');
+      toast(`Statut → ${labels[statut]}`);
+      updateUI();
+      if(currentView==='clients')goView('clients');
+      // Ouvrir le formulaire SAV si aucun SAV actif
+      if(activeSavs.length===0){
+        const prevStatut=clients.find(c=>c.id===clientId)?._prev_statut||'en_cours';
+        setTimeout(()=>openSavModalWithRevert(clientId,prevStatut),300);
+      }
+    } else {
+      toast(`Statut → ${labels[statut]}`);
+      updateUI();
+      if(currentView==='clients')goView('clients');
+    }
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+function quickNav(clientId){
+  const c=clients.find(x=>x.id===clientId);
+  if(!c||!c.lat||!c.lng)return;
+  window.open(`https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}&travelmode=driving`,'_blank');
+}
+
+// ── SAV LIST
+function renderSav(c){
+  savStatutFilter=null;
+  const sv=savList;
+  c.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px">
+      <h1 style="font-size:20px;font-weight:800">Tous les SAV</h1>
+      <button class="btn btn-primary" onclick="openSavFromList()">+ Nouveau SAV</button>
+    </div>
+    <div class="search-wrap" style="margin-bottom:10px">
+      <span class="search-ic">🔍</span>
+      <input type="text" id="sav-search" placeholder="Rechercher par client, titre…" oninput="applyAllSavFilters(this.value)"/>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+      <button onclick="filterSavByStatut(null)" id="sf-all" style="padding:4px 12px;border-radius:20px;border:2px solid #2563eb;background:#eff6ff;color:#2563eb;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit">Tous (${sv.length})</button>
+      <button onclick="filterSavByStatut('nouveau')" id="sf-nouveau" class="status s-nouveau" style="cursor:pointer;font-family:inherit">Nouveau (${sv.filter(s=>s.statut==='nouveau').length})</button>
+      <button onclick="filterSavByStatut('attente_intervention')" id="sf-attente_intervention" class="status s-attente" style="cursor:pointer;font-family:inherit">Attente artisan (${sv.filter(s=>s.statut==='attente_intervention').length})</button>
+      <button onclick="filterSavByStatut('resolu')" id="sf-resolu" class="status s-resolu" style="cursor:pointer;font-family:inherit">Résolu (${sv.filter(s=>s.statut==='resolu').length})</button>
+    </div>
+    <div id="sav-list-container"></div>
+  `;
+  renderSavItems(sv);
+}
+
+function renderSavItems(list){
+  const el=document.getElementById('sav-list-container');
+  if(!el)return;
+  if(list.length===0){el.innerHTML='<div class="empty"><div class="big">🔧</div><p>Aucun dossier SAV</p></div>';return;}
+
+  // Trier: nouveaux sans contact d'abord, puis par client, puis par ancienneté
+  const now=Date.now();
+  const sorted=[...list].sort((a,b)=>{
+    // Priorité 1: en retard (attente > 7j) en premier, les plus vieux en haut
+    const aRetard=a.statut==='attente_intervention'&&jours(a.date_mail||a.date_signalement)>7;
+    const bRetard=b.statut==='attente_intervention'&&jours(b.date_mail||b.date_signalement)>7;
+    if(aRetard&&!bRetard)return -1;
+    if(!aRetard&&bRetard)return 1;
+    // Priorité 2: nouveaux avant attente
+    const order={nouveau:0,attente_intervention:1,resolu:2};
+    if(order[a.statut]!==order[b.statut])return order[a.statut]-order[b.statut];
+    // Priorité 3: par nom de client
+    const cA=clients.find(c=>c.id===a.client_id)?.nom||'';
+    const cB=clients.find(c=>c.id===b.client_id)?.nom||'';
+    if(cA!==cB)return cA.localeCompare(cB);
+    // Priorité 4: plus ancien en premier
+    return new Date(a.date_signalement)-new Date(b.date_signalement);
+  });
+
+  // Grouper par client
+  const grouped=[];
+  const seen=new Set();
+  sorted.forEach(s=>{
+    if(!seen.has(s.client_id)){
+      seen.add(s.client_id);
+      grouped.push({client_id:s.client_id,savs:sorted.filter(x=>x.client_id===s.client_id)});
+    }
+  });
+
+  el.innerHTML=grouped.map(({client_id,savs})=>{
+    const client=clients.find(c=>c.id===client_id);
+    const allResolved=savs.every(s=>s.statut==='resolu');
+    const hasRetard=savs.some(s=>s.statut==='attente_intervention'&&jours(s.date_mail||s.date_signalement)>7);
+    return `<div class="sav-group${allResolved?' resolved':''}${hasRetard?' urgent':''}" style="border-radius:13px;border:1.5px solid ${allResolved?'#a7f3d0':hasRetard?'#fca5a5':'#e2e8f0'};background:${allResolved?'#f0fdf4':hasRetard?'#fff5f5':'#fff'};margin-bottom:12px;overflow:hidden;">
+      <div style="padding:10px 14px;background:${allResolved?'#ecfdf5':hasRetard?'#fee2e2':'#f8fafc'};border-bottom:1px solid ${allResolved?'#a7f3d0':hasRetard?'#fca5a5':'#e2e8f0'};display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="openDetail('${client_id}')">
+        <div>
+          <span style="font-weight:700;font-size:13px;color:${allResolved?'#065f46':hasRetard?'#ef4444':'#0f172a'}">${client?.nom||'—'}</span>
+          <span style="font-size:11px;color:#64748b;margin-left:8px">${savs.length} SAV${allResolved?' · ✅ Tout résolu':''}</span>
+        </div>
+        <span style="font-size:11px;color:#94a3b8">Voir fiche →</span>
+      </div>
+      ${savs.map(s=>renderOneSav(s,client)).join('')}
+    </div>`;
+  }).join('');
+}
+
+function renderOneSav(s,client){
+  const artisan=artisans.find(a=>a.id===s.artisan_id);
+  const j=jours(s.date_signalement);
+  const jMail=s.date_mail?jours(s.date_mail):null;
+  const enRetard=s.statut==='attente_intervention'&&jMail>7;
+  const cid=s.client_id,sid=s.id;
+
+  // Mail pré-rempli
+  const cc=[client?.email,client?.email2].filter(Boolean).join(',');
+  const tels=[
+    client?.tel?(client?.conjoint1?client.conjoint1+' : '+client.tel:client.tel):'',
+    client?.tel2?(client?.conjoint2?client.conjoint2+' : '+client.tel2:client.tel2):''
+  ].filter(Boolean).join('%0A');
+  const body='Bonjour,%0A%0A'
+    +'Nous faisons suite au dossier SAV suivant :%0A'
+    +'━━━━━━━━━━━━━━━━━━━━%0A'
+    +'Client : '+(client?.nom||'')+'%0A'
+    +'Adresse : '+encodeURIComponent(client?.adresse||'')+'%0A'
+    +'%0ATéléphones :%0A'+tels+'%0A'
+    +'━━━━━━━━━━━━━━━━━━━━%0A'
+    +'Intervention à réaliser :%0A'
+    +encodeURIComponent(s.titre)+(s.notes?'%0A'+encodeURIComponent(s.notes):'')+'%0A'
+    +'━━━━━━━━━━━━━━━━━━━━%0A%0A'
+    +'Merci de confirmer votre disponibilité.%0A%0ACordialement';
+  const mailHref=artisan?.email?`mailto:${artisan.email}?cc=${cc}&subject=${encodeURIComponent('Intervention SAV : '+s.titre)}&body=${body}`:'';
+  const relanceBody='Bonjour,%0A%0ANous revenons vers vous concernant le dossier SAV ci-dessous, resté sans réponse depuis '+jMail+' jours.%0A%0A'+body;
+  const relanceHref=artisan?.email?`mailto:${artisan.email}?cc=${cc}&subject=${encodeURIComponent('RELANCE - Intervention SAV : '+s.titre)}&body=${relanceBody}`:'';
+
+  return `<div style="padding:12px 14px;border-bottom:1px solid #f1f5f9">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:13px">${s.titre}</div>
+        <div style="font-size:11px;color:#64748b;margin-top:2px">Signalé le ${frDate(s.date_signalement)} · ${j}j${artisan?' · '+artisan.nom:''}</div>
+        ${s.statut==='attente_intervention'&&jMail!==null?`<div style="font-size:11px;font-weight:600;margin-top:2px;color:${enRetard?'#ef4444':'#d97706'}">
+          ${enRetard?'⚠ Relance nécessaire — ':'✉ Mail envoyé — '}${jMail}j sans réponse
+        </div>`:''}
+        ${s.notes?`<div style="font-size:11px;color:#94a3b8;font-style:italic;margin-top:2px">${s.notes}</div>`:''}
+      </div>
+      <!-- PASTILLE STATUT CLIQUABLE -->
+      <div class="statut-wrap" onclick="event.stopPropagation()">
+        <span class="status ${STATUTS[s.statut]?.cls||'s-nouveau'}" style="cursor:pointer" onclick="toggleSavStatutMenu('smenu-${sid}',event)">
+          ${STATUTS[s.statut]?.l||'Nouveau'} ▾
+        </span>
+        <div class="statut-menu" id="smenu-${sid}" style="right:0;left:auto">
+          ${Object.entries(STATUTS).filter(([k])=>k!==s.statut).map(([k,v])=>`
+            <button onclick="chgStatut('${sid}','${k}','${cid}')"><span class="status ${v.cls}">${v.l}</span></button>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+    <!-- ACTIONS selon statut -->
+    <div style="display:flex;gap:7px;margin-top:10px;flex-wrap:wrap;align-items:center;justify-content:space-between">
+      <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+        ${s.statut==='nouveau'&&artisan?.email?
+          `<a href="${mailHref}" class="btn btn-primary btn-sm" style="text-decoration:none" onclick="event.stopPropagation();sendMailAndUpdateStatus('${sid}','${cid}',event)">✉ Demande intervention</a>`:
+         s.statut==='attente_intervention'&&artisan?.email?
+          `<a href="${relanceHref}" class="btn btn-sm" style="text-decoration:none;background:#fff7ed;color:#d97706;border:1.5px solid #fed7aa" onclick="event.stopPropagation()">🔁 Envoyer une relance</a>`:
+         s.statut==='resolu'?
+          `<span style="font-size:12px;color:#10b981;font-weight:600">✅ Résolu${s.date_intervention?' le '+frDate(s.date_intervention):''}</span>`:''}
+      </div>
+      <button onclick="event.stopPropagation();delSavFromList('${sid}','${cid}')" style="padding:4px 9px;border-radius:7px;border:1.5px solid #fee2e2;background:#fff5f5;color:#ef4444;cursor:pointer;font-size:11px;font-family:inherit">🗑</button>
+    </div>
+  </div>`;
+}
+
+
+function toggleSavStatutMenu(menuId,event){
+  event.stopPropagation();
+  document.querySelectorAll('.statut-menu.open').forEach(m=>{if(m.id!==menuId)m.classList.remove('open');});
+  document.getElementById(menuId)?.classList.toggle('open');
+}
+
+async function sendMailAndUpdateStatus(savId,clientId,event){
+  // Enregistrer date_mail et passer en attente_intervention
+  const now=today();
+  try{
+    await db('PATCH','sav',{statut:'attente_intervention',date_mail:now,updated_at:new Date().toISOString()},`?id=eq.${savId}`);
+    savList=savList.map(s=>s.id===savId?{...s,statut:'attente_intervention',date_mail:now}:s);
+    updateUI();
+    if(currentView==='sav')goView('sav');
+    else if(clientId)openDetail(clientId);
+    toast('✉ Mail envoyé — Statut passé en Attente artisan');showSync('💾 Sauvegardé');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+function filterSavByStatut(statut){
+  savStatutFilter=statut;
+  const allBtn=document.getElementById('sf-all');
+  if(allBtn){allBtn.style.borderColor=statut===null?'#2563eb':'#e2e8f0';allBtn.style.background=statut===null?'#eff6ff':'#fff';allBtn.style.fontWeight=statut===null?'700':'400';}
+  Object.keys(STATUTS).forEach(k=>{
+    const btn=document.getElementById('sf-'+k);
+    if(btn){btn.style.fontWeight=statut===k?'700':'400';btn.style.opacity=statut===k||statut===null?'1':'0.5';}
+  });
+  applyAllSavFilters(document.getElementById('sav-search')?.value||'');
+}
+
+function applyAllSavFilters(q){
+  let list=savList;
+  if(savStatutFilter)list=list.filter(s=>s.statut===savStatutFilter);
+  if(q){
+    const lq=q.toLowerCase();
+    list=list.filter(s=>{
+      const client=clients.find(c=>c.id===s.client_id);
+      return (client?.nom||'').toLowerCase().includes(lq)||s.titre.toLowerCase().includes(lq)||(s.notes||'').toLowerCase().includes(lq);
+    });
+  }
+  renderSavItems(list);
+}
+
+// ── ARTISANS
+function renderArtisans(c){
+  c.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px">
+      <h1 style="font-size:20px;font-weight:800">Artisans</h1>
+      <button class="btn btn-primary" onclick="openArtisanModal(null)">+ Ajouter</button>
+    </div>
+    <div>${artisans.length===0?`<div class="empty"><div class="big">👷</div><p>Aucun artisan enregistré</p></div>`:
+    artisans.map(a=>{
+      const nb=chantierArtisans.filter(x=>x.artisan_id===a.id).length;
+      const nbSav=savList.filter(s=>s.artisan_id===a.id).length;
+      return `<div class="card" style="display:flex;align-items:center;gap:11px">
+        <div style="width:38px;height:38px;border-radius:9px;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0">👷</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:13px">${a.entreprise||a.nom} <span style="color:#64748b;font-weight:400">— ${a.metier||''}</span></div>
+          <div style="font-size:12px;color:#64748b">${a.nom}${a.tel?' · '+a.tel:''}${a.email?' · '+a.email:''}</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:2px">${nb} chantier(s) · ${nbSav} SAV</div>
+        </div>
+        <div style="display:flex;gap:5px;flex-shrink:0">
+          ${a.tel?`<a href="tel:${a.tel}" class="btn btn-primary" style="padding:7px 10px;font-size:13px;text-decoration:none">📞</a>`:''}
+          <button class="btn btn-secondary" style="padding:7px 9px" onclick="openArtisanModal('${a.id}')">✏</button>
+          <button class="btn btn-danger" style="padding:7px 9px" onclick="delArtisan('${a.id}')">🗑</button>
+        </div>
+      </div>`;
+    }).join('')}</div>
+  `;
+}
+
+// ── ALERTES
+function renderAlertes(c){
+  const al=alertes();
+  c.innerHTML=`
+    <h1 style="font-size:20px;font-weight:800;margin-bottom:3px">Alertes</h1>
+    <p style="color:#64748b;font-size:13px;margin-bottom:13px">Dossiers en retard (> ${DELAI} jours)</p>
+    ${al.length===0?`<div class="empty"><div class="big">✅</div><p style="font-weight:700;color:#10b981">Aucun retard en cours !</p></div>`:
+    al.map(({sav:s,client:cl,j})=>{
+      const artisan=artisans.find(x=>x.id===s.artisan_id);
+      return `<div class="card warn" style="margin-bottom:10px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:14px">${s.titre}</div>
+            <div style="font-size:12px;color:#2563eb;font-weight:600;cursor:pointer" onclick="openDetail('${cl.id}')">${cl.nom}</div>
+            <div style="font-size:12px;color:#64748b">${cl.adresse||''}</div>
+            <div style="font-size:12px;color:#ef4444;font-weight:600;margin-top:4px">⏱ ${j} jours</div>
+            ${artisan?`<div style="font-size:12px;color:#374151;margin-top:2px">${artisan.nom}${artisan.tel?' · '+artisan.tel:''}</div>`:''}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">
+            ${artisan?.tel?`<a href="tel:${artisan.tel}" class="btn btn-primary" style="font-size:12px;padding:6px 11px;text-decoration:none">📞</a>`:''}
+            ${artisan?.email?`<a href="mailto:${artisan.email}?subject=URGENT SAV: ${encodeURIComponent(s.titre)}" class="btn btn-danger" style="font-size:12px;padding:6px 11px;text-decoration:none">✉</a>`:''}
+            <button class="btn btn-green" style="font-size:12px;padding:6px 11px" onclick="chgStatut('${s.id}','resolu','${cl.id}')">✓ Résoudre</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('')}
+  `;
+}
+
+// ══════════════════════════════════════════════
+// CLIENT DETAIL
+// ══════════════════════════════════════════════
+function openDetail(clientId){
+  const c=clients.find(x=>x.id===clientId);
+  if(!c)return;
+  const ac=clientArtisans(clientId);
+  const sv=clientSav(clientId);
+  const photos=JSON.parse(localStorage.getItem('photos_'+clientId)||'[]');
+  const statut=CHANTIER_STATUTS[c.statut]||CHANTIER_STATUTS.en_cours;
+  document.getElementById('m-detail-title').textContent=c.nom;
+  document.getElementById('m-detail-body').innerHTML=`
+    <div class="cli-head">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+        <div>
+          <div style="font-size:19px;font-weight:800">${c.nom}</div>
+          <span class="ch-badge ${statut.cls}" style="margin-top:4px;display:inline-block">${statut.l}</span>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="openClientModal('${c.id}');closeM('m-detail')" style="flex-shrink:0">✏ Modifier</button>
+      </div>
+      <div style="opacity:.85;font-size:13px;margin-top:8px">${c.adresse||'Adresse non renseignée'}</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:10px">
+        ${c.conjoint1||c.tel?'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+(c.conjoint1?'<span style="font-size:12px;opacity:.9;font-weight:600">'+c.conjoint1+'</span>':'')+(c.tel?'<a href="tel:'+c.tel+'" style="color:#93c5fd;font-size:12px">📞 '+c.tel+'</a>':'')+(c.email?'<a href="mailto:'+c.email+'" style="color:#93c5fd;font-size:12px">✉ '+c.email+'</a>':'')+'</div>':''}
+        ${c.conjoint2||c.tel2?'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+(c.conjoint2?'<span style="font-size:12px;opacity:.9;font-weight:600">'+c.conjoint2+'</span>':'')+(c.tel2?'<a href="tel:'+c.tel2+'" style="color:#93c5fd;font-size:12px">📞 '+c.tel2+'</a>':'')+(c.email2?'<a href="mailto:'+c.email2+'" style="color:#93c5fd;font-size:12px">✉ '+c.email2+'</a>':'')+'</div>':''}
+        ${c.date_reception?'<div style="font-size:12px;opacity:.7">🏠 Réception : '+frDate(c.date_reception)+'</div>':''}
+      </div>
+      ${c.email&&c.email2?'<div style="margin-top:10px"><a href="mailto:'+c.email+','+c.email2+'" style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.15);color:#fff;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;text-decoration:none">✉ Écrire aux deux</a></div>':''}
+    </div>
+    <div class="nav-gps">
+      <div class="nav-gps-title">🧭 Itinéraire vers ce chantier</div>
+      <div class="nav-btns">
+        <button class="nav-app" onclick="openNav('google','${c.id}')"><span style="font-size:16px">🗺️</span>Google Maps</button>
+        <button class="nav-app" onclick="openNav('apple','${c.id}')"><span style="font-size:16px">🍎</span>Plans Apple</button>
+        <button class="nav-app" onclick="openNav('waze','${c.id}')"><span style="font-size:16px">🔵</span>Waze</button>
+      </div>
+    </div>
+
+    ${c.statut==='en_cours'||c.statut==='ouverture'?`
+    <div style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">
+        <div style="font-weight:700;font-size:13px">📋 Notes conducteur de travaux</div>
+        <div style="display:flex;gap:6px">
+          ${c.notes_ct?`<button class="btn btn-danger btn-sm" onclick="deleteNotesCT('${c.id}')">🗑</button>`:''}
+          <button class="btn btn-secondary btn-sm" onclick="toggleNotesEdit('${c.id}')">✏ Modifier</button>
+        </div>
+      </div>
+      <div id="notes-ct-view-${c.id}">
+        ${c.ct_responsable?'<div style="font-size:12px;color:#2563eb;font-weight:600;margin-bottom:5px">👤 Responsable : '+c.ct_responsable+'</div>':''}
+        ${c.notes_ct
+          ?'<div style="background:#fefce8;border:1.5px solid #fde68a;border-radius:10px;padding:10px 13px;font-size:13px;color:#374151;white-space:pre-wrap">'+c.notes_ct+'</div>'
+          :'<div style="color:#94a3b8;font-size:13px;font-style:italic">Aucune note — cliquez sur Modifier pour en ajouter</div>'}
+      </div>
+      <div id="notes-ct-edit-${c.id}" style="display:none">
+        <div class="field" style="margin-bottom:8px">
+          <label>Responsable / Attribué à</label>
+          <input id="ct-resp-${c.id}" value="${c.ct_responsable||''}" placeholder="Ex: Jean-Pierre, Chef de chantier…" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:13px;outline:none;background:#f8fafc;font-family:inherit"/>
+        </div>
+        <div class="field">
+          <label>Tâches avant livraison</label>
+          <textarea id="ct-notes-${c.id}" placeholder="Parlez ou tapez… L'IA structurera vos notes 🎤" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:13px;outline:none;background:#f8fafc;font-family:inherit;resize:vertical;min-height:90px">${c.notes_ct||''}</textarea>
+          <div style="display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap">
+            <button onclick="startVoiceCT('${c.id}','ct')" id="voice-btn-${c.id}" class="voice-btn idle">🎤 Dicter</button>
+            <button onclick="genNotesCT('${c.id}')" id="ai-btn-${c.id}" style="padding:5px 11px;border-radius:7px;border:none;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit">✨ Structurer avec IA</button>
+            <span id="ai-status-${c.id}" class="ai-processing">✨ Analyse en cours…</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button onclick="toggleNotesEdit('${c.id}')" class="btn btn-secondary btn-sm">Annuler</button>
+          <button onclick="saveNotesCT('${c.id}')" class="btn btn-primary btn-sm">💾 Enregistrer</button>
+        </div>
+      </div>
+    </div>`:''}
+    <div style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">
+        <div style="font-weight:700;font-size:13px">👷 Artisans (${ac.length})</div>
+        <button class="btn btn-secondary btn-sm" onclick="openClientModal('${c.id}');closeM('m-detail')">Gérer</button>
+      </div>
+      ${ac.length===0?`<p style="color:#94a3b8;font-size:13px">Aucun artisan associé</p>`:
+      ac.map(a=>`<div class="card" style="display:flex;align-items:center;gap:10px;margin-bottom:7px;padding:10px 13px">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:13px">${a.entreprise||a.nom} <span style="color:#64748b;font-weight:400">— ${a.metier||''}</span></div>
+          <div style="font-size:12px;color:#64748b">${a.nom}${a.tel?' · '+a.tel:''}${a.email?' · '+a.email:''}</div>
+        </div>
+        ${a.tel?`<a href="tel:${a.tel}" class="btn btn-primary" style="font-size:12px;padding:6px 11px;text-decoration:none;flex-shrink:0">📞</a>`:''}
+      </div>`).join('')}
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">
+      <div style="font-weight:700;font-size:13px">🔧 SAV (${sv.length})</div>
+      <button class="btn btn-primary btn-sm" onclick="openSavModal('${clientId}',null)">+ Nouveau SAV</button>
+    </div>
+    ${sv.length===0?`<p style="color:#94a3b8;font-size:13px">Aucun dossier SAV</p>`:
+    sv.map(s=>{
+      const artisan=artisans.find(a=>a.id===s.artisan_id);
+      const j=jours(s.date_signalement);
+      const retard=s.statut!=='resolu'&&s.statut!=='intervenu'&&j>DELAI;
+      return `<div class="sav-item${retard?' retard':''}">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:13px">${s.titre}</div>
+            <div style="font-size:11px;color:#64748b">Signalé le ${frDate(s.date_signalement)} · ${j}j</div>
+            ${artisan?`<div style="font-size:11px;color:#2563eb">→ ${artisan.metier||''}: ${artisan.nom}${artisan.tel?' ('+artisan.tel+')':''}</div>`:''}
+            ${s.notes?`<div style="font-size:11px;color:#94a3b8;font-style:italic">${s.notes}</div>`:''}
+            ${retard?`<div style="font-size:11px;color:#ef4444;font-weight:600">⚠ ${j} jours</div>`:''}
+          </div>
+          ${statusBadge(s.statut)}
+        </div>
+        <div style="display:flex;gap:5px;margin-top:9px;flex-wrap:wrap">
+          ${Object.entries(STATUTS).filter(([k])=>k!==s.statut).slice(0,3).map(([k,v])=>`<button class="btn btn-sm ${v.cls}" onclick="chgStatut('${s.id}','${k}','${clientId}')">→ ${v.l}</button>`).join('')}
+          <button class="btn btn-secondary btn-sm" onclick="openSavModal('${clientId}','${s.id}')">✏</button>
+          <button class="btn btn-danger btn-sm" onclick="delSav('${s.id}','${clientId}')">🗑</button>
+          ${artisan?.email?`<a href="mailto:${artisan.email}?subject=SAV: ${encodeURIComponent(s.titre)}&body=Bonjour ${artisan.nom},%0A%0ASAV : ${encodeURIComponent(s.titre)}%0AClient : ${encodeURIComponent(c.nom)}%0AAdresse : ${encodeURIComponent(c.adresse||'')}%0A%0AMerci." class="btn btn-green btn-sm" style="text-decoration:none">✉</a>`:''}
+        </div>
+      </div>`;
+    }).join('')}
+  `;
+  openM('m-detail');
+}
+
+async function genNotesCT(clientId){
+  const client=clients.find(c=>c.id===clientId);
+  if(!client)return;
+
+  // Get context: artisans, existing SAV, existing notes
+  const ac=clientArtisans(clientId);
+  const sv=clientSav(clientId);
+  const existingNotes=document.getElementById('ct-notes-'+clientId)?.value||
+                      document.getElementById('il-notes-'+clientId)?.value||'';
+  const resp=document.getElementById('il-resp-'+clientId)?.value||
+             document.getElementById('ct-resp-'+clientId)?.value||'';
+
+  const statusBtn=document.getElementById('ai-btn-'+clientId);
+  const statusDiv=document.getElementById('ai-status-'+clientId);
+  if(statusBtn)statusBtn.disabled=true;
+  if(statusDiv){statusDiv.style.display='block';}
+
+  const prompt=`Tu es un assistant pour un constructeur de maisons neuves (MA 17 SUD) en Charente-Maritime.
+
+Chantier : ${client.nom}
+Adresse : ${client.adresse||'Non renseignée'}
+Statut : ${CHANTIER_STATUTS[client.statut]?.l||client.statut}
+Artisans sur le chantier : ${ac.map(a=>a.metier+' : '+a.nom).join(', ')||'Non renseignés'}
+SAV en cours : ${sv.filter(s=>s.statut!=='resolu').map(s=>s.titre).join(', ')||'Aucun'}
+Notes existantes : ${existingNotes||'Aucune'}
+Responsable désigné : ${resp||'Non désigné'}
+
+Génère une liste de tâches à accomplir avant la livraison de ce chantier, en tenant compte du contexte. 
+Sois concis, pratique, utilise des tirets. Maximum 8 tâches. Ne mets pas de titre.
+Si des SAV sont en cours, intègre-les comme points à vérifier.
+Réponds uniquement avec la liste de tâches, rien d'autre.`;
+
+  try{
+    const response=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:1000,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    const data=await response.json();
+    const text=data.content?.[0]?.text||'';
+    // Insert into the right textarea
+    const taInline=document.getElementById('il-notes-'+clientId);
+    const taFiche=document.getElementById('ct-notes-'+clientId);
+    if(taInline)taInline.value=text;
+    if(taFiche)taFiche.value=text;
+    if(statusDiv)statusDiv.textContent="✨ Généré par l'IA — vérifiez et ajustez si besoin";
+    setTimeout(()=>{if(statusDiv)statusDiv.style.display='none';},3000);
+  }catch(e){
+    if(statusDiv){statusDiv.textContent='Erreur IA: '+e.message;statusDiv.style.color='#ef4444';}
+    setTimeout(()=>{if(statusDiv)statusDiv.style.display='none';},3000);
+  }finally{
+    if(statusBtn)statusBtn.disabled=false;
+  }
+}
+
+async function deleteNotesCT(clientId){
+  if(!confirm('Supprimer la note conducteur de travaux ?'))return;
+  try{
+    await db('PATCH','clients',{notes_ct:null,ct_responsable:null,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+    clients=clients.map(c=>c.id===clientId?{...c,notes_ct:null,ct_responsable:null}:c);
+    toast('Note supprimée');
+    closeM('m-detail');
+    filterCli('en_cours');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+function toggleNotesEdit(clientId){
+  const view=document.getElementById('notes-ct-view-'+clientId);
+  const edit=document.getElementById('notes-ct-edit-'+clientId);
+  if(!view||!edit)return;
+  const isEditing=edit.style.display!=='none';
+  view.style.display=isEditing?'block':'none';
+  edit.style.display=isEditing?'none':'block';
+  if(!isEditing){
+    document.getElementById('ct-notes-'+clientId)?.focus();
+  }
+}
+
+function toggleInlineNotes(clientId){
+  const el=document.getElementById('inline-edit-'+clientId);
+  if(el)el.style.display=el.style.display==='none'?'block':'none';
+}
+
+async function saveNotesCTInline(clientId){
+  const notes=document.getElementById('il-notes-'+clientId)?.value.trim()||null;
+  const resp=document.getElementById('il-resp-'+clientId)?.value.trim()||null;
+  try{
+    await db('PATCH','clients',{notes_ct:notes,ct_responsable:resp,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+    clients=clients.map(c=>c.id===clientId?{...c,notes_ct:notes,ct_responsable:resp}:c);
+    toast('Note enregistrée ✓');showSync('💾 Sauvegardé');
+    filterCli('en_cours');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+async function deleteNotesCTInline(clientId){
+  if(!confirm('Supprimer la note ?'))return;
+  try{
+    await db('PATCH','clients',{notes_ct:null,ct_responsable:null,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+    clients=clients.map(c=>c.id===clientId?{...c,notes_ct:null,ct_responsable:null}:c);
+    toast('Note supprimée');
+    filterCli('en_cours');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+async function saveNotesCT(clientId){
+  const notes=document.getElementById('ct-notes-'+clientId)?.value.trim()||null;
+  const resp=document.getElementById('ct-resp-'+clientId)?.value.trim()||null;
+  try{
+    await db('PATCH','clients',{notes_ct:notes,ct_responsable:resp,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+    clients=clients.map(c=>c.id===clientId?{...c,notes_ct:notes,ct_responsable:resp}:c);
+    toast('Notes enregistrées ✓');showSync('💾 Sauvegardé');
+    openDetail(clientId); // Rafraîchir la fiche
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+function openNav(app,clientId){
+  const c=clients.find(x=>x.id===clientId);
+  if(!c)return;
+  const addr=encodeURIComponent(c.adresse||c.nom);
+  const lat=c.lat,lng=c.lng;
+  const urls={
+    google:lat&&lng?`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`:`https://www.google.com/maps/dir/?api=1&destination=${addr}`,
+    apple:lat&&lng?`maps://?daddr=${lat},${lng}&dirflg=d`:`maps://?daddr=${addr}&dirflg=d`,
+    waze:lat&&lng?`https://waze.com/ul?ll=${lat},${lng}&navigate=yes`:`https://waze.com/ul?q=${addr}&navigate=yes`
+  };
+  window.open(urls[app],'_blank');
+}
+
+// ══════════════════════════════════════════════
+// PHOTOS
+// ══════════════════════════════════════════════
+function addPhotos(clientId,input){
+  const files=Array.from(input.files);
+  if(!files.length)return;
+  let loaded=0;const newP=[];
+  files.forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      newP.push({id:genId(),url:ev.target.result,name:file.name,date:new Date().toLocaleDateString('fr-FR')});
+      if(++loaded===files.length){
+        const existing=JSON.parse(localStorage.getItem('photos_'+clientId)||'[]');
+        try{localStorage.setItem('photos_'+clientId,JSON.stringify([...existing,...newP]));}
+        catch{toast('⚠ Stockage photo plein','#f59e0b');return;}
+        toast(`${files.length} photo(s) ajoutée(s) ✓`);
+        openDetail(clientId);
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+  input.value='';
+}
+function openLB(clientId,index){
+  const photos=JSON.parse(localStorage.getItem('photos_'+clientId)||'[]');
+  lbPhotos=photos;lbIdx=index;lbClientId=clientId;
+  updateLB();document.getElementById('lightbox').classList.add('open');
+}
+function updateLB(){
+  const p=lbPhotos[lbIdx];
+  if(!p)return;
+  document.getElementById('lb-img').src=p.url;
+  document.getElementById('lb-cap').textContent=`${p.name} (${lbIdx+1}/${lbPhotos.length})`;
+  document.getElementById('lb-prev').style.display=lbIdx>0?'inline-flex':'none';
+  document.getElementById('lb-next').style.display=lbIdx<lbPhotos.length-1?'inline-flex':'none';
+}
+function closeLB(){document.getElementById('lightbox').classList.remove('open');}
+function lbPrev(){if(lbIdx>0){lbIdx--;updateLB();}}
+function lbNext(){if(lbIdx<lbPhotos.length-1){lbIdx++;updateLB();}}
+function lbDel(){
+  if(!confirm('Supprimer cette photo ?'))return;
+  lbPhotos.splice(lbIdx,1);
+  localStorage.setItem('photos_'+lbClientId,JSON.stringify(lbPhotos));
+  closeLB();openDetail(lbClientId);toast('Photo supprimée');
+}
+
+// ══════════════════════════════════════════════
+// CRUD CLIENTS
+// ══════════════════════════════════════════════
+function openClientModal(clientId){
+  const c=clientId?clients.find(x=>x.id===clientId):null;
+  const cArt=clientId?chantierArtisans.filter(x=>x.client_id===clientId).map(x=>x.artisan_id):[];
+  document.getElementById('m-client-title').textContent=c?'Modifier le chantier':'Nouveau chantier';
+  document.getElementById('m-client-body').innerHTML=`
+    <div class="grid2">
+      <div class="field"><label>Nom du client</label><input id="fc-nom" value="${c?.nom||''}"/></div>
+      <div class="field"><label>Statut chantier</label>
+        <select id="fc-statut">
+          <option value="ouverture"${c?.statut==='ouverture'?' selected':''}>🔜 Ouverture à venir</option>
+          <option value="en_cours"${c?.statut==='en_cours'?' selected':''}>🏗 En cours</option>
+          <option value="sav_en_cours"${c?.statut==='sav_en_cours'?' selected':''}>🔧 SAV en cours</option>
+          <option value="livre"${c?.statut==='livre'?' selected':''}>✅ Livré</option>
+          <option value="reserve"${c?.statut==='reserve'?' selected':''}>⚠️ Réserves</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>Adresse complète</label><input id="fc-adr" value="${c?.adresse||''}"/></div>
+    <div class="grid2">
+      <div class="field"><label>Conjoint 1</label><input id="fc-c1" value="${c?.conjoint1||''}"/></div>
+      <div class="field"><label>Conjoint 2</label><input id="fc-c2" value="${c?.conjoint2||''}"/></div>
+      <div class="field"><label>Téléphone 1</label><input id="fc-tel" value="${c?.tel||''}"/></div>
+      <div class="field"><label>Téléphone 2</label><input id="fc-tel2" value="${c?.tel2||''}"/></div>
+      <div class="field"><label>Email 1</label><input type="email" id="fc-email" value="${c?.email||''}"/></div>
+      <div class="field"><label>Email 2</label><input type="email" id="fc-email2" value="${c?.email2||''}"/></div>
+      <div class="field"><label>Date de réception</label><input type="date" id="fc-date" value="${c?.date_reception||''}"/></div>
+      <div class="field"><label>Latitude GPS</label><input id="fc-lat" value="${c?.lat||''}" placeholder="45.748"/></div>
+    </div>
+    <div class="field"><label>Longitude GPS</label><input id="fc-lng" value="${c?.lng||''}" placeholder="-0.620"/></div>
+    <div class="field"><label>Artisans associés</label>
+      <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:5px">
+        ${artisans.map(a=>`<button type="button" class="chip${cArt.includes(a.id)?' on':''}" onclick="this.classList.toggle('on')" data-id="${a.id}">${a.entreprise||a.nom}<br><small style="opacity:.7">${a.metier||''}</small></button>`).join('')}
+        ${artisans.length===0?`<p style="color:#94a3b8;font-size:13px">Ajoutez d'abord des artisans</p>`:''}
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding-top:14px;border-top:1.5px solid #f1f5f9">
+      ${clientId?`<button class="btn btn-danger" onclick="if(confirm('Supprimer ce chantier ?')){closeM('m-client');delClient('${clientId}')}">🗑 Supprimer</button>`:'<div></div>'}
+      <div style="display:flex;gap:9px">
+        <button class="btn btn-secondary" onclick="closeM('m-client')">Annuler</button>
+        <button class="btn btn-primary" onclick="saveClient('${clientId||''}')">💾 Enregistrer</button>
+      </div>
+    </div>
+  `;
+  closeM('m-detail');openM('m-client');
+}
+
+async function saveClient(clientId){
+  const nom=document.getElementById('fc-nom').value.trim();
+  if(!nom){toast('Le nom est obligatoire','#ef4444');return;}
+  const data={nom,statut:document.getElementById('fc-statut').value,adresse:document.getElementById('fc-adr').value.trim(),conjoint1:document.getElementById('fc-c1').value.trim()||null,conjoint2:document.getElementById('fc-c2').value.trim()||null,tel:document.getElementById('fc-tel').value.trim(),tel2:document.getElementById('fc-tel2').value.trim()||null,email:document.getElementById('fc-email').value.trim(),email2:document.getElementById('fc-email2').value.trim()||null,date_reception:document.getElementById('fc-date').value||null,lat:parseFloat(document.getElementById('fc-lat').value)||null,lng:parseFloat(document.getElementById('fc-lng').value)||null,updated_at:new Date().toISOString()};
+  const selectedArt=Array.from(document.querySelectorAll('.chip.on')).map(b=>b.dataset.id);
+  try{
+    let cid=clientId;
+    if(clientId){await db('PATCH','clients',data,`?id=eq.${clientId}`);clients=clients.map(c=>c.id===clientId?{...c,...data}:c);}
+    else{const res=await db('POST','clients',data);cid=res[0].id;clients.push(res[0]);}
+    await db('DELETE','chantier_artisans','',`?client_id=eq.${cid}`);
+    if(selectedArt.length>0)await db('POST','chantier_artisans',selectedArt.map(aid=>({client_id:cid,artisan_id:aid})));
+    chantierArtisans=chantierArtisans.filter(x=>x.client_id!==cid);
+    selectedArt.forEach(aid=>chantierArtisans.push({client_id:cid,artisan_id:aid}));
+    closeM('m-client');updateUI();goView(currentView);
+    toast('Chantier enregistré ✓');showSync('💾 Sauvegardé');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+async function delClient(clientId){
+  try{
+    await db('DELETE','clients','',`?id=eq.${clientId}`);
+    clients=clients.filter(c=>c.id!==clientId);
+    savList=savList.filter(s=>s.client_id!==clientId);
+    chantierArtisans=chantierArtisans.filter(x=>x.client_id!==clientId);
+    updateUI();goView('clients');toast('Chantier supprimé');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+// ══════════════════════════════════════════════
+// CRUD ARTISANS
+// ══════════════════════════════════════════════
+function openArtisanModal(artisanId){
+  const a=artisanId?artisans.find(x=>x.id===artisanId):null;
+  document.getElementById('m-artisan-title').textContent=a?'Modifier artisan':'Nouvel artisan';
+  document.getElementById('m-artisan-body').innerHTML=`
+    <div class="grid2">
+      <div class="field"><label>Nom</label><input id="fa-nom" value="${a?.nom||''}"/></div>
+      <div class="field"><label>Entreprise</label><input id="fa-ent" value="${a?.entreprise||''}"/></div>
+      <div class="field"><label>Métier</label><input id="fa-met" value="${a?.metier||''}" placeholder="Plomberie, Menuiserie…"/></div>
+      <div class="field"><label>Téléphone</label><input id="fa-tel" value="${a?.tel||''}"/></div>
+    </div>
+    <div class="field"><label>Email</label><input type="email" id="fa-email" value="${a?.email||''}"/></div>
+    <div style="display:flex;justify-content:flex-end;gap:9px;margin-top:10px">
+      <button class="btn btn-secondary" onclick="closeM('m-artisan')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveArtisan('${artisanId||''}')">💾 Enregistrer</button>
+    </div>
+  `;
+  openM('m-artisan');
+}
+
+async function saveArtisan(artisanId){
+  const nom=document.getElementById('fa-nom').value.trim();
+  if(!nom){toast('Le nom est obligatoire','#ef4444');return;}
+  const data={nom,entreprise:document.getElementById('fa-ent').value.trim(),metier:document.getElementById('fa-met').value.trim(),tel:document.getElementById('fa-tel').value.trim(),email:document.getElementById('fa-email').value.trim()};
+  try{
+    if(artisanId){await db('PATCH','artisans',data,`?id=eq.${artisanId}`);artisans=artisans.map(a=>a.id===artisanId?{...a,...data}:a);}
+    else{const res=await db('POST','artisans',data);artisans.push(res[0]);}
+    closeM('m-artisan');updateUI();goView('artisans');toast('Artisan enregistré ✓');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+async function delArtisan(artisanId){
+  if(!confirm('Supprimer cet artisan ?'))return;
+  try{
+    await db('DELETE','artisans','',`?id=eq.${artisanId}`);
+    artisans=artisans.filter(a=>a.id!==artisanId);
+    chantierArtisans=chantierArtisans.filter(x=>x.artisan_id!==artisanId);
+    updateUI();goView('artisans');toast('Artisan supprimé');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+// ══════════════════════════════════════════════
+// CRUD SAV
+// ══════════════════════════════════════════════
+function openSavFromList(){
+  document.getElementById('m-sav-title').textContent='Nouveau SAV — Choisir un chantier';
+  document.getElementById('m-sav-body').innerHTML=`
+    <div class="field">
+      <label>Chantier concerné</label>
+      <div style="position:relative;margin-bottom:8px">
+        <input type="text" id="sav-client-search" placeholder="Rechercher un client…"
+          oninput="filterSavClientPicker(this.value)"
+          style="width:100%;padding:9px 13px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:14px;outline:none;background:#f8fafc;font-family:inherit"/>
+      </div>
+      <div id="sav-client-list" style="max-height:220px;overflow-y:auto;border:1.5px solid #e2e8f0;border-radius:10px">
+        ${clients.map(c=>`<div onclick="selectSavClient('${c.id}')"
+          style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:10px"
+          onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='#fff'">
+          <div style="width:30px;height:30px;border-radius:8px;background:#dbeafe;display:flex;align-items:center;justify-content:center;color:#2563eb;font-weight:800;font-size:12px;flex-shrink:0">${c.nom[0]}</div>
+          <div style="min-width:0">
+            <div style="font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.nom}</div>
+            <div style="font-size:11px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.adresse||''}</div>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:10px">
+      <button class="btn btn-secondary" onclick="closeM('m-sav')">Annuler</button>
+    </div>
+  `;
+  openM('m-sav');
+}
+
+function filterSavClientPicker(q){
+  const list=document.getElementById('sav-client-list');
+  if(!list)return;
+  const filtered=q?clients.filter(c=>c.nom.toLowerCase().includes(q.toLowerCase())||(c.adresse||'').toLowerCase().includes(q.toLowerCase())):clients;
+  list.innerHTML=filtered.map(c=>`<div onclick="selectSavClient('${c.id}')"
+    style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:10px"
+    onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='#fff'">
+    <div style="width:30px;height:30px;border-radius:8px;background:#dbeafe;display:flex;align-items:center;justify-content:center;color:#2563eb;font-weight:800;font-size:12px;flex-shrink:0">${c.nom[0]}</div>
+    <div style="min-width:0">
+      <div style="font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.nom}</div>
+      <div style="font-size:11px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.adresse||''}</div>
+    </div>
+  </div>`).join('');
+}
+
+function selectSavClient(clientId){closeM('m-sav');openSavModal(clientId,null);}
+
+function openSavModalWithRevert(clientId,prevStatut){
+  // Override close button to revert statut if cancelled
+  openSavModal(clientId,null);
+  // Store revert info
+  window.__savRevert={clientId,prevStatut};
+  // Override the close button behavior
+  const origClose=document.getElementById('m-sav').querySelector('.btn-x');
+  if(origClose){
+    origClose.onclick=async()=>{
+      closeM('m-sav');
+      if(window.__savRevert){
+        const {clientId:cid,prevStatut:prev}=window.__savRevert;
+        window.__savRevert=null;
+        try{
+          await db('PATCH','clients',{statut:prev,updated_at:new Date().toISOString()},`?id=eq.${cid}`);
+          clients=clients.map(c=>c.id===cid?{...c,statut:prev}:c);
+          toast('Annulé — Statut rétabli');
+          updateUI();
+          if(currentView==='clients')goView('clients');
+        }catch{}
+      }
+    };
+  }
+}
+
+function openSavModal(clientId,savId){
+  const s=savId?savList.find(x=>x.id===savId):null;
+  const ac=clientArtisans(clientId);
+  document.getElementById('m-sav-title').textContent=s?'Modifier SAV':'Nouveau SAV';
+  document.getElementById('m-sav-body').innerHTML=`
+    <div class="field"><label>Problème / Titre</label><input id="fs-titre" value="${s?.titre||''}" placeholder="Ex: Fuite sous-lavabo"/></div>
+    <div class="grid2">
+      <div class="field"><label>Date de signalement</label><input type="date" id="fs-date" value="${s?.date_signalement||today()}"/></div>
+      <div class="field"><label>Statut</label>
+        <select id="fs-statut">
+          ${Object.entries(STATUTS).map(([k,v])=>`<option value="${k}"${(s?.statut||'nouveau')===k?' selected':''}>${v.l}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>Artisan responsable</label>
+      <select id="fs-artisan">
+        <option value="">— Sélectionner —</option>
+        ${ac.length>0?`<optgroup label="Artisans du chantier">${ac.map(a=>`<option value="${a.id}"${s?.artisan_id===a.id?' selected':''}>${a.metier||''} – ${a.nom}</option>`).join('')}</optgroup>`:''}
+        <optgroup label="Tous les artisans">
+          ${artisans.filter(a=>!ac.find(x=>x.id===a.id)).map(a=>`<option value="${a.id}"${s?.artisan_id===a.id?' selected':''}>${a.metier||''} – ${a.nom}</option>`).join('')}
+        </optgroup>
+      </select>
+    </div>
+    <div class="field">
+      <label>Notes / Description du problème</label>
+      <textarea id="fs-notes" placeholder="Parlez ou tapez pour décrire le problème… 🎤" style="min-height:80px">${s?.notes||''}</textarea>
+      <div style="display:flex;gap:6px;margin-top:6px;align-items:center">
+        <button type="button" onclick="startVoiceSav()" id="voice-sav-btn" class="voice-btn idle">🎤 Dicter</button>
+        <span id="voice-sav-status" style="font-size:11px;color:#64748b;display:none"></span>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:9px;margin-top:10px">
+      <button class="btn btn-secondary" onclick="closeM('m-sav')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveSav('${clientId}','${savId||''}')">💾 Enregistrer</button>
+    </div>
+  `;
+  closeM('m-detail');openM('m-sav');
+}
+
+async function saveSav(clientId,savId){
+  const titre=document.getElementById('fs-titre').value.trim();
+  if(!titre){toast('Le titre est obligatoire','#ef4444');return;}
+  const savStatut=document.getElementById('fs-statut').value||'nouveau';
+  const data={titre,date_signalement:document.getElementById('fs-date').value,statut:savStatut,artisan_id:document.getElementById('fs-artisan').value||null,notes:document.getElementById('fs-notes').value.trim(),client_id:clientId,updated_at:new Date().toISOString()};
+  try{
+    if(savId){
+      await db('PATCH','sav',data,`?id=eq.${savId}`);
+      savList=savList.map(s=>s.id===savId?{...s,...data}:s);
+    } else {
+      const res=await db('POST','sav',{...data,created_at:new Date().toISOString()});
+      savList.unshift(res[0]);
+      // Passer automatiquement le client en SAV en cours
+      if(savStatut!=='resolu'){
+        const client=clients.find(c=>c.id===clientId);
+        if(client&&client.statut!=='sav_en_cours'){
+          await db('PATCH','clients',{statut:'sav_en_cours',updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+          clients=clients.map(c=>c.id===clientId?{...c,statut:'sav_en_cours'}:c);
+        }
+      }
+    }
+    window.__savRevert=null; // Annuler le revert car SAV bien enregistré
+    closeM('m-sav');updateUI();
+    if(currentView==='sav'){goView('sav');}
+    else{openDetail(clientId);}
+    toast('SAV enregistré ✓');showSync('💾 Sauvegardé');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+async function delSavFromList(savId,clientId){
+  if(!confirm('Supprimer ce dossier SAV ?'))return;
+  try{
+    await db('DELETE','sav','',`?id=eq.${savId}`);
+    savList=savList.filter(s=>s.id!==savId);
+    // Si plus de SAV actifs → repasser le client en livré
+    const remaining=savList.filter(s=>s.client_id===clientId&&s.statut!=='resolu');
+    if(remaining.length===0){
+      const client=clients.find(c=>c.id===clientId);
+      if(client&&client.statut==='sav_en_cours'){
+        await db('PATCH','clients',{statut:'livre',updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+        clients=clients.map(c=>c.id===clientId?{...c,statut:'livre'}:c);
+        toast('SAV supprimé — Chantier repassé en Livré');
+      } else {
+        toast('SAV supprimé');
+      }
+    } else {
+      toast('SAV supprimé');
+    }
+    updateUI();
+    goView('sav');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+async function delSav(savId,clientId){
+  if(!confirm('Supprimer ce dossier SAV ?'))return;
+  try{
+    await db('DELETE','sav','',`?id=eq.${savId}`);
+    savList=savList.filter(s=>s.id!==savId);
+    // Si plus de SAV actifs, repasser en livré
+    const remaining=savList.filter(s=>s.client_id===clientId&&s.statut!=='resolu'&&s.statut!=='intervenu');
+    if(remaining.length===0){
+      const client=clients.find(c=>c.id===clientId);
+      if(client&&client.statut==='sav_en_cours'){
+        await db('PATCH','clients',{statut:'livre',updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+        clients=clients.map(c=>c.id===clientId?{...c,statut:'livre'}:c);
+      }
+    }
+    updateUI();openDetail(clientId);toast('SAV supprimé');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+async function chgStatut(savId,statut,clientId){
+  try{
+    const upd={statut,updated_at:new Date().toISOString()};
+    if(statut==='resolu')upd.date_intervention=today();
+    if(statut==='attente_intervention'&&!savList.find(x=>x.id===savId)?.date_mail)upd.date_mail=today();
+    await db('PATCH','sav',upd,`?id=eq.${savId}`);
+    savList=savList.map(s=>s.id===savId?{...s,...upd}:s);
+    // Si résolu, vérifier si tous les SAV sont résolus → repasser en livré
+    if(statut==='resolu'){
+      const clientSavs=savList.filter(s=>s.client_id===clientId);
+      const allResolved=clientSavs.every(s=>s.id===savId?true:s.statut==='resolu'||s.statut==='intervenu');
+      if(allResolved){
+        const client=clients.find(c=>c.id===clientId);
+        if(client&&client.statut==='sav_en_cours'){
+          await db('PATCH','clients',{statut:'livre',updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+          clients=clients.map(c=>c.id===clientId?{...c,statut:'livre'}:c);
+          toast('✅ Tous SAV résolus — Client repassé en Livré');
+        }else{toast(`Statut → ${STATUTS[statut]?.l}`);}
+      }else{toast(`Statut → ${STATUTS[statut]?.l}`);}
+    }else{toast(`Statut → ${STATUTS[statut]?.l}`);}
+    showSync('💾 Sauvegardé');updateUI();
+    if(currentView==='sav'){goView('sav');}
+    else if(clientId){openDetail(clientId);}
+    else{goView(currentView);}
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+// ══════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════
+// ══════════════════════════════════════════════
+// DICTÉE VOCALE + IA
+// ══════════════════════════════════════════════
+let voiceRecognition=null;
+let currentVoiceTarget=null;
+
+function startVoiceCT(clientId,prefix){
+  const taId=prefix+'-notes-'+clientId;
+  const btnId='voice-btn-'+clientId;
+  startVoice(taId,btnId,clientId,prefix);
+}
+
+function startVoiceSav(){
+  startVoice('fs-notes','voice-sav-btn',null,null);
+}
+
+function startVoice(taId,btnId,clientId,prefix){
+  if(!('webkitSpeechRecognition' in window)&&!('SpeechRecognition' in window)){
+    toast('Dictée vocale non supportée sur ce navigateur. Utilisez Chrome ou Safari.','#ef4444');
+    return;
+  }
+  const btn=document.getElementById(btnId);
+  const ta=document.getElementById(taId);
+  if(!ta||!btn)return;
+
+  // Si déjà en cours d'enregistrement → arrêter
+  if(voiceRecognition&&currentVoiceTarget===taId){
+    voiceRecognition.stop();
+    return;
+  }
+
+  // Arrêter tout enregistrement précédent
+  if(voiceRecognition)voiceRecognition.stop();
+
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const recognition=new SR();
+  recognition.lang='fr-FR';
+  recognition.continuous=true;
+  recognition.interimResults=true;
+  recognition.maxAlternatives=1;
+
+  let finalTranscript=ta.value||'';
+  let interimTranscript='';
+
+  recognition.onstart=()=>{
+    voiceRecognition=recognition;
+    currentVoiceTarget=taId;
+    btn.className='voice-btn recording';
+    btn.textContent='⏹ Arrêter';
+  };
+
+  recognition.onresult=e=>{
+    interimTranscript='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal){
+        finalTranscript+=e.results[i][0].transcript+' ';
+      } else {
+        interimTranscript+=e.results[i][0].transcript;
+      }
+    }
+    ta.value=finalTranscript+interimTranscript;
+  };
+
+  recognition.onend=()=>{
+    voiceRecognition=null;
+    currentVoiceTarget=null;
+    btn.className='voice-btn idle';
+    btn.textContent='🎤 Dicter';
+    ta.value=finalTranscript.trim();
+    // Si on a du texte et un clientId → proposer de structurer avec IA
+    if(finalTranscript.trim()&&clientId){
+      const statusEl=document.getElementById('ai-status-'+clientId);
+      if(statusEl){
+        statusEl.style.display='block';
+        statusEl.textContent="🎤 Dictée terminée — cliquez ✨ Structurer pour organiser avec l'IA";
+        setTimeout(()=>{statusEl.style.display='none';},4000);
+      }
+    }
+  };
+
+  recognition.onerror=e=>{
+    voiceRecognition=null;
+    currentVoiceTarget=null;
+    btn.className='voice-btn idle';
+    btn.textContent='🎤 Dicter';
+    if(e.error!=='aborted')toast('Erreur micro: '+e.error,'#ef4444');
+  };
+
+  recognition.start();
+}
+
+async function genNotesCT(clientId){
+  const client=clients.find(c=>c.id===clientId);
+  if(!client)return;
+  const ac=clientArtisans(clientId);
+  const sv=clientSav(clientId);
+  const rawText=document.getElementById('ct-notes-'+clientId)?.value||
+                document.getElementById('il-notes-'+clientId)?.value||'';
+  const resp=document.getElementById('il-resp-'+clientId)?.value||
+             document.getElementById('ct-resp-'+clientId)?.value||'';
+
+  const statusDiv=document.getElementById('ai-status-'+clientId);
+  const aiBtn=document.getElementById('ai-btn-'+clientId);
+  if(statusDiv){statusDiv.style.display='block';statusDiv.textContent='✨ Analyse en cours…';statusDiv.style.color='#7c3aed';}
+  if(aiBtn)aiBtn.disabled=true;
+
+  const prompt=`Tu es assistant pour un constructeur de maisons neuves en Charente-Maritime (MA 17 SUD).
+
+Chantier : ${client.nom}
+Adresse : ${client.adresse||''}
+Artisans : ${ac.map(a=>a.metier+' : '+(a.entreprise||a.nom)).join(', ')||'Non renseignés'}
+SAV actifs : ${sv.filter(s=>s.statut!=='resolu').map(s=>s.titre).join(', ')||'Aucun'}
+Responsable : ${resp||'Non désigné'}
+
+Texte brut du conducteur de travaux (dictée vocale ou notes) :
+"${rawText||'Pas de notes pour le moment'}"
+
+Transforme ce texte en liste de tâches structurée et claire pour la livraison du chantier.
+- Utilise des tirets
+- Groupe par thème si possible (ex: menuiserie, plomberie, finitions…)
+- Intègre les SAV actifs s'ils sont pertinents
+- Maximum 10 tâches
+- Sois concis et professionnel
+- Réponds UNIQUEMENT avec la liste, sans titre ni introduction`;
+
+  try{
+    const response=await fetch('/api/claude',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:800,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    if(!response.ok)throw new Error('Erreur serveur '+response.status);
+    const data=await response.json();
+    const text=data.content?.[0]?.text||'';
+    const taInline=document.getElementById('il-notes-'+clientId);
+    const taFiche=document.getElementById('ct-notes-'+clientId);
+    if(taInline)taInline.value=text;
+    if(taFiche)taFiche.value=text;
+    if(statusDiv){statusDiv.textContent="✨ Notes structurées — vérifiez et ajustez si besoin";setTimeout(()=>{statusDiv.style.display='none';},4000);}
+  }catch(e){
+    if(statusDiv){statusDiv.textContent='❌ '+e.message;statusDiv.style.color='#ef4444';setTimeout(()=>{statusDiv.style.display='none';},4000);}
+  }finally{
+    if(aiBtn)aiBtn.disabled=false;
+  }
+}
+
+loadAll().then(()=>startPolling());
+</script>
+</body>
+</html>
