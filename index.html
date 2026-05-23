@@ -1037,7 +1037,7 @@ Réponds uniquement avec la liste de tâches, rien d'autre.`;
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
+        model:'claude-3-haiku-20240307',
         max_tokens:1000,
         messages:[{role:'user',content:prompt}]
       })
@@ -1642,7 +1642,7 @@ Transforme ce texte en liste de tâches structurée et claire pour la livraison 
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
+        model:'claude-3-haiku-20240307',
         max_tokens:800,
         messages:[{role:'user',content:prompt}]
       })
