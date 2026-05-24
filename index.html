@@ -1174,14 +1174,20 @@ async function prepareArtisanMails(clientId, notesText){
       const artisan=ac.find(a=>a.nom===m.artisan||(a.entreprise&&a.entreprise===m.artisan)||a.nom.toLowerCase().includes(m.artisan.toLowerCase())||m.artisan.toLowerCase().includes(a.nom.toLowerCase()));
       if(!artisan)return '';
       const subj=encodeURIComponent('Travaux chantier '+client.nom);
-      const bd=encodeURIComponent('Bonjour,%0A%0ASuite a la visite du chantier '+client.nom+' ('+( client.adresse||'')+'), voici vos taches :%0A%0A'+m.taches+'%0A%0AMerci de confirmer votre disponibilite.%0A%0ACordialement%0AMA 17 SUD');
-      const href=artisan.email?'mailto:'+artisan.email+'?subject='+subj+'&body='+bd:'';
+      const bodyText='Bonjour,\n\nSuite a la visite du chantier '+client.nom+' ('+( client.adresse||'')+'), voici vos taches :\n\n'+m.taches+'\n\nMerci de confirmer votre disponibilite.\n\nCordialement\nMA 17 SUD';
+      const bd=encodeURIComponent(bodyText);
+      const mailHref=artisan.email?'mailto:'+artisan.email+'?subject='+subj+'&body='+bd:'';
+      const smsText='Chantier '+client.nom+' - Vos taches : '+m.taches+' - MA 17 SUD';
+      const smsHref=artisan.tel?'sms:'+artisan.tel.replace(/\s/g,'')+'?body='+encodeURIComponent(smsText):'';
       return '<div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:9px;padding:8px 11px;margin-bottom:6px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px">'
         +'<div style="flex:1;min-width:0">'
           +'<div style="font-size:11px;font-weight:700;color:#2563eb;margin-bottom:3px">'+(artisan.metier||artisan.nom)+(artisan.entreprise?' — '+artisan.entreprise:'')+'</div>'
           +'<div style="font-size:11px;color:#374151;white-space:pre-wrap">'+m.taches+'</div>'
         +'</div>'
-        +(href?'<a href="'+href+'" onclick="event.stopPropagation()" style="flex-shrink:0;padding:5px 9px;border-radius:7px;background:#dbeafe;color:#2563eb;border:1.5px solid #bfdbfe;font-size:12px;font-weight:700;text-decoration:none">✉</a>':'')
+        +'<div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">'
+          +(mailHref?'<a href="'+mailHref+'" onclick="event.stopPropagation()" style="padding:5px 9px;border-radius:7px;background:#dbeafe;color:#2563eb;border:1.5px solid #bfdbfe;font-size:12px;font-weight:700;text-decoration:none">✉</a>':'')
+          +(smsHref?'<a href="'+smsHref+'" onclick="event.stopPropagation()" style="padding:5px 9px;border-radius:7px;background:#dcfce7;color:#16a34a;border:1.5px solid #bbf7d0;font-size:12px;font-weight:700;text-decoration:none">💬</a>':'')
+        +'</div>'
       +'</div>';
     }).filter(Boolean).join('');
   }catch(e){
