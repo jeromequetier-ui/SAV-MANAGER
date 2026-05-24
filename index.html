@@ -213,6 +213,7 @@ input,select,textarea{font-family:inherit;}
     <button class="nav-btn" onclick="goView('clients')" data-v="clients"><span class="icon">🏡</span>Chantiers</button>
     <button class="nav-btn" onclick="goView('sav')" data-v="sav"><span class="icon">🔧</span>Tous les SAV</button>
     <button class="nav-btn" onclick="goView('artisans')" data-v="artisans"><span class="icon">👷</span>Artisans</button>
+    <button class="nav-btn" onclick="goView('suivi')" data-v="suivi"><span class="icon">📋</span>Suivi de chantier</button>
     <button class="nav-btn" onclick="goView('alertes')" data-v="alertes"><span class="icon">🔔</span>Alertes<span class="nb" id="sb-nb" style="display:none">0</span></button>
   </div>
   <div class="sb-foot">
@@ -371,6 +372,7 @@ function goView(v){
   else if(v==='clients')renderClients(c);
   else if(v==='sav')renderSav(c);
   else if(v==='artisans')renderArtisans(c);
+  else if(v==='suivi')renderSuivi(c);
   else if(v==='alertes')renderAlertes(c);
 }
 
@@ -595,10 +597,8 @@ function renderCliList(list){
             <div style="margin-bottom:6px">
               <input id="il-resp-${c.id}" value="${c.ct_responsable||''}" placeholder="Responsable…" onclick="event.stopPropagation()" style="width:100%;padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;font-family:inherit;margin-bottom:5px"/>
               <textarea id="il-notes-${c.id}" placeholder="Parlez ou tapez… L'IA structurera vos notes 🎤" onclick="event.stopPropagation()" style="width:100%;padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;font-family:inherit;resize:vertical;min-height:70px">${c.notes_ct||''}</textarea>
-              <div style="display:flex;gap:5px;margin-top:5px;align-items:center;flex-wrap:wrap">
+              <div style="display:flex;gap:5px;margin-top:5px;align-items:center">
                 <button onclick="event.stopPropagation();startVoiceCT('${c.id}','il')" id="voice-btn-${c.id}" class="voice-btn idle">🎤 Dicter</button>
-                <button onclick="event.stopPropagation();genNotesCT('${c.id}')" id="ai-btn-${c.id}" style="padding:4px 9px;border-radius:7px;border:none;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;cursor:pointer;font-size:10px;font-weight:700;font-family:inherit">✨ Structurer avec IA</button>
-                <span id="ai-status-${c.id}" class="ai-processing">✨ Analyse en cours…</span>
               </div>
               <div id="il-mail-zone-${c.id}" style="display:none;margin-top:6px"></div>
             </div>
@@ -871,6 +871,75 @@ function applyAllSavFilters(q){
     });
   }
   renderSavItems(list);
+}
+
+// ── SUIVI DE CHANTIER
+function renderSuivi(c){
+  // Uniquement chantiers avec tâches en attente (notes CT ou tâches artisans)
+  const list=clients.filter(x=>
+    (x.statut==='en_cours'||x.statut==='ouverture'||x.statut==='sav_en_cours')&&
+    (x.notes_ct||(x.artisan_tasks&&x.artisan_tasks.length>0))
+  );
+  c.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+      <h1 style="font-size:20px;font-weight:800">Suivi de chantier</h1>
+      <span style="font-size:12px;color:#64748b">${list.length} chantier(s)</span>
+    </div>
+    <p style="color:#64748b;font-size:12px;margin-bottom:13px">Chantiers avec tâches avant livraison</p>
+    ${list.length===0?'<div class="empty"><div class="big">✅</div><p style="color:#10b981;font-weight:700">Aucune tâche en attente !</p><p style="color:#94a3b8;font-size:12px;margin-top:6px">Ajoutez des notes CT ou faites une visite depuis un chantier</p></div>':
+    list.map(cl=>{
+      const sv=clientSav(cl.id).filter(s=>s.statut!=='resolu');
+      const ac=clientArtisans(cl.id);
+      const statut=CHANTIER_STATUTS[cl.statut]||CHANTIER_STATUTS.en_cours;
+      const tasks=cl.artisan_tasks||[];
+      return '<div class="card" style="margin-bottom:14px;padding:0;overflow:hidden">'
+        // Header chantier
+        +'<div style="background:#0f172a;padding:13px 15px;display:flex;align-items:center;justify-content:space-between">'
+          +'<div>'
+            +'<div style="color:#f1f5f9;font-weight:800;font-size:14px">'+cl.nom+'</div>'
+            +'<div style="color:#64748b;font-size:11px;margin-top:2px">'+(cl.adresse||'')+'</div>'
+          +'</div>'
+          +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">'
+            +'<span class="ch-badge '+statut.cls+'">'+statut.l+'</span>'
+            +'<button onclick="openVisite(\''+cl.id+'\')" style="padding:4px 9px;border-radius:7px;border:none;background:#7c3aed;color:#fff;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit">🏗 Visite</button>'
+          +'</div>'
+        +'</div>'
+        +'<div style="padding:13px 15px">'
+          // Contacts
+          +'<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">'
+            +(cl.tel?'<a href="tel:'+cl.tel+'" style="padding:5px 9px;border-radius:8px;background:#dbeafe;color:#2563eb;font-size:11px;font-weight:700;text-decoration:none">📞 '+(cl.conjoint1||cl.tel)+'</a>':'')
+            +(cl.tel2?'<a href="tel:'+cl.tel2+'" style="padding:5px 9px;border-radius:8px;background:#e0e7ff;color:#4338ca;font-size:11px;font-weight:700;text-decoration:none">📞 '+(cl.conjoint2||cl.tel2)+'</a>':'')
+            +(cl.lat&&cl.lng?'<button onclick="quickNav(\''+cl.id+'\')" style="padding:5px 9px;border-radius:8px;background:#fef3c7;color:#d97706;border:none;cursor:pointer;font-size:11px;font-weight:700">🧭 Itinéraire</button>':'')
+          +'</div>'
+          // Notes CT
+          +(cl.notes_ct?'<div style="background:#fefce8;border:1px solid #fde68a;border-radius:9px;padding:10px;margin-bottom:10px">'
+            +'<div style="font-size:11px;font-weight:700;color:#ca8a04;margin-bottom:4px">📋 Notes CT'+(cl.ct_responsable?' — '+cl.ct_responsable:'')+'</div>'
+            +'<div style="font-size:12px;color:#374151;white-space:pre-wrap">'+cl.notes_ct+'</div>'
+          +'</div>':'')
+          // Tâches artisans
+          +(tasks.length>0?'<div style="margin-bottom:10px">'
+            +'<div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:6px">👷 Tâches artisans ('+tasks.length+')</div>'
+            +tasks.map(t=>{
+              const art=ac.find(a=>a.nom===t.artisan||(a.entreprise&&a.entreprise===t.artisan)||a.nom.toLowerCase().includes(t.artisan.toLowerCase())||t.artisan.toLowerCase().includes(a.nom.toLowerCase()));
+              return '<div style="border-left:3px solid #7c3aed;padding:6px 10px;margin-bottom:5px;background:#faf5ff;border-radius:0 8px 8px 0">'
+                +'<div style="font-size:11px;font-weight:700;color:#7c3aed">'+(art?.metier||t.artisan)+'</div>'
+                +'<div style="font-size:11px;color:#374151;white-space:pre-wrap;margin-top:2px">'+t.taches+'</div>'
+              +'</div>';
+            }).join('')
+          +'</div>':'')
+          // SAV actifs
+          +(sv.length>0?'<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:9px;padding:10px">'
+            +'<div style="font-size:11px;font-weight:700;color:#ef4444;margin-bottom:5px">🔧 SAV actifs ('+sv.length+')</div>'
+            +sv.map(s=>'<div style="font-size:12px;color:#374151;padding:3px 0;border-bottom:1px solid #fecaca;display:flex;justify-content:space-between;gap:8px"><span>'+s.titre+'</span>'+('<span style="font-size:10px;color:#ef4444;font-weight:600">'+jours(s.date_signalement)+'j</span>')+'</div>').join('')
+          +'</div>':'')
+          // Artisans
+          +(ac.length>0&&tasks.length===0?'<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">'
+            +ac.map(a=>'<span style="padding:4px 9px;border-radius:20px;background:#f1f5f9;color:#374151;font-size:11px">'+( a.metier||'')+' : '+a.nom+'</span>').join('')
+          +'</div>':'')
+        +'</div>'
+      +'</div>';
+    }).join('')}
+  `;
 }
 
 // ── ARTISANS
