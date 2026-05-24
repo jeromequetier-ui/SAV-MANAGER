@@ -909,7 +909,8 @@ function renderSuivi(c){
       const ac=artisans.find(a=>a.nom===group.artisan||(a.entreprise&&a.entreprise===group.artisan)||a.nom.toLowerCase().includes(group.artisan.toLowerCase())||group.artisan.toLowerCase().includes(a.nom.toLowerCase()));
       const subj=encodeURIComponent('Travaux chantiers');
       const allTaches=group.chantiers.map(ch=>'Chantier '+ch.client.nom+' :\n'+ch.task.taches).join('\n\n');
-      const bd=encodeURIComponent('Bonjour,%0A%0AVoici les travaux en attente vous concernant :%0A%0A'+allTaches.replace(/\n/g,'%0A')+'%0A%0AMerci de confirmer vos disponibilites.%0A%0ACordialement%0AMA 17 SUD');
+      const allTachesEnc=allTaches.replace(/\n/g,'%0A').replace(/\r/g,'');
+      const bd=encodeURIComponent('Bonjour,')+'%0A%0A'+encodeURIComponent('Voici les travaux en attente vous concernant :')+'%0A%0A'+allTachesEnc+'%0A%0A'+encodeURIComponent('Merci de confirmer vos disponibilites.')+'%0A%0A'+encodeURIComponent('Cordialement')+'%0AMA 17 SUD';
       const mailHref=ac?.email?'mailto:'+ac.email+'?subject='+subj+'&body='+bd:'';
       const smsHref=ac?.tel?'sms:'+ac.tel.replace(/\s/g,'')+'?body='+encodeURIComponent('Travaux en attente : '+allTaches.substring(0,160)):'' ;
       return '<div class="card" style="margin-bottom:14px;padding:0;overflow:hidden">'
@@ -995,7 +996,8 @@ function renderSuivi(c){
             +tasks.map((t,ti)=>{
               const art=ac.find(a=>a.nom===t.artisan||(a.entreprise&&a.entreprise===t.artisan)||a.nom.toLowerCase().includes(t.artisan.toLowerCase())||t.artisan.toLowerCase().includes(a.nom.toLowerCase()));
               const subj=encodeURIComponent('Travaux chantier '+cl.nom);
-              const bd=encodeURIComponent('Bonjour,%0A%0ASuite a la visite du chantier '+cl.nom+' ('+( cl.adresse||'')+'), voici vos taches :%0A%0A'+t.taches+'%0A%0AMerci de confirmer votre disponibilite.%0A%0ACordialement%0AMA 17 SUD');
+              const tachesE=t.taches.replace(/\n/g,'%0A').replace(/\r/g,'');
+              const bd=encodeURIComponent('Bonjour,')+'%0A%0A'+encodeURIComponent('Suite a la visite du chantier '+cl.nom+' ('+( cl.adresse||'')+'), voici vos taches :')+'%0A%0A'+tachesE+'%0A%0A'+encodeURIComponent('Merci de confirmer votre disponibilite.')+'%0A%0A'+encodeURIComponent('Cordialement')+'%0AMA 17 SUD';
               const mailHref=art?.email?'mailto:'+art.email+'?subject='+subj+'&body='+bd:'';
               const smsText='Chantier '+cl.nom+' - Vos taches : '+t.taches+' - MA 17 SUD';
               const smsHref=art?.tel?'sms:'+art.tel.replace(/\s/g,'')+'?body='+encodeURIComponent(smsText):'';
@@ -1339,7 +1341,8 @@ function showArtisanBubbles(clientId, tasks){
     const artisan=ac.find(a=>a.nom===m.artisan||(a.entreprise&&a.entreprise===m.artisan)||a.nom.toLowerCase().includes(m.artisan.toLowerCase())||m.artisan.toLowerCase().includes(a.nom.toLowerCase()));
     if(!artisan)return '';
     const subj=encodeURIComponent('Travaux chantier '+client.nom);
-    const bd=encodeURIComponent('Bonjour,%0A%0ASuite a la visite du chantier '+client.nom+' ('+( client.adresse||'')+'), voici vos taches :%0A%0A'+m.taches+'%0A%0AMerci de confirmer votre disponibilite.%0A%0ACordialement%0AMA 17 SUD');
+    const tachesEncoded=m.taches.replace(/\n/g,'%0A').replace(/\r/g,'');
+    const bd=encodeURIComponent('Bonjour,')+'%0A%0A'+encodeURIComponent('Suite a la visite du chantier '+client.nom+' ('+( client.adresse||'')+'), voici vos taches :')+'%0A%0A'+tachesEncoded+'%0A%0A'+encodeURIComponent('Merci de confirmer votre disponibilite.')+'%0A%0A'+encodeURIComponent('Cordialement')+'%0AMA 17 SUD';
     const mailHref=artisan.email?'mailto:'+artisan.email+'?subject='+subj+'&body='+bd:'';
     const smsText='Chantier '+client.nom+' - Vos taches : '+m.taches+' - MA 17 SUD';
     const smsHref=artisan.tel?'sms:'+artisan.tel.replace(/\s/g,'')+'?body='+encodeURIComponent(smsText):'';
@@ -2098,7 +2101,8 @@ function renderVisiteBulles(){
   el.innerHTML=visiteTasks.map((m,i)=>{
     const artisan=ac.find(a=>a.nom===m.artisan||(a.entreprise&&a.entreprise===m.artisan)||a.nom.toLowerCase().includes(m.artisan.toLowerCase())||m.artisan.toLowerCase().includes(a.nom.toLowerCase()));
     const subj=encodeURIComponent('Travaux chantier '+client.nom);
-    const bd=encodeURIComponent('Bonjour,%0A%0ASuite a la visite du chantier '+client.nom+' ('+( client.adresse||'')+'), voici vos taches :%0A%0A'+m.taches+'%0A%0AMerci de confirmer votre disponibilite.%0A%0ACordialement%0AMA 17 SUD');
+    const tachesEncoded=m.taches.replace(/\n/g,'%0A').replace(/\r/g,'');
+    const bd=encodeURIComponent('Bonjour,')+'%0A%0A'+encodeURIComponent('Suite a la visite du chantier '+client.nom+' ('+( client.adresse||'')+'), voici vos taches :')+'%0A%0A'+tachesEncoded+'%0A%0A'+encodeURIComponent('Merci de confirmer votre disponibilite.')+'%0A%0A'+encodeURIComponent('Cordialement')+'%0AMA 17 SUD';
     const mailHref=artisan?.email?'mailto:'+artisan.email+'?subject='+subj+'&body='+bd:'';
     const smsText='Chantier '+client.nom+' - Vos taches : '+m.taches+' - MA 17 SUD';
     const smsHref=artisan?.tel?'sms:'+artisan.tel.replace(/\s/g,'')+'?body='+encodeURIComponent(smsText):'';
@@ -2171,7 +2175,8 @@ function envoyerTout(){
     const artisan=ac.find(a=>a.nom===m.artisan||(a.entreprise&&a.entreprise===m.artisan)||a.nom.toLowerCase().includes(m.artisan.toLowerCase())||m.artisan.toLowerCase().includes(a.nom.toLowerCase()));
     if(!artisan?.email)return;
     const subj=encodeURIComponent('Travaux chantier '+client.nom);
-    const bd=encodeURIComponent('Bonjour,%0A%0ASuite a la visite du chantier '+client.nom+' ('+( client.adresse||'')+'), voici vos taches :%0A%0A'+m.taches+'%0A%0AMerci de confirmer votre disponibilite.%0A%0ACordialement%0AMA 17 SUD');
+    const tachesEncoded=m.taches.replace(/\n/g,'%0A').replace(/\r/g,'');
+    const bd=encodeURIComponent('Bonjour,')+'%0A%0A'+encodeURIComponent('Suite a la visite du chantier '+client.nom+' ('+( client.adresse||'')+'), voici vos taches :')+'%0A%0A'+tachesEncoded+'%0A%0A'+encodeURIComponent('Merci de confirmer votre disponibilite.')+'%0A%0A'+encodeURIComponent('Cordialement')+'%0AMA 17 SUD';
     window.open('mailto:'+artisan.email+'?subject='+subj+'&body='+bd);
   });
   toast('Mails ouverts pour tous les artisans ✓');
@@ -2500,7 +2505,8 @@ function renderVisiteBulles(){
   el.innerHTML=visiteTasks.map((m,i)=>{
     const artisan=ac.find(a=>a.nom===m.artisan||(a.entreprise&&a.entreprise===m.artisan)||a.nom.toLowerCase().includes(m.artisan.toLowerCase())||m.artisan.toLowerCase().includes(a.nom.toLowerCase()));
     const subj=encodeURIComponent('Travaux chantier '+client.nom);
-    const bd=encodeURIComponent('Bonjour,%0A%0ASuite a la visite du chantier '+client.nom+' ('+( client.adresse||'')+'), voici vos taches :%0A%0A'+m.taches+'%0A%0AMerci de confirmer votre disponibilite.%0A%0ACordialement%0AMA 17 SUD');
+    const tachesEncoded=m.taches.replace(/\n/g,'%0A').replace(/\r/g,'');
+    const bd=encodeURIComponent('Bonjour,')+'%0A%0A'+encodeURIComponent('Suite a la visite du chantier '+client.nom+' ('+( client.adresse||'')+'), voici vos taches :')+'%0A%0A'+tachesEncoded+'%0A%0A'+encodeURIComponent('Merci de confirmer votre disponibilite.')+'%0A%0A'+encodeURIComponent('Cordialement')+'%0AMA 17 SUD';
     const mailHref=artisan?.email?'mailto:'+artisan.email+'?subject='+subj+'&body='+bd:'';
     const smsText='Chantier '+client.nom+' - Vos taches : '+m.taches+' - MA 17 SUD';
     const smsHref=artisan?.tel?'sms:'+artisan.tel.replace(/\s/g,'')+'?body='+encodeURIComponent(smsText):'';
@@ -2573,7 +2579,8 @@ function envoyerTout(){
     const artisan=ac.find(a=>a.nom===m.artisan||(a.entreprise&&a.entreprise===m.artisan)||a.nom.toLowerCase().includes(m.artisan.toLowerCase())||m.artisan.toLowerCase().includes(a.nom.toLowerCase()));
     if(!artisan?.email)return;
     const subj=encodeURIComponent('Travaux chantier '+client.nom);
-    const bd=encodeURIComponent('Bonjour,%0A%0ASuite a la visite du chantier '+client.nom+' ('+( client.adresse||'')+'), voici vos taches :%0A%0A'+m.taches+'%0A%0AMerci de confirmer votre disponibilite.%0A%0ACordialement%0AMA 17 SUD');
+    const tachesEncoded=m.taches.replace(/\n/g,'%0A').replace(/\r/g,'');
+    const bd=encodeURIComponent('Bonjour,')+'%0A%0A'+encodeURIComponent('Suite a la visite du chantier '+client.nom+' ('+( client.adresse||'')+'), voici vos taches :')+'%0A%0A'+tachesEncoded+'%0A%0A'+encodeURIComponent('Merci de confirmer votre disponibilite.')+'%0A%0A'+encodeURIComponent('Cordialement')+'%0AMA 17 SUD';
     window.open('mailto:'+artisan.email+'?subject='+subj+'&body='+bd);
   });
   toast('Mails ouverts pour tous les artisans ✓');
