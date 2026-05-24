@@ -615,12 +615,12 @@ function renderCliList(list){
       </div>
     </div>`;
   }).join('');
-  // Auto-charger les bulles artisans
+  // Afficher les bulles déjà sauvegardées (sans appel IA)
   setTimeout(()=>{
-    list.filter(c=>c.notes_ct&&(c.statut==='en_cours'||c.statut==='ouverture')).forEach(c=>{
-      prepareArtisanMails(c.id,c.notes_ct);
+    list.filter(c=>c.artisan_tasks&&c.artisan_tasks.length>0).forEach(c=>{
+      showArtisanBubbles(c.id, c.artisan_tasks);
     });
-  },200);
+  },100);
 
 }
 
@@ -1137,13 +1137,7 @@ async function saveNotesCTInline(clientId){
     clients=clients.map(c=>c.id===clientId?{...c,notes_ct:notes,ct_responsable:resp}:c);
     toast('Note enregistrée ✓');showSync('💾 Sauvegardé');
     filterCli('en_cours');
-    // Après re-rendu, recréer les bulles artisans si notes existent
-    setTimeout(()=>{
-      if(notes){
-        toggleInlineNotes(clientId); // Rouvrir l'éditeur
-        prepareArtisanMails(clientId, notes);
-      }
-    }, 300);
+
   }catch(e){toast('Erreur: '+e.message,'#ef4444');}
 }
 
@@ -1155,6 +1149,34 @@ async function deleteNotesCTInline(clientId){
     toast('Note supprimée');
     filterCli('en_cours');
   }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+function showArtisanBubbles(clientId, tasks){
+  const client=clients.find(c=>c.id===clientId);
+  if(!client||!tasks||tasks.length===0)return;
+  const ac=clientArtisans(clientId);
+  const mailZone=document.getElementById('ct-mail-zone-'+clientId)||document.getElementById('il-mail-zone-'+clientId);
+  if(!mailZone)return;
+  mailZone.style.display='block';
+  mailZone.innerHTML=tasks.map(m=>{
+    const artisan=ac.find(a=>a.nom===m.artisan||(a.entreprise&&a.entreprise===m.artisan)||a.nom.toLowerCase().includes(m.artisan.toLowerCase())||m.artisan.toLowerCase().includes(a.nom.toLowerCase()));
+    if(!artisan)return '';
+    const subj=encodeURIComponent('Travaux chantier '+client.nom);
+    const bd=encodeURIComponent('Bonjour,%0A%0ASuite a la visite du chantier '+client.nom+' ('+( client.adresse||'')+'), voici vos taches :%0A%0A'+m.taches+'%0A%0AMerci de confirmer votre disponibilite.%0A%0ACordialement%0AMA 17 SUD');
+    const mailHref=artisan.email?'mailto:'+artisan.email+'?subject='+subj+'&body='+bd:'';
+    const smsText='Chantier '+client.nom+' - Vos taches : '+m.taches+' - MA 17 SUD';
+    const smsHref=artisan.tel?'sms:'+artisan.tel.replace(/\s/g,'')+'?body='+encodeURIComponent(smsText):'';
+    return '<div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:9px;padding:8px 11px;margin-bottom:6px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px">'
+      +'<div style="flex:1;min-width:0">'
+        +'<div style="font-size:11px;font-weight:700;color:#2563eb;margin-bottom:3px">'+(artisan.metier||artisan.nom)+(artisan.entreprise?' — '+artisan.entreprise:'')+'</div>'
+        +'<div style="font-size:11px;color:#374151;white-space:pre-wrap">'+m.taches+'</div>'
+      +'</div>'
+      +'<div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">'
+        +(mailHref?'<a href="'+mailHref+'" onclick="event.stopPropagation()" style="padding:5px 9px;border-radius:7px;background:#dbeafe;color:#2563eb;border:1.5px solid #bfdbfe;font-size:12px;font-weight:700;text-decoration:none">✉</a>':'')
+        +(smsHref?'<a href="'+smsHref+'" onclick="event.stopPropagation()" style="padding:5px 9px;border-radius:7px;background:#dcfce7;color:#16a34a;border:1.5px solid #bbf7d0;font-size:12px;font-weight:700;text-decoration:none">💬</a>':'')
+      +'</div>'
+    +'</div>';
+  }).filter(Boolean).join('');
 }
 
 async function prepareArtisanMails(clientId, notesText){
@@ -1185,26 +1207,13 @@ async function prepareArtisanMails(clientId, notesText){
     if(!mailZone)return;
     if(mails.length===0){mailZone.innerHTML='<div style="font-size:11px;color:#94a3b8">Aucun artisan identifié dans les notes.</div>';return;}
 
-    mailZone.innerHTML=mails.map(m=>{
-      const artisan=ac.find(a=>a.nom===m.artisan||(a.entreprise&&a.entreprise===m.artisan)||a.nom.toLowerCase().includes(m.artisan.toLowerCase())||m.artisan.toLowerCase().includes(a.nom.toLowerCase()));
-      if(!artisan)return '';
-      const subj=encodeURIComponent('Travaux chantier '+client.nom);
-      const bodyText='Bonjour,\n\nSuite a la visite du chantier '+client.nom+' ('+( client.adresse||'')+'), voici vos taches :\n\n'+m.taches+'\n\nMerci de confirmer votre disponibilite.\n\nCordialement\nMA 17 SUD';
-      const bd=encodeURIComponent(bodyText);
-      const mailHref=artisan.email?'mailto:'+artisan.email+'?subject='+subj+'&body='+bd:'';
-      const smsText='Chantier '+client.nom+' - Vos taches : '+m.taches+' - MA 17 SUD';
-      const smsHref=artisan.tel?'sms:'+artisan.tel.replace(/\s/g,'')+'?body='+encodeURIComponent(smsText):'';
-      return '<div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:9px;padding:8px 11px;margin-bottom:6px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px">'
-        +'<div style="flex:1;min-width:0">'
-          +'<div style="font-size:11px;font-weight:700;color:#2563eb;margin-bottom:3px">'+(artisan.metier||artisan.nom)+(artisan.entreprise?' — '+artisan.entreprise:'')+'</div>'
-          +'<div style="font-size:11px;color:#374151;white-space:pre-wrap">'+m.taches+'</div>'
-        +'</div>'
-        +'<div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">'
-          +(mailHref?'<a href="'+mailHref+'" onclick="event.stopPropagation()" style="padding:5px 9px;border-radius:7px;background:#dbeafe;color:#2563eb;border:1.5px solid #bfdbfe;font-size:12px;font-weight:700;text-decoration:none">✉</a>':'')
-          +(smsHref?'<a href="'+smsHref+'" onclick="event.stopPropagation()" style="padding:5px 9px;border-radius:7px;background:#dcfce7;color:#16a34a;border:1.5px solid #bbf7d0;font-size:12px;font-weight:700;text-decoration:none">💬</a>':'')
-        +'</div>'
-      +'</div>';
-    }).filter(Boolean).join('');
+    // Sauvegarder dans Supabase
+    try{
+      await db('PATCH','clients',{artisan_tasks:mails,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+      clients=clients.map(c=>c.id===clientId?{...c,artisan_tasks:mails}:c);
+    }catch(e){console.log('Save tasks error:',e);}
+    // Afficher les bulles
+    showArtisanBubbles(clientId, mails);
   }catch(e){
     if(mailZone)mailZone.innerHTML='<div style="font-size:11px;color:#ef4444">Erreur: '+e.message+'</div>';
   }
