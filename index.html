@@ -135,6 +135,17 @@ input,select,textarea{font-family:inherit;}
 #dash-map-container.fullscreen #map-main{height:calc(100vh - 180px) !important;}
 #dash-map-container.fullscreen #fs-btn{background:#0f172a;color:#fff;border-color:#0f172a;}
 @media(max-width:380px){.grid2{grid-template-columns:1fr;}.nav-btns{flex-direction:column;}}
+.visite-page{position:fixed;inset:0;background:#f1f5f9;z-index:600;overflow-y:auto;display:none;}
+.visite-page.open{display:block;}
+.visite-header{background:#0f172a;padding:12px 14px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10;}
+.visite-body{padding:14px;max-width:480px;margin:0 auto;}
+.visite-step{background:#fff;border-radius:13px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,0.06);}
+.visite-step-title{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;}
+.artisan-bubble{background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:11px;padding:12px;margin-bottom:8px;}
+.artisan-bubble-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px;}
+.artisan-tasks{font-size:12px;color:#374151;line-height:1.7;white-space:pre-wrap;margin-bottom:10px;}
+.artisan-tasks-edit{width:100%;min-height:80px;padding:8px 10px;border:1.5px solid #2563eb;border-radius:8px;font-size:12px;font-family:inherit;resize:vertical;outline:none;margin-bottom:8px;}
+.artisan-actions{display:flex;gap:7px;}
 .voice-btn{padding:5px 10px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;transition:all .2s;}
 .voice-btn.idle{background:#f3e8ff;color:#7c3aed;}
 .voice-btn.recording{background:#ef4444;color:#fff;animation:voicePulse 1s infinite;}
@@ -943,6 +954,7 @@ function openDetail(clientId){
           <span class="ch-badge ${statut.cls}" style="margin-top:4px;display:inline-block">${statut.l}</span>
         </div>
         <button class="btn btn-secondary btn-sm" onclick="openClientModal('${c.id}');closeM('m-detail')" style="flex-shrink:0">✏ Modifier</button>
+      ${(c.statut==='en_cours'||c.statut==='ouverture')?`<button class="btn btn-purple btn-sm" onclick="openVisite('${c.id}');closeM('m-detail')" style="flex-shrink:0">🏗 Visite</button>`:''}
       </div>
       <div style="opacity:.85;font-size:13px;margin-top:8px">${c.adresse||'Adresse non renseignée'}</div>
       <div style="display:flex;flex-direction:column;gap:6px;margin-top:10px">
@@ -1802,7 +1814,207 @@ function doLogin(){
     // Vérifier l'auth au démarrage
 if(checkAuth()){
   document.getElementById('login-screen').style.display='none';
-  loadAll().then(()=>startPolling());
+  // ══════════════════════════════════════════════
+// PAGE VISITE CHANTIER
+// ══════════════════════════════════════════════
+let visiteClientId=null;
+let visiteMicRecognition=null;
+let visiteTasks=[];
+
+function openVisite(clientId){
+  visiteClientId=clientId;
+  const client=clients.find(c=>c.id===clientId);
+  if(!client)return;
+  document.getElementById('visite-title').textContent='Visite pré-réception';
+  document.getElementById('visite-subtitle').textContent=client.nom+' — '+(client.adresse||'');
+  document.getElementById('visite-texte').value='';
+  document.getElementById('visite-ai-status').style.display='none';
+  document.getElementById('visite-mic-status').style.display='none';
+  document.getElementById('visite-send-all').style.display='none';
+  // Charger tâches existantes
+  visiteTasks=client.artisan_tasks||[];
+  renderVisiteBulles();
+  document.getElementById('visite-page').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+
+function closeVisite(){
+  document.getElementById('visite-page').classList.remove('open');
+  document.body.style.overflow='';
+  if(visiteMicRecognition)visiteMicRecognition.stop();
+}
+
+function toggleVisiteMic(){
+  const btn=document.getElementById('visite-mic-btn');
+  const status=document.getElementById('visite-mic-status');
+  if(visiteMicRecognition&&btn.textContent.includes('Arrêter')){
+    visiteMicRecognition.stop();return;
+  }
+  if(!('webkitSpeechRecognition' in window)&&!('SpeechRecognition' in window)){
+    alert('Dictée vocale non supportée. Utilisez Chrome ou Safari.');return;
+  }
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const rec=new SR();
+  rec.lang='fr-FR';rec.continuous=true;rec.interimResults=true;
+  visiteMicRecognition=rec;
+  let final=document.getElementById('visite-texte').value||'';
+  rec.onstart=()=>{
+    btn.textContent='⏹ Arrêter la dictée';
+    btn.style.background='#374151';
+    status.style.display='block';
+    status.textContent='🎤 Dictée en cours…';
+  };
+  rec.onresult=e=>{
+    let interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal)final+=e.results[i][0].transcript+' ';
+      else interim+=e.results[i][0].transcript;
+    }
+    document.getElementById('visite-texte').value=final+interim;
+  };
+  rec.onend=()=>{
+    visiteMicRecognition=null;
+    btn.textContent='🎤 Démarrer la dictée';
+    btn.style.background='#ef4444';
+    document.getElementById('visite-texte').value=final.trim();
+    status.textContent='🎤 Dictée terminée — cliquez sur ✨ pour analyser';
+    setTimeout(()=>status.style.display='none',4000);
+  };
+  rec.onerror=()=>{
+    visiteMicRecognition=null;
+    btn.textContent='🎤 Démarrer la dictée';
+    btn.style.background='#ef4444';
+  };
+  rec.start();
+}
+
+async function analyserVisite(){
+  const notes=document.getElementById('visite-texte').value.trim();
+  if(!notes){alert("Dictez d'abord vos observations !");return;}
+  const client=clients.find(c=>c.id===visiteClientId);
+  if(!client)return;
+  const ac=clientArtisans(visiteClientId);
+  if(ac.length===0){alert("Aucun artisan associé à ce chantier.");return;}
+  const status=document.getElementById('visite-ai-status');
+  const btn=document.getElementById('visite-ai-btn');
+  status.style.display='block';
+  status.textContent='✨ Analyse en cours…';
+  btn.disabled=true;
+  const artisanList=ac.map(a=>'- '+(a.metier||'')+(a.entreprise?' ('+a.entreprise+')':'')+' : '+a.nom).join(', ');
+  const existing=visiteTasks.length>0?'Taches existantes a fusionner : '+JSON.stringify(visiteTasks)+'. ':'';
+  const prompt='Tu es assistant pour MA 17 SUD constructeur de maisons neuves. Chantier : '+client.nom+'. Artisans : '+artisanList+'. '+existing+'Nouvelles observations : '+notes+'. Pour chaque artisan mentionné, fusionne et liste toutes ses taches sans doublons. Reponds UNIQUEMENT en JSON valide : [{"artisan":"nom exact","taches":"liste des taches ligne par ligne avec tiret"}]. Conserve les taches existantes des artisans non mentionnés.';
+  try{
+    const r=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1500,messages:[{role:'user',content:prompt}]})});
+    const data=await r.json();
+    const text=data.content?.[0]?.text||'[]';
+    const clean=text.replace(/```json|```/g,'').trim();
+    visiteTasks=JSON.parse(clean);
+    // Sauvegarder
+    await db('PATCH','clients',{artisan_tasks:visiteTasks,updated_at:new Date().toISOString()},`?id=eq.${visiteClientId}`);
+    clients=clients.map(c=>c.id===visiteClientId?{...c,artisan_tasks:visiteTasks}:c);
+    renderVisiteBulles();
+    status.textContent='✅ '+visiteTasks.length+' artisan(s) identifié(s)';
+    setTimeout(()=>status.style.display='none',3000);
+    document.getElementById('visite-texte').value='';
+  }catch(e){
+    status.textContent='Erreur: '+e.message;
+    status.style.color='#ef4444';
+  }finally{btn.disabled=false;}
+}
+
+function renderVisiteBulles(){
+  const el=document.getElementById('visite-bulles');
+  const sendBtn=document.getElementById('visite-send-all');
+  const client=clients.find(c=>c.id===visiteClientId);
+  if(!client||visiteTasks.length===0){
+    el.innerHTML="<div style='color:#94a3b8;font-size:13px;text-align:center;padding:16px'>Les tâches apparaîtront ici après l'analyse IA</div>";
+    sendBtn.style.display='none';
+    return;
+  }
+  const ac=clientArtisans(visiteClientId);
+  el.innerHTML=visiteTasks.map((m,i)=>{
+    const artisan=ac.find(a=>a.nom===m.artisan||(a.entreprise&&a.entreprise===m.artisan)||a.nom.toLowerCase().includes(m.artisan.toLowerCase())||m.artisan.toLowerCase().includes(a.nom.toLowerCase()));
+    const subj=encodeURIComponent('Travaux chantier '+client.nom);
+    const bd=encodeURIComponent('Bonjour,%0A%0ASuite a la visite du chantier '+client.nom+' ('+( client.adresse||'')+'), voici vos taches :%0A%0A'+m.taches+'%0A%0AMerci de confirmer votre disponibilite.%0A%0ACordialement%0AMA 17 SUD');
+    const mailHref=artisan?.email?'mailto:'+artisan.email+'?subject='+subj+'&body='+bd:'';
+    const smsText='Chantier '+client.nom+' - Vos taches : '+m.taches+' - MA 17 SUD';
+    const smsHref=artisan?.tel?'sms:'+artisan.tel.replace(/\s/g,'')+'?body='+encodeURIComponent(smsText):'';
+    return '<div class="artisan-bubble" id="bubble-'+i+'">'
+      +'<div class="artisan-bubble-head">'
+        +'<div style="flex:1;min-width:0">'
+          +'<div style="font-weight:700;font-size:13px;color:#0f172a">'+(artisan?.metier||m.artisan)+(artisan?.entreprise?' — '+artisan.entreprise:'')+'</div>'
+          +(artisan?.tel?'<div style="font-size:11px;color:#64748b">'+artisan.tel+'</div>':'')
+          +(artisan?.email?'<div style="font-size:11px;color:#64748b">'+artisan.email+'</div>':'')
+        +'</div>'
+        +'<button onclick="editBubble('+i+')" style="padding:5px 8px;border-radius:8px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:12px">✏</button>'
+      +'</div>'
+      +'<div class="artisan-tasks" id="tasks-view-'+i+'">'+m.taches+'</div>'
+      +'<div id="tasks-edit-'+i+'" style="display:none">'
+        +'<textarea class="artisan-tasks-edit" id="tasks-input-'+i+'">'+m.taches+'</textarea>'
+        +'<div style="display:flex;gap:6px">'
+          +'<button onclick="cancelEditBubble('+i+')" style="flex:1;padding:7px;border-radius:8px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:12px;font-family:inherit">Annuler</button>'
+          +'<button onclick="saveEditBubble('+i+')" style="flex:1;padding:7px;border-radius:8px;border:none;background:#2563eb;color:#fff;cursor:pointer;font-size:12px;font-family:inherit;font-weight:700">💾 Enregistrer</button>'
+        +'</div>'
+      +'</div>'
+      +'<div class="artisan-actions">'
+        +(mailHref?'<a href="'+mailHref+'" style="flex:1;padding:8px;border-radius:8px;background:#dbeafe;color:#1e40af;border:1.5px solid #bfdbfe;font-size:12px;font-weight:700;text-align:center;text-decoration:none">✉ Mail</a>':'')
+        +(smsHref?'<a href="'+smsHref+'" style="flex:1;padding:8px;border-radius:8px;background:#dcfce7;color:#166534;border:1.5px solid #bbf7d0;font-size:12px;font-weight:700;text-align:center;text-decoration:none">💬 SMS</a>':'')
+        +'<button onclick="deleteBubble('+i+')" style="padding:8px 10px;border-radius:8px;border:1.5px solid #fee2e2;background:#fff5f5;color:#ef4444;cursor:pointer;font-size:12px">🗑</button>'
+      +'</div>'
+    +'</div>';
+  }).join('');
+  sendBtn.style.display='block';
+  sendBtn.textContent='📤 Tout envoyer ('+visiteTasks.filter((m,i)=>{const a=ac.find(x=>x.nom===m.artisan||(x.entreprise&&x.entreprise===m.artisan)||x.nom.toLowerCase().includes(m.artisan.toLowerCase()));return a?.email;}).length+' artisans)';
+}
+
+function editBubble(i){
+  document.getElementById('tasks-view-'+i).style.display='none';
+  document.getElementById('tasks-edit-'+i).style.display='block';
+  document.getElementById('tasks-input-'+i).focus();
+}
+
+function cancelEditBubble(i){
+  document.getElementById('tasks-view-'+i).style.display='block';
+  document.getElementById('tasks-edit-'+i).style.display='none';
+}
+
+async function saveEditBubble(i){
+  const newTasks=document.getElementById('tasks-input-'+i).value.trim();
+  visiteTasks[i].taches=newTasks;
+  try{
+    await db('PATCH','clients',{artisan_tasks:visiteTasks,updated_at:new Date().toISOString()},`?id=eq.${visiteClientId}`);
+    clients=clients.map(c=>c.id===visiteClientId?{...c,artisan_tasks:visiteTasks}:c);
+    renderVisiteBulles();
+    toast('Tâches mises à jour ✓');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+async function deleteBubble(i){
+  if(!confirm('Supprimer les tâches de cet artisan ?'))return;
+  visiteTasks.splice(i,1);
+  try{
+    await db('PATCH','clients',{artisan_tasks:visiteTasks,updated_at:new Date().toISOString()},`?id=eq.${visiteClientId}`);
+    clients=clients.map(c=>c.id===visiteClientId?{...c,artisan_tasks:visiteTasks}:c);
+    renderVisiteBulles();
+    toast('Artisan retiré');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+function envoyerTout(){
+  const client=clients.find(c=>c.id===visiteClientId);
+  if(!client)return;
+  const ac=clientArtisans(visiteClientId);
+  visiteTasks.forEach(m=>{
+    const artisan=ac.find(a=>a.nom===m.artisan||(a.entreprise&&a.entreprise===m.artisan)||a.nom.toLowerCase().includes(m.artisan.toLowerCase())||m.artisan.toLowerCase().includes(a.nom.toLowerCase()));
+    if(!artisan?.email)return;
+    const subj=encodeURIComponent('Travaux chantier '+client.nom);
+    const bd=encodeURIComponent('Bonjour,%0A%0ASuite a la visite du chantier '+client.nom+' ('+( client.adresse||'')+'), voici vos taches :%0A%0A'+m.taches+'%0A%0AMerci de confirmer votre disponibilite.%0A%0ACordialement%0AMA 17 SUD');
+    window.open('mailto:'+artisan.email+'?subject='+subj+'&body='+bd);
+  });
+  toast('Mails ouverts pour tous les artisans ✓');
+}
+
+loadAll().then(()=>startPolling());
 } else {
   // Afficher l'écran de connexion, focus sur le champ
   setTimeout(()=>document.getElementById('login-user').focus(), 100);
@@ -1826,7 +2038,246 @@ function checkAuth(){
 
 // Appel API via proxy Vercel
 
+// ══════════════════════════════════════════════
+// PAGE VISITE CHANTIER
+// ══════════════════════════════════════════════
+let visiteClientId=null;
+let visiteMicRecognition=null;
+let visiteTasks=[];
+
+function openVisite(clientId){
+  visiteClientId=clientId;
+  const client=clients.find(c=>c.id===clientId);
+  if(!client)return;
+  document.getElementById('visite-title').textContent='Visite pré-réception';
+  document.getElementById('visite-subtitle').textContent=client.nom+' — '+(client.adresse||'');
+  document.getElementById('visite-texte').value='';
+  document.getElementById('visite-ai-status').style.display='none';
+  document.getElementById('visite-mic-status').style.display='none';
+  document.getElementById('visite-send-all').style.display='none';
+  // Charger tâches existantes
+  visiteTasks=client.artisan_tasks||[];
+  renderVisiteBulles();
+  document.getElementById('visite-page').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+
+function closeVisite(){
+  document.getElementById('visite-page').classList.remove('open');
+  document.body.style.overflow='';
+  if(visiteMicRecognition)visiteMicRecognition.stop();
+}
+
+function toggleVisiteMic(){
+  const btn=document.getElementById('visite-mic-btn');
+  const status=document.getElementById('visite-mic-status');
+  if(visiteMicRecognition&&btn.textContent.includes('Arrêter')){
+    visiteMicRecognition.stop();return;
+  }
+  if(!('webkitSpeechRecognition' in window)&&!('SpeechRecognition' in window)){
+    alert('Dictée vocale non supportée. Utilisez Chrome ou Safari.');return;
+  }
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const rec=new SR();
+  rec.lang='fr-FR';rec.continuous=true;rec.interimResults=true;
+  visiteMicRecognition=rec;
+  let final=document.getElementById('visite-texte').value||'';
+  rec.onstart=()=>{
+    btn.textContent='⏹ Arrêter la dictée';
+    btn.style.background='#374151';
+    status.style.display='block';
+    status.textContent='🎤 Dictée en cours…';
+  };
+  rec.onresult=e=>{
+    let interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal)final+=e.results[i][0].transcript+' ';
+      else interim+=e.results[i][0].transcript;
+    }
+    document.getElementById('visite-texte').value=final+interim;
+  };
+  rec.onend=()=>{
+    visiteMicRecognition=null;
+    btn.textContent='🎤 Démarrer la dictée';
+    btn.style.background='#ef4444';
+    document.getElementById('visite-texte').value=final.trim();
+    status.textContent='🎤 Dictée terminée — cliquez sur ✨ pour analyser';
+    setTimeout(()=>status.style.display='none',4000);
+  };
+  rec.onerror=()=>{
+    visiteMicRecognition=null;
+    btn.textContent='🎤 Démarrer la dictée';
+    btn.style.background='#ef4444';
+  };
+  rec.start();
+}
+
+async function analyserVisite(){
+  const notes=document.getElementById('visite-texte').value.trim();
+  if(!notes){alert("Dictez d'abord vos observations !");return;}
+  const client=clients.find(c=>c.id===visiteClientId);
+  if(!client)return;
+  const ac=clientArtisans(visiteClientId);
+  if(ac.length===0){alert("Aucun artisan associé à ce chantier.");return;}
+  const status=document.getElementById('visite-ai-status');
+  const btn=document.getElementById('visite-ai-btn');
+  status.style.display='block';
+  status.textContent='✨ Analyse en cours…';
+  btn.disabled=true;
+  const artisanList=ac.map(a=>'- '+(a.metier||'')+(a.entreprise?' ('+a.entreprise+')':'')+' : '+a.nom).join(', ');
+  const existing=visiteTasks.length>0?'Taches existantes a fusionner : '+JSON.stringify(visiteTasks)+'. ':'';
+  const prompt='Tu es assistant pour MA 17 SUD constructeur de maisons neuves. Chantier : '+client.nom+'. Artisans : '+artisanList+'. '+existing+'Nouvelles observations : '+notes+'. Pour chaque artisan mentionné, fusionne et liste toutes ses taches sans doublons. Reponds UNIQUEMENT en JSON valide : [{"artisan":"nom exact","taches":"liste des taches ligne par ligne avec tiret"}]. Conserve les taches existantes des artisans non mentionnés.';
+  try{
+    const r=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1500,messages:[{role:'user',content:prompt}]})});
+    const data=await r.json();
+    const text=data.content?.[0]?.text||'[]';
+    const clean=text.replace(/```json|```/g,'').trim();
+    visiteTasks=JSON.parse(clean);
+    // Sauvegarder
+    await db('PATCH','clients',{artisan_tasks:visiteTasks,updated_at:new Date().toISOString()},`?id=eq.${visiteClientId}`);
+    clients=clients.map(c=>c.id===visiteClientId?{...c,artisan_tasks:visiteTasks}:c);
+    renderVisiteBulles();
+    status.textContent='✅ '+visiteTasks.length+' artisan(s) identifié(s)';
+    setTimeout(()=>status.style.display='none',3000);
+    document.getElementById('visite-texte').value='';
+  }catch(e){
+    status.textContent='Erreur: '+e.message;
+    status.style.color='#ef4444';
+  }finally{btn.disabled=false;}
+}
+
+function renderVisiteBulles(){
+  const el=document.getElementById('visite-bulles');
+  const sendBtn=document.getElementById('visite-send-all');
+  const client=clients.find(c=>c.id===visiteClientId);
+  if(!client||visiteTasks.length===0){
+    el.innerHTML="<div style='color:#94a3b8;font-size:13px;text-align:center;padding:16px'>Les tâches apparaîtront ici après l'analyse IA</div>";
+    sendBtn.style.display='none';
+    return;
+  }
+  const ac=clientArtisans(visiteClientId);
+  el.innerHTML=visiteTasks.map((m,i)=>{
+    const artisan=ac.find(a=>a.nom===m.artisan||(a.entreprise&&a.entreprise===m.artisan)||a.nom.toLowerCase().includes(m.artisan.toLowerCase())||m.artisan.toLowerCase().includes(a.nom.toLowerCase()));
+    const subj=encodeURIComponent('Travaux chantier '+client.nom);
+    const bd=encodeURIComponent('Bonjour,%0A%0ASuite a la visite du chantier '+client.nom+' ('+( client.adresse||'')+'), voici vos taches :%0A%0A'+m.taches+'%0A%0AMerci de confirmer votre disponibilite.%0A%0ACordialement%0AMA 17 SUD');
+    const mailHref=artisan?.email?'mailto:'+artisan.email+'?subject='+subj+'&body='+bd:'';
+    const smsText='Chantier '+client.nom+' - Vos taches : '+m.taches+' - MA 17 SUD';
+    const smsHref=artisan?.tel?'sms:'+artisan.tel.replace(/\s/g,'')+'?body='+encodeURIComponent(smsText):'';
+    return '<div class="artisan-bubble" id="bubble-'+i+'">'
+      +'<div class="artisan-bubble-head">'
+        +'<div style="flex:1;min-width:0">'
+          +'<div style="font-weight:700;font-size:13px;color:#0f172a">'+(artisan?.metier||m.artisan)+(artisan?.entreprise?' — '+artisan.entreprise:'')+'</div>'
+          +(artisan?.tel?'<div style="font-size:11px;color:#64748b">'+artisan.tel+'</div>':'')
+          +(artisan?.email?'<div style="font-size:11px;color:#64748b">'+artisan.email+'</div>':'')
+        +'</div>'
+        +'<button onclick="editBubble('+i+')" style="padding:5px 8px;border-radius:8px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:12px">✏</button>'
+      +'</div>'
+      +'<div class="artisan-tasks" id="tasks-view-'+i+'">'+m.taches+'</div>'
+      +'<div id="tasks-edit-'+i+'" style="display:none">'
+        +'<textarea class="artisan-tasks-edit" id="tasks-input-'+i+'">'+m.taches+'</textarea>'
+        +'<div style="display:flex;gap:6px">'
+          +'<button onclick="cancelEditBubble('+i+')" style="flex:1;padding:7px;border-radius:8px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:12px;font-family:inherit">Annuler</button>'
+          +'<button onclick="saveEditBubble('+i+')" style="flex:1;padding:7px;border-radius:8px;border:none;background:#2563eb;color:#fff;cursor:pointer;font-size:12px;font-family:inherit;font-weight:700">💾 Enregistrer</button>'
+        +'</div>'
+      +'</div>'
+      +'<div class="artisan-actions">'
+        +(mailHref?'<a href="'+mailHref+'" style="flex:1;padding:8px;border-radius:8px;background:#dbeafe;color:#1e40af;border:1.5px solid #bfdbfe;font-size:12px;font-weight:700;text-align:center;text-decoration:none">✉ Mail</a>':'')
+        +(smsHref?'<a href="'+smsHref+'" style="flex:1;padding:8px;border-radius:8px;background:#dcfce7;color:#166534;border:1.5px solid #bbf7d0;font-size:12px;font-weight:700;text-align:center;text-decoration:none">💬 SMS</a>':'')
+        +'<button onclick="deleteBubble('+i+')" style="padding:8px 10px;border-radius:8px;border:1.5px solid #fee2e2;background:#fff5f5;color:#ef4444;cursor:pointer;font-size:12px">🗑</button>'
+      +'</div>'
+    +'</div>';
+  }).join('');
+  sendBtn.style.display='block';
+  sendBtn.textContent='📤 Tout envoyer ('+visiteTasks.filter((m,i)=>{const a=ac.find(x=>x.nom===m.artisan||(x.entreprise&&x.entreprise===m.artisan)||x.nom.toLowerCase().includes(m.artisan.toLowerCase()));return a?.email;}).length+' artisans)';
+}
+
+function editBubble(i){
+  document.getElementById('tasks-view-'+i).style.display='none';
+  document.getElementById('tasks-edit-'+i).style.display='block';
+  document.getElementById('tasks-input-'+i).focus();
+}
+
+function cancelEditBubble(i){
+  document.getElementById('tasks-view-'+i).style.display='block';
+  document.getElementById('tasks-edit-'+i).style.display='none';
+}
+
+async function saveEditBubble(i){
+  const newTasks=document.getElementById('tasks-input-'+i).value.trim();
+  visiteTasks[i].taches=newTasks;
+  try{
+    await db('PATCH','clients',{artisan_tasks:visiteTasks,updated_at:new Date().toISOString()},`?id=eq.${visiteClientId}`);
+    clients=clients.map(c=>c.id===visiteClientId?{...c,artisan_tasks:visiteTasks}:c);
+    renderVisiteBulles();
+    toast('Tâches mises à jour ✓');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+async function deleteBubble(i){
+  if(!confirm('Supprimer les tâches de cet artisan ?'))return;
+  visiteTasks.splice(i,1);
+  try{
+    await db('PATCH','clients',{artisan_tasks:visiteTasks,updated_at:new Date().toISOString()},`?id=eq.${visiteClientId}`);
+    clients=clients.map(c=>c.id===visiteClientId?{...c,artisan_tasks:visiteTasks}:c);
+    renderVisiteBulles();
+    toast('Artisan retiré');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+function envoyerTout(){
+  const client=clients.find(c=>c.id===visiteClientId);
+  if(!client)return;
+  const ac=clientArtisans(visiteClientId);
+  visiteTasks.forEach(m=>{
+    const artisan=ac.find(a=>a.nom===m.artisan||(a.entreprise&&a.entreprise===m.artisan)||a.nom.toLowerCase().includes(m.artisan.toLowerCase())||m.artisan.toLowerCase().includes(a.nom.toLowerCase()));
+    if(!artisan?.email)return;
+    const subj=encodeURIComponent('Travaux chantier '+client.nom);
+    const bd=encodeURIComponent('Bonjour,%0A%0ASuite a la visite du chantier '+client.nom+' ('+( client.adresse||'')+'), voici vos taches :%0A%0A'+m.taches+'%0A%0AMerci de confirmer votre disponibilite.%0A%0ACordialement%0AMA 17 SUD');
+    window.open('mailto:'+artisan.email+'?subject='+subj+'&body='+bd);
+  });
+  toast('Mails ouverts pour tous les artisans ✓');
+}
+
 loadAll().then(()=>startPolling());
 </script>
+<!-- PAGE VISITE CHANTIER -->
+<div class="visite-page" id="visite-page">
+  <div class="visite-header">
+    <button onclick="closeVisite()" style="background:#1e293b;border:none;color:#94a3b8;border-radius:9px;padding:7px 10px;cursor:pointer;font-size:14px">← Retour</button>
+    <div style="flex:1">
+      <div style="color:#f1f5f9;font-size:14px;font-weight:700" id="visite-title">Visite pré-réception</div>
+      <div style="color:#475569;font-size:11px" id="visite-subtitle"></div>
+    </div>
+    <div style="color:#475569;font-size:11px" id="visite-etape">Étape 1/3</div>
+  </div>
+  <div class="visite-body">
+
+    <!-- Étape 1: Dictée -->
+    <div class="visite-step">
+      <div class="visite-step-title">1 — Dictez vos observations</div>
+      <textarea id="visite-texte" placeholder="Parlez librement… Ex: La menuiserie doit reprendre le réglage des portes, le plombier doit intervenir sur le robinet…" style="width:100%;min-height:100px;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px;font-size:13px;font-family:inherit;resize:vertical;outline:none;background:#f8fafc;box-sizing:border-box"></textarea>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button id="visite-mic-btn" onclick="toggleVisiteMic()" style="flex:1;padding:12px;border-radius:10px;border:none;background:#ef4444;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🎤 Démarrer la dictée</button>
+      </div>
+      <div id="visite-mic-status" style="font-size:11px;color:#7c3aed;margin-top:6px;display:none"></div>
+    </div>
+
+    <!-- Étape 2: IA -->
+    <div class="visite-step">
+      <div class="visite-step-title">2 — Analyser avec l'IA</div>
+      <button onclick="analyserVisite()" id="visite-ai-btn" style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">✨ Répartir par artisan</button>
+      <div id="visite-ai-status" style="font-size:11px;color:#7c3aed;margin-top:6px;display:none">✨ Analyse en cours…</div>
+    </div>
+
+    <!-- Étape 3: Bulles artisans -->
+    <div class="visite-step">
+      <div class="visite-step-title">3 — Tâches par artisan</div>
+      <div id="visite-bulles"></div>
+      <button id="visite-send-all" onclick="envoyerTout()" style="display:none;width:100%;padding:11px;border-radius:10px;border:1.5px solid #e2e8f0;background:#fff;color:#374151;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px">📤 Tout envoyer</button>
+    </div>
+
+  </div>
+</div>
+
 </body>
 </html>
