@@ -912,7 +912,8 @@ function renderSuivi(c){
       const allTachesEnc=allTaches.replace(/\n/g,'%0A').replace(/\r/g,'');
       const bd=encodeURIComponent('Bonjour,')+'%0A%0A'+encodeURIComponent('Voici les travaux en attente vous concernant :')+'%0A%0A'+allTachesEnc+'%0A%0A'+encodeURIComponent('Merci de confirmer vos disponibilites.')+'%0A%0A'+encodeURIComponent('Cordialement')+'%0AMA 17 SUD';
       const mailHref=ac?.email?'mailto:'+ac.email+'?subject='+subj+'&body='+bd:'';
-      const smsHref=ac?.tel?'sms:'+ac.tel.replace(/\s/g,'')+'?body='+encodeURIComponent('Travaux en attente : '+allTaches.substring(0,160)):'' ;
+      const smsTxtA='Travaux en attente :%0A%0A'+encodeURIComponent(allTaches)+'%0A%0AMA 17 SUD';
+      const smsHref=ac?.tel?'sms:'+ac.tel.replace(/\s/g,'')+'?body='+smsTxtA:'';
       return '<div class="card" style="margin-bottom:14px;padding:0;overflow:hidden">'
         +'<div style="background:#4c1d95;padding:12px 15px;display:flex;align-items:center;justify-content:space-between">'
           +'<div>'
@@ -999,8 +1000,8 @@ function renderSuivi(c){
               const tachesE=t.taches.replace(/\n/g,'%0A').replace(/\r/g,'');
               const bd=encodeURIComponent('Bonjour,')+'%0A%0A'+encodeURIComponent('Suite a la visite du chantier '+cl.nom+' ('+( cl.adresse||'')+'), voici vos taches :')+'%0A%0A'+tachesE+'%0A%0A'+encodeURIComponent('Merci de confirmer votre disponibilite.')+'%0A%0A'+encodeURIComponent('Cordialement')+'%0AMA 17 SUD';
               const mailHref=art?.email?'mailto:'+art.email+'?subject='+subj+'&body='+bd:'';
-              const smsText='Chantier '+cl.nom+' - Vos taches : '+t.taches+' - MA 17 SUD';
-              const smsHref=art?.tel?'sms:'+art.tel.replace(/\s/g,'')+'?body='+encodeURIComponent(smsText):'';
+              const smsText='Chantier '+cl.nom+' :%0A%0A'+encodeURIComponent(t.taches)+'%0A%0AMA 17 SUD';
+              const smsHref=art?.tel?'sms:'+art.tel.replace(/\s/g,'')+'?body='+smsText:'';
               return '<div style="border:1.5px solid #e9d5ff;border-radius:10px;padding:10px;margin-bottom:8px;background:#faf5ff">'
                 +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px">'
                   +'<div>'
@@ -1344,7 +1345,7 @@ function showArtisanBubbles(clientId, tasks){
     const tachesEncoded=m.taches.replace(/\n/g,'%0A').replace(/\r/g,'');
     const bd=encodeURIComponent('Bonjour,')+'%0A%0A'+encodeURIComponent('Suite a la visite du chantier '+client.nom+' ('+( client.adresse||'')+'), voici vos taches :')+'%0A%0A'+tachesEncoded+'%0A%0A'+encodeURIComponent('Merci de confirmer votre disponibilite.')+'%0A%0A'+encodeURIComponent('Cordialement')+'%0AMA 17 SUD';
     const mailHref=artisan.email?'mailto:'+artisan.email+'?subject='+subj+'&body='+bd:'';
-    const smsText='Chantier '+client.nom+' - Vos taches : '+m.taches+' - MA 17 SUD';
+    const smsText='Chantier '+client.nom+' :%0A%0A'+encodeURIComponent(m.taches)+'%0A%0AMA 17 SUD';
     const smsHref=artisan.tel?'sms:'+artisan.tel.replace(/\s/g,'')+'?body='+encodeURIComponent(smsText):'';
     return '<div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:9px;padding:8px 11px;margin-bottom:6px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px">'
       +'<div style="flex:1;min-width:0">'
@@ -2104,8 +2105,8 @@ function renderVisiteBulles(){
     const tachesEncoded=m.taches.replace(/\n/g,'%0A').replace(/\r/g,'');
     const bd=encodeURIComponent('Bonjour,')+'%0A%0A'+encodeURIComponent('Suite a la visite du chantier '+client.nom+' ('+( client.adresse||'')+'), voici vos taches :')+'%0A%0A'+tachesEncoded+'%0A%0A'+encodeURIComponent('Merci de confirmer votre disponibilite.')+'%0A%0A'+encodeURIComponent('Cordialement')+'%0AMA 17 SUD';
     const mailHref=artisan?.email?'mailto:'+artisan.email+'?subject='+subj+'&body='+bd:'';
-    const smsText='Chantier '+client.nom+' - Vos taches : '+m.taches+' - MA 17 SUD';
-    const smsHref=artisan?.tel?'sms:'+artisan.tel.replace(/\s/g,'')+'?body='+encodeURIComponent(smsText):'';
+    const smsText='Chantier '+client.nom+' :%0A%0A'+encodeURIComponent(m.taches)+'%0A%0AMA 17 SUD';
+    const smsHref=artisan?.tel?'sms:'+artisan.tel.replace(/\s/g,'')+'?body='+smsText:'';
     return '<div class="artisan-bubble" id="bubble-'+i+'">'
       +'<div class="artisan-bubble-head">'
         +'<div style="flex:1;min-width:0">'
@@ -2508,8 +2509,8 @@ function renderVisiteBulles(){
     const tachesEncoded=m.taches.replace(/\n/g,'%0A').replace(/\r/g,'');
     const bd=encodeURIComponent('Bonjour,')+'%0A%0A'+encodeURIComponent('Suite a la visite du chantier '+client.nom+' ('+( client.adresse||'')+'), voici vos taches :')+'%0A%0A'+tachesEncoded+'%0A%0A'+encodeURIComponent('Merci de confirmer votre disponibilite.')+'%0A%0A'+encodeURIComponent('Cordialement')+'%0AMA 17 SUD';
     const mailHref=artisan?.email?'mailto:'+artisan.email+'?subject='+subj+'&body='+bd:'';
-    const smsText='Chantier '+client.nom+' - Vos taches : '+m.taches+' - MA 17 SUD';
-    const smsHref=artisan?.tel?'sms:'+artisan.tel.replace(/\s/g,'')+'?body='+encodeURIComponent(smsText):'';
+    const smsText='Chantier '+client.nom+' :%0A%0A'+encodeURIComponent(m.taches)+'%0A%0AMA 17 SUD';
+    const smsHref=artisan?.tel?'sms:'+artisan.tel.replace(/\s/g,'')+'?body='+smsText:'';
     return '<div class="artisan-bubble" id="bubble-'+i+'">'
       +'<div class="artisan-bubble-head">'
         +'<div style="flex:1;min-width:0">'
