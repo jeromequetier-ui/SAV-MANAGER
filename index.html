@@ -1699,6 +1699,52 @@ function openVisite(clientId){
   document.body.style.overflow='hidden';
 }
 
+function toggleVisiteMic(){
+  const btn=document.getElementById('visite-mic-btn');
+  const status=document.getElementById('visite-mic-status');
+  if(visiteMicRecognition&&btn.textContent.includes('Arrêter')){visiteMicRecognition.stop();return;}
+  if(!("webkitSpeechRecognition" in window)&&!("SpeechRecognition" in window)){alert("Dictée vocale non supportée. Utilisez Chrome ou Safari.");return;}
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const rec=new SR();
+  rec.lang='fr-FR';rec.continuous=true;rec.interimResults=true;
+  visiteMicRecognition=rec;
+  let final=document.getElementById('visite-texte').value||'';
+  rec.onstart=()=>{btn.textContent='⏹ Arrêter la dictée';btn.style.background='#374151';status.style.display='block';status.textContent='🎤 Dictée en cours…';};
+  rec.onresult=e=>{let interim='';for(let i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal)final+=e.results[i][0].transcript+' ';else interim+=e.results[i][0].transcript;}document.getElementById('visite-texte').value=final+interim;};
+  rec.onend=()=>{visiteMicRecognition=null;btn.textContent='🎤 Démarrer la dictée';btn.style.background='#ef4444';document.getElementById('visite-texte').value=final.trim();status.textContent="🎤 Dictée terminée — cliquez sur ✨ pour analyser";setTimeout(()=>status.style.display='none',4000);};
+  rec.onerror=()=>{visiteMicRecognition=null;btn.textContent='🎤 Démarrer la dictée';btn.style.background='#ef4444';};
+  rec.start();
+}
+
+async function analyserVisite(){
+  const notes=document.getElementById('visite-texte').value.trim();
+  if(!notes){alert("Dictez d'abord vos observations !");return;}
+  const client=clients.find(c=>c.id===visiteClientId);
+  if(!client)return;
+  const ac=clientArtisans(visiteClientId);
+  if(ac.length===0){alert("Aucun artisan associé à ce chantier.");return;}
+  const status=document.getElementById('visite-ai-status');
+  const btn=document.getElementById('visite-ai-btn');
+  status.style.display='block';status.textContent='✨ Analyse en cours…';btn.disabled=true;
+  const artisanList=ac.map(a=>'- '+(a.metier||'')+(a.entreprise?' ('+a.entreprise+')':'')+' : '+a.nom).join(', ');
+  const existing=visiteTasks.length>0?'Taches existantes a fusionner : '+JSON.stringify(visiteTasks)+'. ':'';
+  const prompt='Tu es assistant pour MA 17 SUD constructeur de maisons neuves. Chantier : '+client.nom+'. Artisans : '+artisanList+'. '+existing+'Nouvelles observations : '+notes+'. Pour chaque artisan mentionné, fusionne et liste toutes ses taches sans doublons. Reponds UNIQUEMENT en JSON valide : [{"artisan":"nom exact","taches":"liste des taches ligne par ligne avec tiret"}]. Conserve les taches existantes des artisans non mentionnés.';
+  try{
+    const r=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1500,messages:[{role:'user',content:prompt}]})});
+    const data=await r.json();
+    const text=data.content?.[0]?.text||'[]';
+    const clean=text.replace(/```json|```/g,'').trim();
+    visiteTasks=JSON.parse(clean);
+    await db('PATCH','clients',{artisan_tasks:visiteTasks,updated_at:new Date().toISOString()},`?id=eq.${visiteClientId}`);
+    clients=clients.map(c=>c.id===visiteClientId?{...c,artisan_tasks:visiteTasks}:c);
+    renderVisiteBulles();
+    status.textContent='✅ '+visiteTasks.length+' artisan(s) identifié(s)';
+    setTimeout(()=>status.style.display='none',3000);
+    document.getElementById('visite-texte').value='';
+  }catch(e){status.textContent='Erreur: '+e.message;status.style.color='#ef4444';}
+  finally{btn.disabled=false;}
+}
+
 function closeVisite(){
   document.getElementById('visite-page').classList.remove('open');
   document.body.style.overflow='';
