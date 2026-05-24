@@ -104,7 +104,9 @@ input,select,textarea{font-family:inherit;}
 /* TOAST */
 #toast{position:fixed;top:14px;right:14px;z-index:2000;padding:10px 16px;border-radius:11px;font-weight:600;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,0.2);display:none;}
 /* LIGHTBOX */
-
+#lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:3000;flex-direction:column;align-items:center;justify-content:center;padding:14px;}
+#lightbox.open{display:flex;}
+#lightbox img{max-width:95vw;max-height:72vh;border-radius:10px;object-fit:contain;}
 /* CHIP */
 .chip{padding:5px 13px;border-radius:20px;border:2px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:12px;font-family:inherit;transition:all .15s;}
 .chip.on{border-color:#2563eb;background:#eff6ff;color:#2563eb;font-weight:600;}
@@ -120,7 +122,11 @@ input,select,textarea{font-family:inherit;}
 .nav-btns{display:flex;gap:7px;flex-wrap:wrap;}
 .nav-app{flex:1;min-width:80px;padding:9px 6px;border-radius:9px;border:none;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.1);cursor:pointer;font-size:12px;font-weight:700;color:#374151;display:flex;align-items:center;justify-content:center;gap:5px;font-family:inherit;}
 /* PHOTO */
-
+.photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+.ph-thumb{aspect-ratio:1;border-radius:9px;overflow:hidden;cursor:pointer;position:relative;box-shadow:0 2px 6px rgba(0,0,0,0.12);}
+.ph-thumb img{width:100%;height:100%;object-fit:cover;}
+.ph-add{aspect-ratio:1;border-radius:9px;border:2px dashed #cbd5e1;background:#f8fafc;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#94a3b8;font-size:11px;}
+.ph-empty{width:100%;padding:20px;border-radius:11px;border:2px dashed #cbd5e1;background:#f8fafc;cursor:pointer;color:#94a3b8;font-size:13px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;}
 .cli-head{background:linear-gradient(135deg,#1e40af,#2563eb);border-radius:11px;padding:15px;margin-bottom:13px;color:#fff;}
 .empty{text-align:center;padding:32px 20px;color:#94a3b8;}
 .empty .big{font-size:36px;margin-bottom:8px;}
@@ -216,7 +222,16 @@ input,select,textarea{font-family:inherit;}
   </div>
 </div>
 <div id="content"></div>
-
+<div id="lightbox" onclick="closeLB()">
+  <img id="lb-img" src="" alt=""/>
+  <div id="lb-cap" style="color:#94a3b8;font-size:12px;margin-top:10px;"></div>
+  <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;justify-content:center;">
+    <button onclick="event.stopPropagation();lbPrev()" id="lb-prev" class="btn btn-secondary">← Préc.</button>
+    <button onclick="event.stopPropagation();lbNext()" id="lb-next" class="btn btn-secondary">Suiv. →</button>
+    <button onclick="event.stopPropagation();lbDel()" class="btn btn-danger">🗑 Supprimer</button>
+  </div>
+  <div style="color:#475569;font-size:11px;margin-top:8px">Touchez n'importe où pour fermer</div>
+</div>
 <!-- MODALS -->
 <div class="modal-bg" id="m-client"><div class="modal">
   <div class="modal-head"><h3 id="m-client-title">Nouveau chantier</h3><button class="btn-x" onclick="closeM('m-client')">✕</button></div>
@@ -241,13 +256,18 @@ input,select,textarea{font-family:inherit;}
 const SUPA_URL='https://kmryofzzmyssgsejsmem.supabase.co';
 const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImttcnlvZnp6bXlzc2dzZWpzbWVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNjQ5NzQsImV4cCI6MjA5NDg0MDk3NH0.cJ82pNpXoUAno8m_5_4-8vN98COR57V1lnHIooVOSSM';
 const HDR={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'return=representation'};
-async 
+async function db(method,table,body=null,query=''){
+  const r=await fetch(`${SUPA_URL}/rest/v1/${table}${query}`,{method,headers:HDR,body:body?JSON.stringify(body):null});
+  if(!r.ok){const e=await r.text();throw new Error(e);}
+  if(r.status===204)return null;
+  return r.json();
+}
 
 // ══════════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════════
 let clients=[],artisans=[],savList=[],chantierArtisans=[];
-let currentView='dashboard';
+let currentView='dashboard',lbPhotos=[],lbIdx=0,lbClientId=null;
 let activeLayers=new Set(['ouverture','en_cours','sav_en_cours','livre','sav']);
 let dashMapInst=null,dashMapMarkers=[];
 let savStatutFilter=null;
@@ -278,6 +298,24 @@ const timeout=setTimeout(()=>{
   document.getElementById('loader').innerHTML=`<div style="text-align:center;padding:20px"><div style="font-size:32px;margin-bottom:12px">⚠️</div><div style="font-size:18px;font-weight:800;color:#ef4444;margin-bottom:8px">Connexion impossible</div><div style="color:#64748b;font-size:13px;margin-bottom:16px">Vérifiez votre connexion internet.</div><button onclick="location.reload()" style="padding:10px 20px;background:#2563eb;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700">🔄 Réessayer</button></div>`;
 },10000);
 
+async function loadAll(){
+  try{
+    const [c,a,s,ca]=await Promise.all([
+      db('GET','clients','','?order=nom'),
+      db('GET','artisans','','?order=nom'),
+      db('GET','sav','','?order=created_at.desc'),
+      db('GET','chantier_artisans','','')
+    ]);
+    clearTimeout(timeout);
+    clients=c||[];artisans=a||[];savList=s||[];chantierArtisans=ca||[];
+    updateUI();
+    document.getElementById('loader').style.display='none';
+    goView(currentView);
+  }catch(e){
+    clearTimeout(timeout);
+    document.getElementById('loader').innerHTML=`<div style="text-align:center;padding:20px"><div style="font-size:32px;margin-bottom:12px">⚠️</div><div style="font-size:18px;font-weight:800;color:#ef4444;margin-bottom:8px">Erreur de connexion</div><div style="color:#64748b;font-size:13px;margin-bottom:8px">${e.message}</div><button onclick="location.reload()" style="padding:10px 20px;background:#2563eb;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700">🔄 Réessayer</button></div>`;
+  }
+}
 function startPolling(){
   setInterval(async()=>{
     try{
@@ -600,6 +638,51 @@ function toggleStatutMenu(menuId,event){
 }
 document.addEventListener('click',()=>{document.querySelectorAll('.statut-menu.open').forEach(m=>m.classList.remove('open'));});
 
+async function chgStatutClient(clientId,statut,menuId){
+  document.getElementById(menuId)?.classList.remove('open');
+  try{
+    // Si passage en Livré → vérifier SAV actifs
+    if(statut==='livre'){
+      const activeSavs=savList.filter(s=>s.client_id===clientId&&s.statut!=='resolu');
+      if(activeSavs.length>0){
+        const client=clients.find(c=>c.id===clientId);
+        const ok=confirm(`⚠️ ${client?.nom} a encore ${activeSavs.length} SAV en cours.
+
+En passant en Livré, ces SAV seront automatiquement marqués comme Résolus.
+
+Confirmer ?`);
+        if(!ok)return;
+        // Résoudre tous les SAV actifs
+        const now=new Date().toISOString();
+        for(const s of activeSavs){
+          await db('PATCH','sav',{statut:'resolu',date_intervention:today(),updated_at:now},`?id=eq.${s.id}`);
+          savList=savList.map(x=>x.id===s.id?{...x,statut:'resolu',date_intervention:today()}:x);
+        }
+        toast(`✅ ${activeSavs.length} SAV marqué(s) Résolu — Chantier Livré`);
+      }
+    }
+    const prevStatut=clients.find(c=>c.id===clientId)?.statut||'en_cours';
+    await db('PATCH','clients',{statut,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+    clients=clients.map(c=>c.id===clientId?{...c,statut,_prev_statut:prevStatut}:c);
+    const labels={ouverture:'Ouverture à venir',en_cours:'En cours',sav_en_cours:'SAV en cours',livre:'Livré',reserve:'Réserves'};
+    if(statut==='sav_en_cours'){
+      const activeSavs=savList.filter(s=>s.client_id===clientId&&s.statut!=='resolu');
+      toast(`Statut → ${labels[statut]}`);
+      updateUI();
+      if(currentView==='clients')goView('clients');
+      // Ouvrir le formulaire SAV si aucun SAV actif
+      if(activeSavs.length===0){
+        const prevStatut=clients.find(c=>c.id===clientId)?._prev_statut||'en_cours';
+        setTimeout(()=>openSavModalWithRevert(clientId,prevStatut),300);
+      }
+    } else {
+      toast(`Statut → ${labels[statut]}`);
+      updateUI();
+      if(currentView==='clients')goView('clients');
+    }
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
 function quickNav(clientId){
   const c=clients.find(x=>x.id===clientId);
   if(!c||!c.lat||!c.lng)return;
@@ -751,6 +834,19 @@ function toggleSavStatutMenu(menuId,event){
   event.stopPropagation();
   document.querySelectorAll('.statut-menu.open').forEach(m=>{if(m.id!==menuId)m.classList.remove('open');});
   document.getElementById(menuId)?.classList.toggle('open');
+}
+
+async function sendMailAndUpdateStatus(savId,clientId,event){
+  // Enregistrer date_mail et passer en attente_intervention
+  const now=today();
+  try{
+    await db('PATCH','sav',{statut:'attente_intervention',date_mail:now,updated_at:new Date().toISOString()},`?id=eq.${savId}`);
+    savList=savList.map(s=>s.id===savId?{...s,statut:'attente_intervention',date_mail:now}:s);
+    updateUI();
+    if(currentView==='sav')goView('sav');
+    else if(clientId)openDetail(clientId);
+    toast('✉ Mail envoyé — Statut passé en Attente artisan');showSync('💾 Sauvegardé');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
 }
 
 function filterSavByStatut(statut){
@@ -1125,6 +1221,77 @@ function openDetail(clientId){
   openM('m-detail');
 }
 
+async function genNotesCT(clientId){
+  const client=clients.find(c=>c.id===clientId);
+  if(!client)return;
+
+
+  // Get context: artisans, existing SAV, existing notes
+  const ac=clientArtisans(clientId);
+  const sv=clientSav(clientId);
+  const existingNotes=document.getElementById('ct-notes-'+clientId)?.value||
+                      document.getElementById('il-notes-'+clientId)?.value||'';
+  const resp=document.getElementById('il-resp-'+clientId)?.value||
+             document.getElementById('ct-resp-'+clientId)?.value||'';
+
+  const statusBtn=document.getElementById('ai-btn-'+clientId);
+  const statusDiv=document.getElementById('ai-status-'+clientId);
+  if(statusBtn)statusBtn.disabled=true;
+  if(statusDiv){statusDiv.style.display='block';}
+
+  const prompt=`Tu es un assistant pour un constructeur de maisons neuves (MA 17 SUD) en Charente-Maritime.
+
+Chantier : ${client.nom}
+Adresse : ${client.adresse||'Non renseignée'}
+Statut : ${CHANTIER_STATUTS[client.statut]?.l||client.statut}
+Artisans sur le chantier : ${ac.map(a=>a.metier+' : '+a.nom).join(', ')||'Non renseignés'}
+SAV en cours : ${sv.filter(s=>s.statut!=='resolu').map(s=>s.titre).join(', ')||'Aucun'}
+Notes existantes : ${existingNotes||'Aucune'}
+Responsable désigné : ${resp||'Non désigné'}
+
+Génère une liste de tâches à accomplir avant la livraison de ce chantier, en tenant compte du contexte. 
+Sois concis, pratique, utilise des tirets. Maximum 8 tâches. Ne mets pas de titre.
+Si des SAV sont en cours, intègre-les comme points à vérifier.
+Réponds uniquement avec la liste de tâches, rien d'autre.`;
+
+  try{
+    const response=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:1000,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    const data=await response.json();
+    const text=data.content?.[0]?.text||'';
+    // Insert into the right textarea
+    const taInline=document.getElementById('il-notes-'+clientId);
+    const taFiche=document.getElementById('ct-notes-'+clientId);
+    if(taInline)taInline.value=text;
+    if(taFiche)taFiche.value=text;
+    if(statusDiv)statusDiv.textContent="✨ Généré par l'IA — vérifiez et ajustez si besoin";
+    setTimeout(()=>{if(statusDiv)statusDiv.style.display='none';},3000);
+  }catch(e){
+    if(statusDiv){statusDiv.textContent='Erreur IA: '+e.message;statusDiv.style.color='#ef4444';}
+    setTimeout(()=>{if(statusDiv)statusDiv.style.display='none';},3000);
+  }finally{
+    if(statusBtn)statusBtn.disabled=false;
+  }
+}
+
+async function deleteNotesCT(clientId){
+  if(!confirm('Supprimer la note conducteur de travaux ?'))return;
+  try{
+    await db('PATCH','clients',{notes_ct:null,ct_responsable:null,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+    clients=clients.map(c=>c.id===clientId?{...c,notes_ct:null,ct_responsable:null}:c);
+    toast('Note supprimée');
+    closeM('m-detail');
+    filterCli('en_cours');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
 function toggleNotesEdit(clientId){
   const view=document.getElementById('notes-ct-view-'+clientId);
   const edit=document.getElementById('notes-ct-edit-'+clientId);
@@ -1140,6 +1307,28 @@ function toggleNotesEdit(clientId){
 function toggleInlineNotes(clientId){
   const el=document.getElementById('inline-edit-'+clientId);
   if(el)el.style.display=el.style.display==='none'?'block':'none';
+}
+
+async function saveNotesCTInline(clientId){
+  const notes=document.getElementById('il-notes-'+clientId)?.value.trim()||null;
+  const resp=document.getElementById('il-resp-'+clientId)?.value.trim()||null;
+  try{
+    await db('PATCH','clients',{notes_ct:notes,ct_responsable:resp,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+    clients=clients.map(c=>c.id===clientId?{...c,notes_ct:notes,ct_responsable:resp}:c);
+    toast('Note enregistrée ✓');showSync('💾 Sauvegardé');
+    filterCli('en_cours');
+
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+async function deleteNotesCTInline(clientId){
+  if(!confirm('Supprimer la note ?'))return;
+  try{
+    await db('PATCH','clients',{notes_ct:null,ct_responsable:null,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+    clients=clients.map(c=>c.id===clientId?{...c,notes_ct:null,ct_responsable:null}:c);
+    toast('Note supprimée');
+    filterCli('en_cours');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
 }
 
 function showArtisanBubbles(clientId, tasks){
@@ -1171,6 +1360,61 @@ function showArtisanBubbles(clientId, tasks){
   }).filter(Boolean).join('');
 }
 
+async function prepareArtisanMails(clientId, notesText){
+  const client=clients.find(c=>c.id===clientId);
+  if(!client)return;
+  const ac=clientArtisans(clientId);
+  if(ac.length===0)return;
+  const notes=notesText||document.getElementById('ct-notes-'+clientId)?.value||document.getElementById('il-notes-'+clientId)?.value||'';
+  if(!notes)return;
+
+  const mailZone=document.getElementById('ct-mail-zone-'+clientId)||document.getElementById('il-mail-zone-'+clientId);
+  if(mailZone){mailZone.style.display='block';mailZone.innerHTML='<div style="font-size:11px;color:#7c3aed">✨ Analyse des tâches par artisan…</div>';}
+
+  const artisanList=ac.map(a=>'- '+(a.metier||'')+(a.entreprise?' ('+a.entreprise+')':'')+' : '+a.nom).join(', ');
+  const existingTasks=client.artisan_tasks&&client.artisan_tasks.length>0
+    ?'\nTaches déjà enregistrées (à fusionner) : '+JSON.stringify(client.artisan_tasks)
+    :'';
+  const prompt='Tu es assistant pour MA 17 SUD constructeur de maisons neuves. Chantier : '+client.nom+'. Artisans : '+artisanList+'. Nouvelles notes : '+notes+'.'+existingTasks+' Pour chaque artisan mentionné, fusionne les nouvelles taches avec les existantes sans doublons. Reponds UNIQUEMENT en JSON valide : [{"artisan":"nom exact","taches":"liste complète des taches"}]. Si artisan non mentionné dans les nouvelles notes, conserve quand même ses taches existantes.'
+
+  try{
+    const response=await fetch('/api/claude',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1000,messages:[{role:'user',content:prompt}]})
+    });
+    const data=await response.json();
+    const text=data.content?.[0]?.text||'[]';
+    const clean=text.replace(/```json|```/g,'').trim();
+    const mails=JSON.parse(clean);
+
+    if(!mailZone)return;
+    if(mails.length===0){mailZone.innerHTML='<div style="font-size:11px;color:#94a3b8">Aucun artisan identifié dans les notes.</div>';return;}
+
+    // Sauvegarder dans Supabase
+    try{
+      await db('PATCH','clients',{artisan_tasks:mails,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+      clients=clients.map(c=>c.id===clientId?{...c,artisan_tasks:mails}:c);
+    }catch(e){console.log('Save tasks error:',e);}
+    // Afficher les bulles
+    showArtisanBubbles(clientId, mails);
+  }catch(e){
+    if(mailZone)mailZone.innerHTML='<div style="font-size:11px;color:#ef4444">Erreur: '+e.message+'</div>';
+  }
+}
+
+
+async function saveNotesCT(clientId){
+  const notes=document.getElementById('ct-notes-'+clientId)?.value.trim()||null;
+  const resp=document.getElementById('ct-resp-'+clientId)?.value.trim()||null;
+  try{
+    await db('PATCH','clients',{notes_ct:notes,ct_responsable:resp,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+    clients=clients.map(c=>c.id===clientId?{...c,notes_ct:notes,ct_responsable:resp}:c);
+    toast('Notes enregistrées ✓');showSync('💾 Sauvegardé');
+    openDetail(clientId); // Rafraîchir la fiche
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
 function openNav(app,clientId){
   const c=clients.find(x=>x.id===clientId);
   if(!c)return;
@@ -1187,13 +1431,48 @@ function openNav(app,clientId){
 // ══════════════════════════════════════════════
 // PHOTOS
 // ══════════════════════════════════════════════
-
-
-
-
-
-
-
+function addPhotos(clientId,input){
+  const files=Array.from(input.files);
+  if(!files.length)return;
+  let loaded=0;const newP=[];
+  files.forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      newP.push({id:genId(),url:ev.target.result,name:file.name,date:new Date().toLocaleDateString('fr-FR')});
+      if(++loaded===files.length){
+        const existing=JSON.parse(localStorage.getItem('photos_'+clientId)||'[]');
+        try{localStorage.setItem('photos_'+clientId,JSON.stringify([...existing,...newP]));}
+        catch{toast('⚠ Stockage photo plein','#f59e0b');return;}
+        toast(`${files.length} photo(s) ajoutée(s) ✓`);
+        openDetail(clientId);
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+  input.value='';
+}
+function openLB(clientId,index){
+  const photos=JSON.parse(localStorage.getItem('photos_'+clientId)||'[]');
+  lbPhotos=photos;lbIdx=index;lbClientId=clientId;
+  updateLB();document.getElementById('lightbox').classList.add('open');
+}
+function updateLB(){
+  const p=lbPhotos[lbIdx];
+  if(!p)return;
+  document.getElementById('lb-img').src=p.url;
+  document.getElementById('lb-cap').textContent=`${p.name} (${lbIdx+1}/${lbPhotos.length})`;
+  document.getElementById('lb-prev').style.display=lbIdx>0?'inline-flex':'none';
+  document.getElementById('lb-next').style.display=lbIdx<lbPhotos.length-1?'inline-flex':'none';
+}
+function closeLB(){document.getElementById('lightbox').classList.remove('open');}
+function lbPrev(){if(lbIdx>0){lbIdx--;updateLB();}}
+function lbNext(){if(lbIdx<lbPhotos.length-1){lbIdx++;updateLB();}}
+function lbDel(){
+  if(!confirm('Supprimer cette photo ?'))return;
+  lbPhotos.splice(lbIdx,1);
+  localStorage.setItem('photos_'+lbClientId,JSON.stringify(lbPhotos));
+  closeLB();openDetail(lbClientId);toast('Photo supprimée');
+}
 
 // ══════════════════════════════════════════════
 // CRUD CLIENTS
@@ -1244,9 +1523,33 @@ function openClientModal(clientId){
   closeM('m-detail');openM('m-client');
 }
 
-async 
+async function saveClient(clientId){
+  const nom=document.getElementById('fc-nom').value.trim();
+  if(!nom){toast('Le nom est obligatoire','#ef4444');return;}
+  const data={nom,statut:document.getElementById('fc-statut').value,adresse:document.getElementById('fc-adr').value.trim(),conjoint1:document.getElementById('fc-c1').value.trim()||null,conjoint2:document.getElementById('fc-c2').value.trim()||null,tel:document.getElementById('fc-tel').value.trim(),tel2:document.getElementById('fc-tel2').value.trim()||null,email:document.getElementById('fc-email').value.trim(),email2:document.getElementById('fc-email2').value.trim()||null,date_reception:document.getElementById('fc-date').value||null,lat:parseFloat(document.getElementById('fc-lat').value)||null,lng:parseFloat(document.getElementById('fc-lng').value)||null,updated_at:new Date().toISOString()};
+  const selectedArt=Array.from(document.querySelectorAll('.chip.on')).map(b=>b.dataset.id);
+  try{
+    let cid=clientId;
+    if(clientId){await db('PATCH','clients',data,`?id=eq.${clientId}`);clients=clients.map(c=>c.id===clientId?{...c,...data}:c);}
+    else{const res=await db('POST','clients',data);cid=res[0].id;clients.push(res[0]);}
+    await db('DELETE','chantier_artisans','',`?client_id=eq.${cid}`);
+    if(selectedArt.length>0)await db('POST','chantier_artisans',selectedArt.map(aid=>({client_id:cid,artisan_id:aid})));
+    chantierArtisans=chantierArtisans.filter(x=>x.client_id!==cid);
+    selectedArt.forEach(aid=>chantierArtisans.push({client_id:cid,artisan_id:aid}));
+    closeM('m-client');updateUI();goView(currentView);
+    toast('Chantier enregistré ✓');showSync('💾 Sauvegardé');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
 
-async 
+async function delClient(clientId){
+  try{
+    await db('DELETE','clients','',`?id=eq.${clientId}`);
+    clients=clients.filter(c=>c.id!==clientId);
+    savList=savList.filter(s=>s.client_id!==clientId);
+    chantierArtisans=chantierArtisans.filter(x=>x.client_id!==clientId);
+    updateUI();goView('clients');toast('Chantier supprimé');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
 
 // ══════════════════════════════════════════════
 // CRUD ARTISANS
@@ -1270,9 +1573,26 @@ function openArtisanModal(artisanId){
   openM('m-artisan');
 }
 
-async 
+async function saveArtisan(artisanId){
+  const nom=document.getElementById('fa-nom').value.trim();
+  if(!nom){toast('Le nom est obligatoire','#ef4444');return;}
+  const data={nom,entreprise:document.getElementById('fa-ent').value.trim(),metier:document.getElementById('fa-met').value.trim(),tel:document.getElementById('fa-tel').value.trim(),email:document.getElementById('fa-email').value.trim()};
+  try{
+    if(artisanId){await db('PATCH','artisans',data,`?id=eq.${artisanId}`);artisans=artisans.map(a=>a.id===artisanId?{...a,...data}:a);}
+    else{const res=await db('POST','artisans',data);artisans.push(res[0]);}
+    closeM('m-artisan');updateUI();goView('artisans');toast('Artisan enregistré ✓');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
 
-async 
+async function delArtisan(artisanId){
+  if(!confirm('Supprimer cet artisan ?'))return;
+  try{
+    await db('DELETE','artisans','',`?id=eq.${artisanId}`);
+    artisans=artisans.filter(a=>a.id!==artisanId);
+    chantierArtisans=chantierArtisans.filter(x=>x.artisan_id!==artisanId);
+    updateUI();goView('artisans');toast('Artisan supprimé');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
 
 // ══════════════════════════════════════════════
 // CRUD SAV
@@ -1387,13 +1707,103 @@ function openSavModal(clientId,savId){
   closeM('m-detail');openM('m-sav');
 }
 
-async 
+async function saveSav(clientId,savId){
+  const titre=document.getElementById('fs-titre').value.trim();
+  if(!titre){toast('Le titre est obligatoire','#ef4444');return;}
+  const savStatut=document.getElementById('fs-statut').value||'nouveau';
+  const data={titre,date_signalement:document.getElementById('fs-date').value,statut:savStatut,artisan_id:document.getElementById('fs-artisan').value||null,notes:document.getElementById('fs-notes').value.trim(),client_id:clientId,updated_at:new Date().toISOString()};
+  try{
+    if(savId){
+      await db('PATCH','sav',data,`?id=eq.${savId}`);
+      savList=savList.map(s=>s.id===savId?{...s,...data}:s);
+    } else {
+      const res=await db('POST','sav',{...data,created_at:new Date().toISOString()});
+      savList.unshift(res[0]);
+      // Passer automatiquement le client en SAV en cours
+      if(savStatut!=='resolu'){
+        const client=clients.find(c=>c.id===clientId);
+        if(client&&client.statut!=='sav_en_cours'){
+          await db('PATCH','clients',{statut:'sav_en_cours',updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+          clients=clients.map(c=>c.id===clientId?{...c,statut:'sav_en_cours'}:c);
+        }
+      }
+    }
+    window.__savRevert=null; // Annuler le revert car SAV bien enregistré
+    closeM('m-sav');updateUI();
+    if(currentView==='sav'){goView('sav');}
+    else{openDetail(clientId);}
+    toast('SAV enregistré ✓');showSync('💾 Sauvegardé');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
 
-async 
+async function delSavFromList(savId,clientId){
+  if(!confirm('Supprimer ce dossier SAV ?'))return;
+  try{
+    await db('DELETE','sav','',`?id=eq.${savId}`);
+    savList=savList.filter(s=>s.id!==savId);
+    // Si plus de SAV actifs → repasser le client en livré
+    const remaining=savList.filter(s=>s.client_id===clientId&&s.statut!=='resolu');
+    if(remaining.length===0){
+      const client=clients.find(c=>c.id===clientId);
+      if(client&&client.statut==='sav_en_cours'){
+        await db('PATCH','clients',{statut:'livre',updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+        clients=clients.map(c=>c.id===clientId?{...c,statut:'livre'}:c);
+        toast('SAV supprimé — Chantier repassé en Livré');
+      } else {
+        toast('SAV supprimé');
+      }
+    } else {
+      toast('SAV supprimé');
+    }
+    updateUI();
+    goView('sav');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
 
-async 
+async function delSav(savId,clientId){
+  if(!confirm('Supprimer ce dossier SAV ?'))return;
+  try{
+    await db('DELETE','sav','',`?id=eq.${savId}`);
+    savList=savList.filter(s=>s.id!==savId);
+    // Si plus de SAV actifs, repasser en livré
+    const remaining=savList.filter(s=>s.client_id===clientId&&s.statut!=='resolu'&&s.statut!=='intervenu');
+    if(remaining.length===0){
+      const client=clients.find(c=>c.id===clientId);
+      if(client&&client.statut==='sav_en_cours'){
+        await db('PATCH','clients',{statut:'livre',updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+        clients=clients.map(c=>c.id===clientId?{...c,statut:'livre'}:c);
+      }
+    }
+    updateUI();openDetail(clientId);toast('SAV supprimé');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
 
-async 
+async function chgStatut(savId,statut,clientId){
+  try{
+    const upd={statut,updated_at:new Date().toISOString()};
+    if(statut==='resolu')upd.date_intervention=today();
+    if(statut==='attente_intervention'&&!savList.find(x=>x.id===savId)?.date_mail)upd.date_mail=today();
+    await db('PATCH','sav',upd,`?id=eq.${savId}`);
+    savList=savList.map(s=>s.id===savId?{...s,...upd}:s);
+    // Si résolu, vérifier si tous les SAV sont résolus → repasser en livré
+    if(statut==='resolu'){
+      const clientSavs=savList.filter(s=>s.client_id===clientId);
+      const allResolved=clientSavs.every(s=>s.id===savId?true:s.statut==='resolu'||s.statut==='intervenu');
+      if(allResolved){
+        const client=clients.find(c=>c.id===clientId);
+        if(client&&client.statut==='sav_en_cours'){
+          await db('PATCH','clients',{statut:'livre',updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+          clients=clients.map(c=>c.id===clientId?{...c,statut:'livre'}:c);
+          toast('✅ Tous SAV résolus — Client repassé en Livré');
+        }else{toast(`Statut → ${STATUTS[statut]?.l}`);}
+      }else{toast(`Statut → ${STATUTS[statut]?.l}`);}
+    }else{toast(`Statut → ${STATUTS[statut]?.l}`);}
+    showSync('💾 Sauvegardé');updateUI();
+    if(currentView==='sav'){goView('sav');}
+    else if(clientId){openDetail(clientId);}
+    else{goView(currentView);}
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
 
 // ══════════════════════════════════════════════
 // INIT
@@ -1489,8 +1899,197 @@ function startVoice(taId,btnId,clientId,prefix){
   recognition.start();
 }
 
+async function genNotesCT(clientId){
+  const client=clients.find(c=>c.id===clientId);
+  if(!client)return;
 
-async function renderVisiteBulles(){
+  const ac=clientArtisans(clientId);
+  const sv=clientSav(clientId);
+  const rawText=document.getElementById('ct-notes-'+clientId)?.value||
+                document.getElementById('il-notes-'+clientId)?.value||'';
+  const resp=document.getElementById('il-resp-'+clientId)?.value||
+             document.getElementById('ct-resp-'+clientId)?.value||'';
+
+  const statusDiv=document.getElementById('ai-status-'+clientId);
+  const aiBtn=document.getElementById('ai-btn-'+clientId);
+  if(statusDiv){statusDiv.style.display='block';statusDiv.textContent='✨ Analyse en cours…';statusDiv.style.color='#7c3aed';}
+  if(aiBtn)aiBtn.disabled=true;
+
+  const prompt=`Tu es assistant pour un constructeur de maisons neuves en Charente-Maritime (MA 17 SUD).
+
+Chantier : ${client.nom}
+Adresse : ${client.adresse||''}
+Artisans : ${ac.map(a=>a.metier+' : '+(a.entreprise||a.nom)).join(', ')||'Non renseignés'}
+SAV actifs : ${sv.filter(s=>s.statut!=='resolu').map(s=>s.titre).join(', ')||'Aucun'}
+Responsable : ${resp||'Non désigné'}
+
+Texte brut du conducteur de travaux (dictée vocale ou notes) :
+"${rawText||'Pas de notes pour le moment'}"
+
+Transforme ce texte en liste de tâches structurée et claire pour la livraison du chantier.
+- Utilise des tirets
+- Groupe par thème si possible (ex: menuiserie, plomberie, finitions…)
+- Intègre les SAV actifs s'ils sont pertinents
+- Maximum 10 tâches
+- Sois concis et professionnel
+- Réponds UNIQUEMENT avec la liste, sans titre ni introduction`;
+
+  try{
+    const response=await fetch('/api/claude',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:800,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    if(!response.ok){const e=await response.json();throw new Error(e.error?.message||response.status);}
+    const data=await response.json();
+    const text=data.content?.[0]?.text||'';
+    const taInline=document.getElementById('il-notes-'+clientId);
+    const taFiche=document.getElementById('ct-notes-'+clientId);
+    if(taInline)taInline.value=text;
+    if(taFiche)taFiche.value=text;
+    // Préparer les mails artisans automatiquement
+    prepareArtisanMails(clientId, text);
+    if(statusDiv){statusDiv.textContent="✨ Notes structurées — vérifiez et ajustez si besoin";setTimeout(()=>{statusDiv.style.display='none';},4000);}
+  }catch(e){
+    if(statusDiv){statusDiv.textContent='❌ '+e.message;statusDiv.style.color='#ef4444';setTimeout(()=>{statusDiv.style.display='none';},4000);}
+  }finally{
+    if(aiBtn)aiBtn.disabled=false;
+  }
+}
+
+// ══════════════════════════════════════════════
+// AUTHENTIFICATION
+// ══════════════════════════════════════════════
+const USERS = {
+  'ma17sud': 'ma17sud2024!',
+  'admin': 'MA17SUD!'
+};
+
+function doLogin(){
+  const user = document.getElementById('login-user').value.trim().toLowerCase();
+  const pass = document.getElementById('login-pass').value;
+  const err = document.getElementById('login-error');
+  
+  if(USERS[user] && USERS[user] === pass){
+    // Succès
+    sessionStorage.setItem('sav_auth', btoa(user+':'+pass));
+    document.getElementById('login-screen').style.display = 'none';
+    // Vérifier l'auth au démarrage
+if(checkAuth()){
+  document.getElementById('login-screen').style.display='none';
+  // ══════════════════════════════════════════════
+// PAGE VISITE CHANTIER
+// ══════════════════════════════════════════════
+let visiteClientId=null;
+let visiteMicRecognition=null;
+let visiteTasks=[];
+
+function openVisite(clientId){
+  visiteClientId=clientId;
+  const client=clients.find(c=>c.id===clientId);
+  if(!client)return;
+  document.getElementById('visite-title').textContent='Visite pré-réception';
+  document.getElementById('visite-subtitle').textContent=client.nom+' — '+(client.adresse||'');
+  document.getElementById('visite-texte').value='';
+  document.getElementById('visite-ai-status').style.display='none';
+  document.getElementById('visite-mic-status').style.display='none';
+  document.getElementById('visite-send-all').style.display='none';
+  // Charger tâches existantes
+  visiteTasks=client.artisan_tasks||[];
+  renderVisiteBulles();
+  document.getElementById('visite-page').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+
+function closeVisite(){
+  document.getElementById('visite-page').classList.remove('open');
+  document.body.style.overflow='';
+  if(visiteMicRecognition)visiteMicRecognition.stop();
+}
+
+function toggleVisiteMic(){
+  const btn=document.getElementById('visite-mic-btn');
+  const status=document.getElementById('visite-mic-status');
+  if(visiteMicRecognition&&btn.textContent.includes('Arrêter')){
+    visiteMicRecognition.stop();return;
+  }
+  if(!('webkitSpeechRecognition' in window)&&!('SpeechRecognition' in window)){
+    alert('Dictée vocale non supportée. Utilisez Chrome ou Safari.');return;
+  }
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const rec=new SR();
+  rec.lang='fr-FR';rec.continuous=true;rec.interimResults=true;
+  visiteMicRecognition=rec;
+  let final=document.getElementById('visite-texte').value||'';
+  rec.onstart=()=>{
+    btn.textContent='⏹ Arrêter la dictée';
+    btn.style.background='#374151';
+    status.style.display='block';
+    status.textContent='🎤 Dictée en cours…';
+  };
+  rec.onresult=e=>{
+    let interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal)final+=e.results[i][0].transcript+' ';
+      else interim+=e.results[i][0].transcript;
+    }
+    document.getElementById('visite-texte').value=final+interim;
+  };
+  rec.onend=()=>{
+    visiteMicRecognition=null;
+    btn.textContent='🎤 Démarrer la dictée';
+    btn.style.background='#ef4444';
+    document.getElementById('visite-texte').value=final.trim();
+    status.textContent='🎤 Dictée terminée — cliquez sur ✨ pour analyser';
+    setTimeout(()=>status.style.display='none',4000);
+  };
+  rec.onerror=()=>{
+    visiteMicRecognition=null;
+    btn.textContent='🎤 Démarrer la dictée';
+    btn.style.background='#ef4444';
+  };
+  rec.start();
+}
+
+async function analyserVisite(){
+  const notes=document.getElementById('visite-texte').value.trim();
+  if(!notes){alert("Dictez d'abord vos observations !");return;}
+  const client=clients.find(c=>c.id===visiteClientId);
+  if(!client)return;
+  const ac=clientArtisans(visiteClientId);
+  if(ac.length===0){alert("Aucun artisan associé à ce chantier.");return;}
+  const status=document.getElementById('visite-ai-status');
+  const btn=document.getElementById('visite-ai-btn');
+  status.style.display='block';
+  status.textContent='✨ Analyse en cours…';
+  btn.disabled=true;
+  const artisanList=ac.map(a=>'- '+(a.metier||'')+(a.entreprise?' ('+a.entreprise+')':'')+' : '+a.nom).join(', ');
+  const existing=visiteTasks.length>0?'Taches existantes a fusionner : '+JSON.stringify(visiteTasks)+'. ':'';
+  const prompt='Tu es assistant pour MA 17 SUD constructeur de maisons neuves. Chantier : '+client.nom+'. Artisans disponibles : '+artisanList+'. '+existing+'Nouvelles observations du conducteur de travaux : '+notes+'. IMPORTANT : inclus UNIQUEMENT les artisans explicitement mentionnés dans les nouvelles observations. Pour les artisans des taches existantes non mentionnés dans les nouvelles observations, conserve-les tels quels. Reponds UNIQUEMENT en JSON valide : [{"artisan":"nom exact de la liste","taches":"liste des taches ligne par ligne avec tiret"}].';
+  try{
+    const r=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1500,messages:[{role:'user',content:prompt}]})});
+    const data=await r.json();
+    const text=data.content?.[0]?.text||'[]';
+    const clean=text.replace(/```json|```/g,'').trim();
+    visiteTasks=JSON.parse(clean);
+    // Sauvegarder
+    await db('PATCH','clients',{artisan_tasks:visiteTasks,updated_at:new Date().toISOString()},`?id=eq.${visiteClientId}`);
+    clients=clients.map(c=>c.id===visiteClientId?{...c,artisan_tasks:visiteTasks}:c);
+    renderVisiteBulles();
+    status.textContent='✅ '+visiteTasks.length+' artisan(s) identifié(s)';
+    setTimeout(()=>status.style.display='none',3000);
+    document.getElementById('visite-texte').value='';
+  }catch(e){
+    status.textContent='Erreur: '+e.message;
+    status.style.color='#ef4444';
+  }finally{btn.disabled=false;}
+}
+
+function renderVisiteBulles(){
   const el=document.getElementById('visite-bulles');
   const sendBtn=document.getElementById('visite-send-all');
   const client=clients.find(c=>c.id===visiteClientId);
@@ -1545,6 +2144,28 @@ function editBubble(i){
 function cancelEditBubble(i){
   document.getElementById('tasks-view-'+i).style.display='block';
   document.getElementById('tasks-edit-'+i).style.display='none';
+}
+
+async function saveEditBubble(i){
+  const newTasks=document.getElementById('tasks-input-'+i).value.trim();
+  visiteTasks[i].taches=newTasks;
+  try{
+    await db('PATCH','clients',{artisan_tasks:visiteTasks,updated_at:new Date().toISOString()},`?id=eq.${visiteClientId}`);
+    clients=clients.map(c=>c.id===visiteClientId?{...c,artisan_tasks:visiteTasks}:c);
+    renderVisiteBulles();
+    toast('Tâches mises à jour ✓');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+async function deleteBubble(i){
+  if(!confirm('Supprimer les tâches de cet artisan ?'))return;
+  visiteTasks.splice(i,1);
+  try{
+    await db('PATCH','clients',{artisan_tasks:visiteTasks,updated_at:new Date().toISOString()},`?id=eq.${visiteClientId}`);
+    clients=clients.map(c=>c.id===visiteClientId?{...c,artisan_tasks:visiteTasks}:c);
+    renderVisiteBulles();
+    toast('Artisan retiré');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
 }
 
 function envoyerTout(){
@@ -1603,6 +2224,92 @@ function toggleSuiviMic(){
   rec.start();
 }
 
+async function analyserSuivi(){
+  const notes=document.getElementById('suivi-dictee')?.value.trim();
+  if(!notes){alert("Dictez d'abord vos observations !");return;}
+  const status=document.getElementById('suivi-ai-status');
+  const btn=document.getElementById('suivi-ai-btn');
+  if(status){status.style.display='block';status.textContent='✨ Identification du chantier…';}
+  if(btn)btn.disabled=true;
+
+  // Liste des chantiers en cours pour l'IA
+  const chantiersList=clients
+    .filter(c=>c.statut==='en_cours'||c.statut==='ouverture'||c.statut==='sav_en_cours')
+    .map(c=>c.nom).join(', ');
+
+  // Construire la liste des chantiers avec leurs artisans associés
+  const chantiersAvecArtisans=clients
+    .filter(c=>c.statut==='en_cours'||c.statut==='ouverture'||c.statut==='sav_en_cours')
+    .map(c=>{
+      const ac=clientArtisans(c.id);
+      const artisansList=ac.map(a=>(a.metier||'')+' : '+(a.entreprise||a.nom)).join(', ');
+      return c.nom+(artisansList?' (artisans: '+artisansList+')':'');
+    }).join(' | ');
+
+  const prompt='Tu es assistant pour MA 17 SUD constructeur de maisons neuves en Charente-Maritime. '
+    +'Chantiers en cours avec leurs artisans : '+chantiersAvecArtisans+'. '
+    +'Observations dictées : '+notes+'. '
+    +'1) Identifie le chantier mentionné (nom exact). '
+    +'2) Pour chaque artisan ou métier mentionné, retrouve le nom exact de l artisan associé à ce chantier et liste ses taches. '
+    +'Si le conducteur dit "le menuisier", utilise le nom de l artisan menuisier de ce chantier. '
+    +'Reponds UNIQUEMENT en JSON valide : {"chantier":"nom exact du chantier","artisans":[{"artisan":"nom exact de l artisan","taches":"liste des taches avec tirets"}]}';
+
+  try{
+    const r=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
+    const data=await r.json();
+    const text=data.content?.[0]?.text||'{}';
+    const clean=text.replace(/```json|```/g,'').trim();
+    const result=JSON.parse(clean);
+
+    // Trouver le client
+    const client=clients.find(c=>
+      c.nom===result.chantier||
+      c.nom.toLowerCase().includes(result.chantier?.toLowerCase())||
+      result.chantier?.toLowerCase().includes(c.nom.toLowerCase())
+    );
+
+    if(!client){
+      if(status){status.textContent='❌ Chantier "'+result.chantier+'" non trouvé';status.style.color='#ef4444';}
+      setTimeout(()=>{if(status)status.style.display='none';if(btn)btn.disabled=false;},3000);
+      return;
+    }
+
+    // Fusionner avec les tâches existantes
+    const existing=client.artisan_tasks||[];
+    const newTasks=[...existing];
+    (result.artisans||[]).forEach(na=>{
+      const idx=newTasks.findIndex(t=>
+        t.artisan===na.artisan||
+        t.artisan.toLowerCase().includes(na.artisan.toLowerCase())||
+        na.artisan.toLowerCase().includes(t.artisan.toLowerCase())
+      );
+      if(idx>=0){
+        newTasks[idx]={...newTasks[idx],taches:newTasks[idx].taches+' | '+na.taches};
+      } else {
+        newTasks.push(na);
+      }
+    });
+
+    // Sauvegarder
+    await db('PATCH','clients',{artisan_tasks:newTasks,updated_at:new Date().toISOString()},`?id=eq.${client.id}`);
+    clients=clients.map(c=>c.id===client.id?{...c,artisan_tasks:newTasks}:c);
+
+    if(status){status.textContent='✅ Chantier '+client.nom+' mis à jour !';status.style.color='#10b981';}
+    const ta=document.getElementById('suivi-dictee');
+    if(ta)ta.value='';
+    setTimeout(()=>{
+      if(status)status.style.display='none';
+      if(btn)btn.disabled=false;
+      goView('suivi'); // Refresh
+    },1500);
+
+  }catch(e){
+    if(status){status.textContent='Erreur: '+e.message;status.style.color='#ef4444';}
+    setTimeout(()=>{if(status)status.style.display='none';if(btn)btn.disabled=false;},3000);
+  }
+}
+
 function editSuiviTask(clientId,taskIdx){
   document.getElementById('st-view-'+clientId+'-'+taskIdx).style.display='none';
   document.getElementById('st-edit-'+clientId+'-'+taskIdx).style.display='block';
@@ -1611,8 +2318,30 @@ function cancelSuiviTask(clientId,taskIdx){
   document.getElementById('st-view-'+clientId+'-'+taskIdx).style.display='block';
   document.getElementById('st-edit-'+clientId+'-'+taskIdx).style.display='none';
 }
-async 
-async 
+async function saveSuiviTask(clientId,taskIdx){
+  const newText=document.getElementById('st-input-'+clientId+'-'+taskIdx)?.value.trim();
+  const client=clients.find(c=>c.id===clientId);
+  if(!client||!newText)return;
+  const tasks=[...(client.artisan_tasks||[])];
+  tasks[taskIdx]={...tasks[taskIdx],taches:newText};
+  try{
+    await db('PATCH','clients',{artisan_tasks:tasks,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+    clients=clients.map(c=>c.id===clientId?{...c,artisan_tasks:tasks}:c);
+    toast('Tâches mises à jour ✓');goView('suivi');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+async function deleteSuiviTask(clientId,taskIdx){
+  if(!confirm('Supprimer les tâches de cet artisan ?'))return;
+  const client=clients.find(c=>c.id===clientId);
+  if(!client)return;
+  const tasks=[...(client.artisan_tasks||[])];
+  tasks.splice(taskIdx,1);
+  try{
+    await db('PATCH','clients',{artisan_tasks:tasks,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+    clients=clients.map(c=>c.id===clientId?{...c,artisan_tasks:tasks}:c);
+    toast('Artisan retiré');goView('suivi');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
 
 let suiviTri='clients';
 
@@ -1632,131 +2361,17 @@ function setSuiviTri(tri){
   goView('suivi');
 }
 
-
-async function loadAll(){
-  try{
-    const [c,a,s,ca]=await Promise.all([
-      db('GET','clients','','?order=nom'),
-      db('GET','artisans','','?order=nom'),
-      db('GET','sav','','?order=created_at.desc'),
-      db('GET','chantier_artisans','','')
-    ]);
-    clearTimeout(timeout);
-    clients=c||[];artisans=a||[];savList=s||[];chantierArtisans=ca||[];
-    updateUI();
-    document.getElementById('loader').style.display='none';
-    goView(currentView);
-  }catch(e){
-    document.getElementById('loader').innerHTML=`<div style="text-align:center;padding:20px"><div style="font-size:32px;margin-bottom:12px">⚠️</div><div style="font-size:18px;font-weight:800;color:#ef4444;margin-bottom:8px">Erreur de connexion</div><div style="color:#64748b;font-size:13px;margin-bottom:8px">${e.message}</div><button onclick="location.reload()" style="padding:10px 20px;background:#2563eb;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700">🔄 Réessayer</button></div>`;
-  }
-}
-
-function startPolling(){
-  setInterval(async()=>{
-    try{
-      const [c,s]=await Promise.all([db('GET','clients','','?order=nom'),db('GET','sav','','?order=created_at.desc')]);
-      clients=c||clients;savList=s||savList;
-      updateUI();showSync('🔄 Synchronisé');
-      if(currentView==='dashboard')renderDashSav();
-    }catch{}
-  },15000);
-}
-
-const USERS={
-  'ma17sud':'ma17sud2024!',
-  'admin':'MA17SUD!'
-};
-
-function doLogin(){
-  const user=document.getElementById('login-user').value.trim().toLowerCase();
-  const pass=document.getElementById('login-pass').value;
-  const err=document.getElementById('login-error');
-  if(USERS[user]&&USERS[user]===pass){
-    sessionStorage.setItem('sav_auth',btoa(user+':'+pass));
-    document.getElementById('login-screen').style.display='none';
-    loadAll().then(()=>startPolling());
-  } else {
-    err.style.display='block';
-    document.getElementById('login-pass').value='';
-    document.getElementById('login-pass').focus();
-    setTimeout(()=>err.style.display='none',3000);
-  }
-}
-
-function openVisite(clientId){
-  visiteClientId=clientId;
-  const client=clients.find(c=>c.id===clientId);
-  if(!client)return;
-  document.getElementById('visite-title').textContent='Visite pré-réception';
-  document.getElementById('visite-subtitle').textContent=client.nom+' — '+(client.adresse||'');
-  document.getElementById('visite-texte').value='';
-  document.getElementById('visite-ai-status').style.display='none';
-  document.getElementById('visite-mic-status').style.display='none';
-  document.getElementById('visite-send-all').style.display='none';
-  visiteTasks=client.artisan_tasks||[];
-  renderVisiteBulles();
-  document.getElementById('visite-page').classList.add('open');
-  document.body.style.overflow='hidden';
-}
-
-function toggleVisiteMic(){
-  const btn=document.getElementById('visite-mic-btn');
-  const status=document.getElementById('visite-mic-status');
-  if(visiteMicRecognition&&btn.textContent.includes('Arrêter')){visiteMicRecognition.stop();return;}
-  if(!("webkitSpeechRecognition" in window)&&!("SpeechRecognition" in window)){alert("Dictée vocale non supportée. Utilisez Chrome ou Safari.");return;}
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  const rec=new SR();
-  rec.lang='fr-FR';rec.continuous=true;rec.interimResults=true;
-  visiteMicRecognition=rec;
-  let final=document.getElementById('visite-texte').value||'';
-  rec.onstart=()=>{btn.textContent='⏹ Arrêter la dictée';btn.style.background='#374151';status.style.display='block';status.textContent='🎤 Dictée en cours…';};
-  rec.onresult=e=>{let interim='';for(let i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal)final+=e.results[i][0].transcript+' ';else interim+=e.results[i][0].transcript;}document.getElementById('visite-texte').value=final+interim;};
-  rec.onend=()=>{visiteMicRecognition=null;btn.textContent='🎤 Démarrer la dictée';btn.style.background='#ef4444';document.getElementById('visite-texte').value=final.trim();status.textContent="🎤 Dictée terminée — cliquez sur ✨ pour analyser";setTimeout(()=>status.style.display='none',4000);};
-  rec.onerror=()=>{visiteMicRecognition=null;btn.textContent='🎤 Démarrer la dictée';btn.style.background='#ef4444';};
-  rec.start();
-}
-
-async function analyserVisite(){
-  const notes=document.getElementById('visite-texte').value.trim();
-  if(!notes){alert("Dictez d'abord vos observations !");return;}
-  const client=clients.find(c=>c.id===visiteClientId);
-  if(!client)return;
-  const ac=clientArtisans(visiteClientId);
-  if(ac.length===0){alert("Aucun artisan associé à ce chantier.");return;}
-  const status=document.getElementById('visite-ai-status');
-  const btn=document.getElementById('visite-ai-btn');
-  status.style.display='block';status.textContent='✨ Analyse en cours…';btn.disabled=true;
-  const artisanList=ac.map(a=>'- '+(a.metier||'')+(a.entreprise?' ('+a.entreprise+')':'')+' : '+a.nom).join(', ');
-  const existing=visiteTasks.length>0?'Taches existantes a fusionner : '+JSON.stringify(visiteTasks)+'. ':'';
-  const prompt='Tu es assistant pour MA 17 SUD constructeur de maisons neuves. Chantier : '+client.nom+'. Artisans : '+artisanList+'. '+existing+'Nouvelles observations : '+notes+'. Pour chaque artisan mentionné, fusionne et liste toutes ses taches sans doublons. Reponds UNIQUEMENT en JSON valide : [{"artisan":"nom exact","taches":"liste des taches ligne par ligne avec tiret"}]. Conserve les taches existantes des artisans non mentionnés.';
-  try{
-    const r=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1500,messages:[{role:'user',content:prompt}]})});
-    const data=await r.json();
-    const text=data.content?.[0]?.text||'[]';
-    const clean=text.replace(/```json|```/g,'').trim();
-    visiteTasks=JSON.parse(clean);
-    await db('PATCH','clients',{artisan_tasks:visiteTasks,updated_at:new Date().toISOString()},`?id=eq.${visiteClientId}`);
-    clients=clients.map(c=>c.id===visiteClientId?{...c,artisan_tasks:visiteTasks}:c);
-    renderVisiteBulles();
-    status.textContent='✅ '+visiteTasks.length+' artisan(s) identifié(s)';
-    setTimeout(()=>status.style.display='none',3000);
-    document.getElementById('visite-texte').value='';
-  }catch(e){status.textContent='Erreur: '+e.message;status.style.color='#ef4444';}
-  finally{btn.disabled=false;}
-}
-
-function closeVisite(){
-  document.getElementById('visite-page').classList.remove('open');
-  document.body.style.overflow='';
-  if(visiteMicRecognition)visiteMicRecognition.stop();
-}
-
-// Vérifier l'auth au démarrage
-if(checkAuth()){
-  document.getElementById('login-screen').style.display='none';
-  loadAll().then(()=>startPolling());
+loadAll().then(()=>startPolling());
 } else {
+  // Afficher l'écran de connexion, focus sur le champ
   setTimeout(()=>document.getElementById('login-user').focus(), 100);
+}
+  } else {
+    err.style.display = 'block';
+    document.getElementById('login-pass').value = '';
+    document.getElementById('login-pass').focus();
+    setTimeout(()=>err.style.display='none', 3000);
+  }
 }
 
 function checkAuth(){
@@ -1777,12 +2392,380 @@ let visiteClientId=null;
 let visiteMicRecognition=null;
 let visiteTasks=[];
 
+function openVisite(clientId){
+  visiteClientId=clientId;
+  const client=clients.find(c=>c.id===clientId);
+  if(!client)return;
+  document.getElementById('visite-title').textContent='Visite pré-réception';
+  document.getElementById('visite-subtitle').textContent=client.nom+' — '+(client.adresse||'');
+  document.getElementById('visite-texte').value='';
+  document.getElementById('visite-ai-status').style.display='none';
+  document.getElementById('visite-mic-status').style.display='none';
+  document.getElementById('visite-send-all').style.display='none';
+  // Charger tâches existantes
+  visiteTasks=client.artisan_tasks||[];
+  renderVisiteBulles();
+  document.getElementById('visite-page').classList.add('open');
+  document.body.style.overflow='hidden';
+}
 
+function closeVisite(){
+  document.getElementById('visite-page').classList.remove('open');
+  document.body.style.overflow='';
+  if(visiteMicRecognition)visiteMicRecognition.stop();
+}
 
+function toggleVisiteMic(){
+  const btn=document.getElementById('visite-mic-btn');
+  const status=document.getElementById('visite-mic-status');
+  if(visiteMicRecognition&&btn.textContent.includes('Arrêter')){
+    visiteMicRecognition.stop();return;
+  }
+  if(!('webkitSpeechRecognition' in window)&&!('SpeechRecognition' in window)){
+    alert('Dictée vocale non supportée. Utilisez Chrome ou Safari.');return;
+  }
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const rec=new SR();
+  rec.lang='fr-FR';rec.continuous=true;rec.interimResults=true;
+  visiteMicRecognition=rec;
+  let final=document.getElementById('visite-texte').value||'';
+  rec.onstart=()=>{
+    btn.textContent='⏹ Arrêter la dictée';
+    btn.style.background='#374151';
+    status.style.display='block';
+    status.textContent='🎤 Dictée en cours…';
+  };
+  rec.onresult=e=>{
+    let interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal)final+=e.results[i][0].transcript+' ';
+      else interim+=e.results[i][0].transcript;
+    }
+    document.getElementById('visite-texte').value=final+interim;
+  };
+  rec.onend=()=>{
+    visiteMicRecognition=null;
+    btn.textContent='🎤 Démarrer la dictée';
+    btn.style.background='#ef4444';
+    document.getElementById('visite-texte').value=final.trim();
+    status.textContent='🎤 Dictée terminée — cliquez sur ✨ pour analyser';
+    setTimeout(()=>status.style.display='none',4000);
+  };
+  rec.onerror=()=>{
+    visiteMicRecognition=null;
+    btn.textContent='🎤 Démarrer la dictée';
+    btn.style.background='#ef4444';
+  };
+  rec.start();
+}
 
+async function analyserVisite(){
+  const notes=document.getElementById('visite-texte').value.trim();
+  if(!notes){alert("Dictez d'abord vos observations !");return;}
+  const client=clients.find(c=>c.id===visiteClientId);
+  if(!client)return;
+  const ac=clientArtisans(visiteClientId);
+  if(ac.length===0){alert("Aucun artisan associé à ce chantier.");return;}
+  const status=document.getElementById('visite-ai-status');
+  const btn=document.getElementById('visite-ai-btn');
+  status.style.display='block';
+  status.textContent='✨ Analyse en cours…';
+  btn.disabled=true;
+  const artisanList=ac.map(a=>'- '+(a.metier||'')+(a.entreprise?' ('+a.entreprise+')':'')+' : '+a.nom).join(', ');
+  const existing=visiteTasks.length>0?'Taches existantes a fusionner : '+JSON.stringify(visiteTasks)+'. ':'';
+  const prompt='Tu es assistant pour MA 17 SUD constructeur de maisons neuves. Chantier : '+client.nom+'. Artisans disponibles : '+artisanList+'. '+existing+'Nouvelles observations du conducteur de travaux : '+notes+'. IMPORTANT : inclus UNIQUEMENT les artisans explicitement mentionnés dans les nouvelles observations. Pour les artisans des taches existantes non mentionnés dans les nouvelles observations, conserve-les tels quels. Reponds UNIQUEMENT en JSON valide : [{"artisan":"nom exact de la liste","taches":"liste des taches ligne par ligne avec tiret"}].';
+  try{
+    const r=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1500,messages:[{role:'user',content:prompt}]})});
+    const data=await r.json();
+    const text=data.content?.[0]?.text||'[]';
+    const clean=text.replace(/```json|```/g,'').trim();
+    visiteTasks=JSON.parse(clean);
+    // Sauvegarder
+    await db('PATCH','clients',{artisan_tasks:visiteTasks,updated_at:new Date().toISOString()},`?id=eq.${visiteClientId}`);
+    clients=clients.map(c=>c.id===visiteClientId?{...c,artisan_tasks:visiteTasks}:c);
+    renderVisiteBulles();
+    status.textContent='✅ '+visiteTasks.length+' artisan(s) identifié(s)';
+    setTimeout(()=>status.style.display='none',3000);
+    document.getElementById('visite-texte').value='';
+  }catch(e){
+    status.textContent='Erreur: '+e.message;
+    status.style.color='#ef4444';
+  }finally{btn.disabled=false;}
+}
 
+function renderVisiteBulles(){
+  const el=document.getElementById('visite-bulles');
+  const sendBtn=document.getElementById('visite-send-all');
+  const client=clients.find(c=>c.id===visiteClientId);
+  if(!client||visiteTasks.length===0){
+    el.innerHTML="<div style='color:#94a3b8;font-size:13px;text-align:center;padding:16px'>Les tâches apparaîtront ici après l'analyse IA</div>";
+    sendBtn.style.display='none';
+    return;
+  }
+  const ac=clientArtisans(visiteClientId);
+  el.innerHTML=visiteTasks.map((m,i)=>{
+    const artisan=ac.find(a=>a.nom===m.artisan||(a.entreprise&&a.entreprise===m.artisan)||a.nom.toLowerCase().includes(m.artisan.toLowerCase())||m.artisan.toLowerCase().includes(a.nom.toLowerCase()));
+    const subj=encodeURIComponent('Travaux chantier '+client.nom);
+    const tachesEncoded=m.taches.replace(/\n/g,'%0A').replace(/\r/g,'');
+    const bd=encodeURIComponent('Bonjour,')+'%0A%0A'+encodeURIComponent('Suite a la visite du chantier '+client.nom+' ('+( client.adresse||'')+'), voici vos taches :')+'%0A%0A'+tachesEncoded+'%0A%0A'+encodeURIComponent('Merci de confirmer votre disponibilite.')+'%0A%0A'+encodeURIComponent('Cordialement')+'%0AMA 17 SUD';
+    const mailHref=artisan?.email?'mailto:'+artisan.email+'?subject='+subj+'&body='+bd:'';
+    const smsText='Chantier '+client.nom+' :%0A%0A'+encodeURIComponent(m.taches)+'%0A%0AMA 17 SUD';
+    const smsHref=artisan?.tel?'sms:'+artisan.tel.replace(/\s/g,'')+'?body='+smsText:'';
+    return '<div class="artisan-bubble" id="bubble-'+i+'">'
+      +'<div class="artisan-bubble-head">'
+        +'<div style="flex:1;min-width:0">'
+          +'<div style="font-weight:700;font-size:13px;color:#0f172a">'+(artisan?.metier||m.artisan)+(artisan?.entreprise?' — '+artisan.entreprise:'')+'</div>'
+          +(artisan?.tel?'<div style="font-size:11px;color:#64748b">'+artisan.tel+'</div>':'')
+          +(artisan?.email?'<div style="font-size:11px;color:#64748b">'+artisan.email+'</div>':'')
+        +'</div>'
+        +'<button onclick="editBubble('+i+')" style="padding:5px 8px;border-radius:8px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:12px">✏</button>'
+      +'</div>'
+      +'<div class="artisan-tasks" id="tasks-view-'+i+'">'+m.taches+'</div>'
+      +'<div id="tasks-edit-'+i+'" style="display:none">'
+        +'<textarea class="artisan-tasks-edit" id="tasks-input-'+i+'">'+m.taches+'</textarea>'
+        +'<div style="display:flex;gap:6px">'
+          +'<button onclick="cancelEditBubble('+i+')" style="flex:1;padding:7px;border-radius:8px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:12px;font-family:inherit">Annuler</button>'
+          +'<button onclick="saveEditBubble('+i+')" style="flex:1;padding:7px;border-radius:8px;border:none;background:#2563eb;color:#fff;cursor:pointer;font-size:12px;font-family:inherit;font-weight:700">💾 Enregistrer</button>'
+        +'</div>'
+      +'</div>'
+      +'<div class="artisan-actions">'
+        +(mailHref?'<a href="'+mailHref+'" style="flex:1;padding:8px;border-radius:8px;background:#dbeafe;color:#1e40af;border:1.5px solid #bfdbfe;font-size:12px;font-weight:700;text-align:center;text-decoration:none">✉ Mail</a>':'')
+        +(smsHref?'<a href="'+smsHref+'" style="flex:1;padding:8px;border-radius:8px;background:#dcfce7;color:#166534;border:1.5px solid #bbf7d0;font-size:12px;font-weight:700;text-align:center;text-decoration:none">💬 SMS</a>':'')
+        +'<button onclick="deleteBubble('+i+')" style="padding:8px 10px;border-radius:8px;border:1.5px solid #fee2e2;background:#fff5f5;color:#ef4444;cursor:pointer;font-size:12px">🗑</button>'
+      +'</div>'
+    +'</div>';
+  }).join('');
+  sendBtn.style.display='block';
+  sendBtn.textContent='📤 Tout envoyer ('+visiteTasks.filter((m,i)=>{const a=ac.find(x=>x.nom===m.artisan||(x.entreprise&&x.entreprise===m.artisan)||x.nom.toLowerCase().includes(m.artisan.toLowerCase()));return a?.email;}).length+' artisans)';
+}
 
+function editBubble(i){
+  document.getElementById('tasks-view-'+i).style.display='none';
+  document.getElementById('tasks-edit-'+i).style.display='block';
+  document.getElementById('tasks-input-'+i).focus();
+}
 
+function cancelEditBubble(i){
+  document.getElementById('tasks-view-'+i).style.display='block';
+  document.getElementById('tasks-edit-'+i).style.display='none';
+}
+
+async function saveEditBubble(i){
+  const newTasks=document.getElementById('tasks-input-'+i).value.trim();
+  visiteTasks[i].taches=newTasks;
+  try{
+    await db('PATCH','clients',{artisan_tasks:visiteTasks,updated_at:new Date().toISOString()},`?id=eq.${visiteClientId}`);
+    clients=clients.map(c=>c.id===visiteClientId?{...c,artisan_tasks:visiteTasks}:c);
+    renderVisiteBulles();
+    toast('Tâches mises à jour ✓');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+async function deleteBubble(i){
+  if(!confirm('Supprimer les tâches de cet artisan ?'))return;
+  visiteTasks.splice(i,1);
+  try{
+    await db('PATCH','clients',{artisan_tasks:visiteTasks,updated_at:new Date().toISOString()},`?id=eq.${visiteClientId}`);
+    clients=clients.map(c=>c.id===visiteClientId?{...c,artisan_tasks:visiteTasks}:c);
+    renderVisiteBulles();
+    toast('Artisan retiré');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+function envoyerTout(){
+  const client=clients.find(c=>c.id===visiteClientId);
+  if(!client)return;
+  const ac=clientArtisans(visiteClientId);
+  visiteTasks.forEach(m=>{
+    const artisan=ac.find(a=>a.nom===m.artisan||(a.entreprise&&a.entreprise===m.artisan)||a.nom.toLowerCase().includes(m.artisan.toLowerCase())||m.artisan.toLowerCase().includes(a.nom.toLowerCase()));
+    if(!artisan?.email)return;
+    const subj=encodeURIComponent('Travaux chantier '+client.nom);
+    const tachesEncoded=m.taches.replace(/\n/g,'%0A').replace(/\r/g,'');
+    const bd=encodeURIComponent('Bonjour,')+'%0A%0A'+encodeURIComponent('Suite a la visite du chantier '+client.nom+' ('+( client.adresse||'')+'), voici vos taches :')+'%0A%0A'+tachesEncoded+'%0A%0A'+encodeURIComponent('Merci de confirmer votre disponibilite.')+'%0A%0A'+encodeURIComponent('Cordialement')+'%0AMA 17 SUD';
+    window.open('mailto:'+artisan.email+'?subject='+subj+'&body='+bd);
+  });
+  toast('Mails ouverts pour tous les artisans ✓');
+}
+
+// ══════════════════════════════════════════════
+// SUIVI DE CHANTIER - DICTÉE + IA
+// ══════════════════════════════════════════════
+let suiviMicRecognition=null;
+
+function toggleSuiviMic(){
+  const btn=document.getElementById('suivi-mic-btn');
+  const status=document.getElementById('suivi-ai-status');
+  if(suiviMicRecognition){suiviMicRecognition.stop();return;}
+  if(!("webkitSpeechRecognition" in window)&&!("SpeechRecognition" in window)){
+    alert("Dictée vocale non supportée. Utilisez Chrome ou Safari.");return;
+  }
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const rec=new SR();
+  rec.lang='fr-FR';rec.continuous=true;rec.interimResults=true;
+  suiviMicRecognition=rec;
+  let final=document.getElementById('suivi-dictee')?.value||'';
+  rec.onstart=()=>{
+    btn.textContent='⏹ Arrêter';btn.style.background='#374151';
+    if(status){status.style.display='block';status.textContent='🎤 Dictée en cours…';}
+  };
+  rec.onresult=e=>{
+    let interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal)final+=e.results[i][0].transcript+' ';
+      else interim+=e.results[i][0].transcript;
+    }
+    const ta=document.getElementById('suivi-dictee');
+    if(ta)ta.value=final+interim;
+  };
+  rec.onend=()=>{
+    suiviMicRecognition=null;
+    btn.textContent='🎤 Dicter';btn.style.background='#ef4444';
+    const ta=document.getElementById('suivi-dictee');
+    if(ta)ta.value=final.trim();
+    if(status){status.textContent='🎤 Dictée terminée — cliquez ✨ Analyser';setTimeout(()=>status.style.display='none',3000);}
+  };
+  rec.onerror=()=>{suiviMicRecognition=null;btn.textContent='🎤 Dicter';btn.style.background='#ef4444';};
+  rec.start();
+}
+
+async function analyserSuivi(){
+  const notes=document.getElementById('suivi-dictee')?.value.trim();
+  if(!notes){alert("Dictez d'abord vos observations !");return;}
+  const status=document.getElementById('suivi-ai-status');
+  const btn=document.getElementById('suivi-ai-btn');
+  if(status){status.style.display='block';status.textContent='✨ Identification du chantier…';}
+  if(btn)btn.disabled=true;
+
+  // Liste des chantiers en cours pour l'IA
+  const chantiersList=clients
+    .filter(c=>c.statut==='en_cours'||c.statut==='ouverture'||c.statut==='sav_en_cours')
+    .map(c=>c.nom).join(', ');
+
+  // Construire la liste des chantiers avec leurs artisans associés
+  const chantiersAvecArtisans=clients
+    .filter(c=>c.statut==='en_cours'||c.statut==='ouverture'||c.statut==='sav_en_cours')
+    .map(c=>{
+      const ac=clientArtisans(c.id);
+      const artisansList=ac.map(a=>(a.metier||'')+' : '+(a.entreprise||a.nom)).join(', ');
+      return c.nom+(artisansList?' (artisans: '+artisansList+')':'');
+    }).join(' | ');
+
+  const prompt='Tu es assistant pour MA 17 SUD constructeur de maisons neuves en Charente-Maritime. '
+    +'Chantiers en cours avec leurs artisans : '+chantiersAvecArtisans+'. '
+    +'Observations dictées : '+notes+'. '
+    +'1) Identifie le chantier mentionné (nom exact). '
+    +'2) Pour chaque artisan ou métier mentionné, retrouve le nom exact de l artisan associé à ce chantier et liste ses taches. '
+    +'Si le conducteur dit "le menuisier", utilise le nom de l artisan menuisier de ce chantier. '
+    +'Reponds UNIQUEMENT en JSON valide : {"chantier":"nom exact du chantier","artisans":[{"artisan":"nom exact de l artisan","taches":"liste des taches avec tirets"}]}';
+
+  try{
+    const r=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
+    const data=await r.json();
+    const text=data.content?.[0]?.text||'{}';
+    const clean=text.replace(/```json|```/g,'').trim();
+    const result=JSON.parse(clean);
+
+    // Trouver le client
+    const client=clients.find(c=>
+      c.nom===result.chantier||
+      c.nom.toLowerCase().includes(result.chantier?.toLowerCase())||
+      result.chantier?.toLowerCase().includes(c.nom.toLowerCase())
+    );
+
+    if(!client){
+      if(status){status.textContent='❌ Chantier "'+result.chantier+'" non trouvé';status.style.color='#ef4444';}
+      setTimeout(()=>{if(status)status.style.display='none';if(btn)btn.disabled=false;},3000);
+      return;
+    }
+
+    // Fusionner avec les tâches existantes
+    const existing=client.artisan_tasks||[];
+    const newTasks=[...existing];
+    (result.artisans||[]).forEach(na=>{
+      const idx=newTasks.findIndex(t=>
+        t.artisan===na.artisan||
+        t.artisan.toLowerCase().includes(na.artisan.toLowerCase())||
+        na.artisan.toLowerCase().includes(t.artisan.toLowerCase())
+      );
+      if(idx>=0){
+        newTasks[idx]={...newTasks[idx],taches:newTasks[idx].taches+' | '+na.taches};
+      } else {
+        newTasks.push(na);
+      }
+    });
+
+    // Sauvegarder
+    await db('PATCH','clients',{artisan_tasks:newTasks,updated_at:new Date().toISOString()},`?id=eq.${client.id}`);
+    clients=clients.map(c=>c.id===client.id?{...c,artisan_tasks:newTasks}:c);
+
+    if(status){status.textContent='✅ Chantier '+client.nom+' mis à jour !';status.style.color='#10b981';}
+    const ta=document.getElementById('suivi-dictee');
+    if(ta)ta.value='';
+    setTimeout(()=>{
+      if(status)status.style.display='none';
+      if(btn)btn.disabled=false;
+      goView('suivi'); // Refresh
+    },1500);
+
+  }catch(e){
+    if(status){status.textContent='Erreur: '+e.message;status.style.color='#ef4444';}
+    setTimeout(()=>{if(status)status.style.display='none';if(btn)btn.disabled=false;},3000);
+  }
+}
+
+function editSuiviTask(clientId,taskIdx){
+  document.getElementById('st-view-'+clientId+'-'+taskIdx).style.display='none';
+  document.getElementById('st-edit-'+clientId+'-'+taskIdx).style.display='block';
+}
+function cancelSuiviTask(clientId,taskIdx){
+  document.getElementById('st-view-'+clientId+'-'+taskIdx).style.display='block';
+  document.getElementById('st-edit-'+clientId+'-'+taskIdx).style.display='none';
+}
+async function saveSuiviTask(clientId,taskIdx){
+  const newText=document.getElementById('st-input-'+clientId+'-'+taskIdx)?.value.trim();
+  const client=clients.find(c=>c.id===clientId);
+  if(!client||!newText)return;
+  const tasks=[...(client.artisan_tasks||[])];
+  tasks[taskIdx]={...tasks[taskIdx],taches:newText};
+  try{
+    await db('PATCH','clients',{artisan_tasks:tasks,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+    clients=clients.map(c=>c.id===clientId?{...c,artisan_tasks:tasks}:c);
+    toast('Tâches mises à jour ✓');goView('suivi');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+async function deleteSuiviTask(clientId,taskIdx){
+  if(!confirm('Supprimer les tâches de cet artisan ?'))return;
+  const client=clients.find(c=>c.id===clientId);
+  if(!client)return;
+  const tasks=[...(client.artisan_tasks||[])];
+  tasks.splice(taskIdx,1);
+  try{
+    await db('PATCH','clients',{artisan_tasks:tasks,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+    clients=clients.map(c=>c.id===clientId?{...c,artisan_tasks:tasks}:c);
+    toast('Artisan retiré');goView('suivi');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+let suiviTri='clients';
+
+function setSuiviTri(tri){
+  suiviTri=tri;
+  const btnC=document.getElementById('tri-clients');
+  const btnA=document.getElementById('tri-artisans');
+  if(btnC&&btnA){
+    if(tri==='clients'){
+      btnC.style.borderColor='#2563eb';btnC.style.background='#eff6ff';btnC.style.color='#2563eb';btnC.style.fontWeight='700';
+      btnA.style.borderColor='#e2e8f0';btnA.style.background='#fff';btnA.style.color='#64748b';btnA.style.fontWeight='400';
+    } else {
+      btnA.style.borderColor='#7c3aed';btnA.style.background='#f3e8ff';btnA.style.color='#7c3aed';btnA.style.fontWeight='700';
+      btnC.style.borderColor='#e2e8f0';btnC.style.background='#fff';btnC.style.color='#64748b';btnC.style.fontWeight='400';
+    }
+  }
+  goView('suivi');
+}
+
+loadAll().then(()=>startPolling());
 </script>
 <!-- PAGE VISITE CHANTIER -->
 <div class="visite-page" id="visite-page">
