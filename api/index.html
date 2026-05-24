@@ -582,11 +582,12 @@ function renderCliList(list){
             <div style="margin-bottom:6px">
               <input id="il-resp-${c.id}" value="${c.ct_responsable||''}" placeholder="Responsable…" onclick="event.stopPropagation()" style="width:100%;padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;font-family:inherit;margin-bottom:5px"/>
               <textarea id="il-notes-${c.id}" placeholder="Parlez ou tapez… L'IA structurera vos notes 🎤" onclick="event.stopPropagation()" style="width:100%;padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;font-family:inherit;resize:vertical;min-height:70px">${c.notes_ct||''}</textarea>
-              <div style="display:flex;gap:5px;margin-top:5px;align-items:center">
+              <div style="display:flex;gap:5px;margin-top:5px;align-items:center;flex-wrap:wrap">
                 <button onclick="event.stopPropagation();startVoiceCT('${c.id}','il')" id="voice-btn-${c.id}" class="voice-btn idle">🎤 Dicter</button>
                 <button onclick="event.stopPropagation();genNotesCT('${c.id}')" id="ai-btn-${c.id}" style="padding:4px 9px;border-radius:7px;border:none;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;cursor:pointer;font-size:10px;font-weight:700;font-family:inherit">✨ Structurer avec IA</button>
                 <span id="ai-status-${c.id}" class="ai-processing">✨ Analyse en cours…</span>
               </div>
+              <div id="il-mail-zone-${c.id}" style="display:none;margin-top:6px"></div>
             </div>
             <div style="display:flex;gap:6px;justify-content:flex-end">
               ${c.notes_ct?`<button onclick="event.stopPropagation();deleteNotesCTInline('${c.id}')" style="padding:4px 8px;border-radius:7px;border:1.5px solid #fee2e2;background:#fff5f5;color:#ef4444;cursor:pointer;font-size:11px;font-family:inherit">🗑</button>`:''}
@@ -979,6 +980,7 @@ function openDetail(clientId){
             <button onclick="genNotesCT('${c.id}')" id="ai-btn-${c.id}" style="padding:5px 11px;border-radius:7px;border:none;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit">✨ Structurer avec IA</button>
             <span id="ai-status-${c.id}" class="ai-processing">✨ Analyse en cours…</span>
           </div>
+          <div id="ct-mail-zone-${c.id}" style="display:none;margin-top:8px"></div>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end">
           <button onclick="toggleNotesEdit('${c.id}')" class="btn btn-secondary btn-sm">Annuler</button>
@@ -1138,6 +1140,64 @@ async function deleteNotesCTInline(clientId){
     toast('Note supprimée');
     filterCli('en_cours');
   }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+async function prepareArtisanMails(clientId){
+  const client=clients.find(c=>c.id===clientId);
+  if(!client)return;
+  const ac=clientArtisans(clientId);
+  if(ac.length===0){toast('Aucun artisan associé à ce chantier','#f59e0b');return;}
+  const notes=document.getElementById('ct-notes-'+clientId)?.value||
+              document.getElementById('il-notes-'+clientId)?.value||'';
+  if(!notes){toast("Générez d'abord les notes avec l'IA","#f59e0b");return;}
+
+  // Ask AI to split notes by artisan
+  const artisanList=ac.map(a=>'- '+(a.metier||'')+(a.entreprise?' ('+a.entreprise+')':'')+' : '+a.nom).join(', ');
+  const prompt='Tu es assistant pour MA 17 SUD constructeur de maisons neuves. Chantier : '+client.nom+'. Adresse : '+(client.adresse||'')+'. Artisans : '+artisanList+'. Notes : '+notes+'. Pour chaque artisan mentionné, génère un corps de mail professionnel listant ses tâches. Réponds UNIQUEMENT en JSON valide : [{"artisan":"nom","taches":"texte"}]. Si artisan non mentionné, ne pas inclure.';
+
+  toast('✨ Préparation des mails en cours…','#7c3aed');
+
+  try{
+    const response=await fetch('/api/claude',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:1500,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    const data=await response.json();
+    const text=data.content?.[0]?.text||'[]';
+    const clean=text.replace(/```json|```/g,'').trim();
+    const mails=JSON.parse(clean);
+
+    // Generate mailto links for each artisan
+    const mailZone=document.getElementById('ct-mail-zone-'+clientId)||document.getElementById('il-mail-zone-'+clientId);
+    if(!mailZone)return;
+
+    if(mails.length===0){
+      mailZone.innerHTML='<div style="font-size:11px;color:#94a3b8">Aucun artisan identifié dans les notes.</div>';
+      return;
+    }
+
+        const rows=mails.map(m=>{
+      const artisan=ac.find(a=>a.nom===m.artisan||(a.entreprise&&a.entreprise===m.artisan)||a.nom.toLowerCase().includes(m.artisan.toLowerCase()));
+      if(!artisan||!artisan.email)return '';
+      const subj=encodeURIComponent('Travaux chantier '+client.nom);
+      const bd=encodeURIComponent('Bonjour,%0A%0ASuite a la visite du chantier '+client.nom+' ('+( client.adresse||'')+'), voici vos taches :%0A%0A'+m.taches+'%0A%0AMerci de confirmer votre disponibilite.%0A%0ACordialement%0AMA 17 SUD');
+      const href='mailto:'+artisan.email+'?subject='+subj+'&body='+bd;
+      return '<div style="display:flex;align-items:center;gap:7px;margin-bottom:5px">'
+        +'<span style="font-size:11px;color:#374151;font-weight:600">'+(artisan.metier||artisan.nom)+'</span>'
+        +'<a href="'+href+'" style="padding:3px 9px;border-radius:7px;background:#ecfdf5;color:#065f46;border:1.5px solid #a7f3d0;font-size:11px;font-weight:700;text-decoration:none">✉ Ouvrir le mail</a>'
+        +'</div>';
+    }).filter(Boolean).join('');
+    mailZone.innerHTML='<div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:6px">✉ Mails préparés :</div>'+rows;
+
+    toast('✅ Mails préparés !');
+  }catch(e){
+    toast('Erreur: '+e.message,'#ef4444');
+  }
 }
 
 async function saveNotesCT(clientId){
@@ -1647,7 +1707,6 @@ async function genNotesCT(clientId){
 
   const statusDiv=document.getElementById('ai-status-'+clientId);
   const aiBtn=document.getElementById('ai-btn-'+clientId);
-  if(!checkApiKey()){toast('Clé API requise pour utiliser l\'IA','#ef4444');return;}
   if(statusDiv){statusDiv.style.display='block';statusDiv.textContent='✨ Analyse en cours…';statusDiv.style.color='#7c3aed';}
   if(aiBtn)aiBtn.disabled=true;
 
@@ -1671,14 +1730,9 @@ Transforme ce texte en liste de tâches structurée et claire pour la livraison 
 - Réponds UNIQUEMENT avec la liste, sans titre ni introduction`;
 
   try{
-    const response=await fetch('https://api.anthropic.com/v1/messages',{
+    const response=await fetch('/api/claude',{
       method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'x-api-key':window.ANTHROPIC_KEY||'',
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true'
-      },
+      headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         model:'claude-haiku-4-5-20251001',
         max_tokens:800,
@@ -1692,6 +1746,15 @@ Transforme ce texte en liste de tâches structurée et claire pour la livraison 
     const taFiche=document.getElementById('ct-notes-'+clientId);
     if(taInline)taInline.value=text;
     if(taFiche)taFiche.value=text;
+    // Afficher bouton mail artisans
+    const mailZone=document.getElementById('ct-mail-zone-'+clientId)||document.getElementById('il-mail-zone-'+clientId);
+    if(mailZone){
+      const ac=clientArtisans(clientId);
+      if(ac.length>0){
+        mailZone.style.display='block';
+        mailZone.innerHTML=`<button onclick="event.stopPropagation();prepareArtisanMails('${clientId}')" style="padding:5px 12px;border-radius:8px;border:none;background:#ecfdf5;color:#065f46;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;border:1.5px solid #a7f3d0">✉ Préparer les mails artisans</button>`;
+      }
+    }
     if(statusDiv){statusDiv.textContent="✨ Notes structurées — vérifiez et ajustez si besoin";setTimeout(()=>{statusDiv.style.display='none';},4000);}
   }catch(e){
     if(statusDiv){statusDiv.textContent='❌ '+e.message;statusDiv.style.color='#ef4444';setTimeout(()=>{statusDiv.style.display='none';},4000);}
@@ -1742,19 +1805,7 @@ function checkAuth(){
   }catch{return false;}
 }
 
-// Clé API stockée localement
-window.ANTHROPIC_KEY = localStorage.getItem('anthropic_key')||'';
-
-function checkApiKey(){
-  if(!window.ANTHROPIC_KEY){
-    const key=prompt('Entrez votre clé API Anthropic (sk-ant-...):\n\nElle sera sauvegardée localement sur cet appareil.');
-    if(key&&key.startsWith('sk-ant-')){
-      window.ANTHROPIC_KEY=key;
-      localStorage.setItem('anthropic_key',key);
-    }
-  }
-  return !!window.ANTHROPIC_KEY;
-}
+// Appel API via proxy Vercel
 
 loadAll().then(()=>startPolling());
 </script>
