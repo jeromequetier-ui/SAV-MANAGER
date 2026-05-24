@@ -1069,7 +1069,7 @@ Réponds uniquement avec la liste de tâches, rien d'autre.`;
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        model:'claude-opus-4-7',
+        model:'claude-haiku-4-5-20251001',
         max_tokens:1000,
         messages:[{role:'user',content:prompt}]
       })
@@ -1647,7 +1647,6 @@ async function genNotesCT(clientId){
 
   const statusDiv=document.getElementById('ai-status-'+clientId);
   const aiBtn=document.getElementById('ai-btn-'+clientId);
-  if(!checkApiKey()){toast('Clé API requise pour utiliser l\'IA','#ef4444');return;}
   if(statusDiv){statusDiv.style.display='block';statusDiv.textContent='✨ Analyse en cours…';statusDiv.style.color='#7c3aed';}
   if(aiBtn)aiBtn.disabled=true;
 
@@ -1671,16 +1670,11 @@ Transforme ce texte en liste de tâches structurée et claire pour la livraison 
 - Réponds UNIQUEMENT avec la liste, sans titre ni introduction`;
 
   try{
-    const response=await fetch('https://api.anthropic.com/v1/messages',{
+    const response=await fetch('/api/claude',{
       method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'x-api-key':window.ANTHROPIC_KEY||'',
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true'
-      },
+      headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        model:'claude-opus-4-7',
+        model:'claude-haiku-4-5-20251001',
         max_tokens:800,
         messages:[{role:'user',content:prompt}]
       })
@@ -1742,19 +1736,7 @@ function checkAuth(){
   }catch{return false;}
 }
 
-// Clé API stockée localement
-window.ANTHROPIC_KEY = localStorage.getItem('anthropic_key')||'';
-
-function checkApiKey(){
-  if(!window.ANTHROPIC_KEY){
-    const key=prompt('Entrez votre clé API Anthropic (sk-ant-...):\n\nElle sera sauvegardée localement sur cet appareil.');
-    if(key&&key.startsWith('sk-ant-')){
-      window.ANTHROPIC_KEY=key;
-      localStorage.setItem('anthropic_key',key);
-    }
-  }
-  return !!window.ANTHROPIC_KEY;
-}
+// Appel API via proxy Vercel
 
 loadAll().then(()=>startPolling());
 </script>
