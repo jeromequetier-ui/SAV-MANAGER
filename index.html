@@ -2231,12 +2231,22 @@ async function analyserSuivi(){
     .filter(c=>c.statut==='en_cours'||c.statut==='ouverture'||c.statut==='sav_en_cours')
     .map(c=>c.nom).join(', ');
 
+  // Construire la liste des chantiers avec leurs artisans associés
+  const chantiersAvecArtisans=clients
+    .filter(c=>c.statut==='en_cours'||c.statut==='ouverture'||c.statut==='sav_en_cours')
+    .map(c=>{
+      const ac=clientArtisans(c.id);
+      const artisansList=ac.map(a=>(a.metier||'')+' : '+(a.entreprise||a.nom)).join(', ');
+      return c.nom+(artisansList?' (artisans: '+artisansList+')':'');
+    }).join(' | ');
+
   const prompt='Tu es assistant pour MA 17 SUD constructeur de maisons neuves en Charente-Maritime. '
-    +'Chantiers en cours : '+chantiersList+'. '
+    +'Chantiers en cours avec leurs artisans : '+chantiersAvecArtisans+'. '
     +'Observations dictées : '+notes+'. '
-    +'1) Identifie le chantier mentionné (nom exact de la liste). '
-    +'2) Pour chaque artisan mentionné, liste ses taches. '
-    +'Reponds UNIQUEMENT en JSON valide : {"chantier":"nom exact","artisans":[{"artisan":"nom ou metier mentionné","taches":"liste des taches avec tirets"}]}';
+    +'1) Identifie le chantier mentionné (nom exact). '
+    +'2) Pour chaque artisan ou métier mentionné, retrouve le nom exact de l artisan associé à ce chantier et liste ses taches. '
+    +'Si le conducteur dit "le menuisier", utilise le nom de l artisan menuisier de ce chantier. '
+    +'Reponds UNIQUEMENT en JSON valide : {"chantier":"nom exact du chantier","artisans":[{"artisan":"nom exact de l artisan","taches":"liste des taches avec tirets"}]}';
 
   try{
     const r=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -2623,12 +2633,22 @@ async function analyserSuivi(){
     .filter(c=>c.statut==='en_cours'||c.statut==='ouverture'||c.statut==='sav_en_cours')
     .map(c=>c.nom).join(', ');
 
+  // Construire la liste des chantiers avec leurs artisans associés
+  const chantiersAvecArtisans=clients
+    .filter(c=>c.statut==='en_cours'||c.statut==='ouverture'||c.statut==='sav_en_cours')
+    .map(c=>{
+      const ac=clientArtisans(c.id);
+      const artisansList=ac.map(a=>(a.metier||'')+' : '+(a.entreprise||a.nom)).join(', ');
+      return c.nom+(artisansList?' (artisans: '+artisansList+')':'');
+    }).join(' | ');
+
   const prompt='Tu es assistant pour MA 17 SUD constructeur de maisons neuves en Charente-Maritime. '
-    +'Chantiers en cours : '+chantiersList+'. '
+    +'Chantiers en cours avec leurs artisans : '+chantiersAvecArtisans+'. '
     +'Observations dictées : '+notes+'. '
-    +'1) Identifie le chantier mentionné (nom exact de la liste). '
-    +'2) Pour chaque artisan mentionné, liste ses taches. '
-    +'Reponds UNIQUEMENT en JSON valide : {"chantier":"nom exact","artisans":[{"artisan":"nom ou metier mentionné","taches":"liste des taches avec tirets"}]}';
+    +'1) Identifie le chantier mentionné (nom exact). '
+    +'2) Pour chaque artisan ou métier mentionné, retrouve le nom exact de l artisan associé à ce chantier et liste ses taches. '
+    +'Si le conducteur dit "le menuisier", utilise le nom de l artisan menuisier de ce chantier. '
+    +'Reponds UNIQUEMENT en JSON valide : {"chantier":"nom exact du chantier","artisans":[{"artisan":"nom exact de l artisan","taches":"liste des taches avec tirets"}]}';
 
   try{
     const r=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},
