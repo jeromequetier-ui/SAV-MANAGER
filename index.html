@@ -1047,6 +1047,7 @@ async function genNotesCT(clientId){
   const client=clients.find(c=>c.id===clientId);
   if(!client)return;
 
+
   // Get context: artisans, existing SAV, existing notes
   const ac=clientArtisans(clientId);
   const sv=clientSav(clientId);
@@ -1192,7 +1193,10 @@ async function prepareArtisanMails(clientId, notesText){
   if(mailZone){mailZone.style.display='block';mailZone.innerHTML='<div style="font-size:11px;color:#7c3aed">✨ Analyse des tâches par artisan…</div>';}
 
   const artisanList=ac.map(a=>'- '+(a.metier||'')+(a.entreprise?' ('+a.entreprise+')':'')+' : '+a.nom).join(', ');
-  const prompt='Tu es assistant pour MA 17 SUD constructeur de maisons neuves. Chantier : '+client.nom+'. Artisans : '+artisanList+'. Notes : '+notes+'. Pour chaque artisan mentionné dans les notes, liste uniquement ses taches. Reponds UNIQUEMENT en JSON valide : [{"artisan":"nom exact","taches":"liste des taches qui le concernent"}]. Si artisan non mentionné, ne pas inclure.';
+  const existingTasks=client.artisan_tasks&&client.artisan_tasks.length>0
+    ?'\nTaches déjà enregistrées (à fusionner) : '+JSON.stringify(client.artisan_tasks)
+    :'';
+  const prompt='Tu es assistant pour MA 17 SUD constructeur de maisons neuves. Chantier : '+client.nom+'. Artisans : '+artisanList+'. Nouvelles notes : '+notes+'.'+existingTasks+' Pour chaque artisan mentionné, fusionne les nouvelles taches avec les existantes sans doublons. Reponds UNIQUEMENT en JSON valide : [{"artisan":"nom exact","taches":"liste complète des taches"}]. Si artisan non mentionné dans les nouvelles notes, conserve quand même ses taches existantes.'
 
   try{
     const response=await fetch('/api/claude',{
@@ -1719,6 +1723,7 @@ function startVoice(taId,btnId,clientId,prefix){
 async function genNotesCT(clientId){
   const client=clients.find(c=>c.id===clientId);
   if(!client)return;
+
   const ac=clientArtisans(clientId);
   const sv=clientSav(clientId);
   const rawText=document.getElementById('ct-notes-'+clientId)?.value||
