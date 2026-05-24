@@ -1142,63 +1142,59 @@ async function deleteNotesCTInline(clientId){
   }catch(e){toast('Erreur: '+e.message,'#ef4444');}
 }
 
-async function prepareArtisanMails(clientId){
+async function prepareArtisanMails(clientId, notesText){
   const client=clients.find(c=>c.id===clientId);
   if(!client)return;
   const ac=clientArtisans(clientId);
-  if(ac.length===0){toast('Aucun artisan associé à ce chantier','#f59e0b');return;}
-  const notes=document.getElementById('ct-notes-'+clientId)?.value||
-              document.getElementById('il-notes-'+clientId)?.value||'';
-  if(!notes){toast("Générez d'abord les notes avec l'IA","#f59e0b");return;}
+  if(ac.length===0)return;
+  const notes=notesText||document.getElementById('ct-notes-'+clientId)?.value||document.getElementById('il-notes-'+clientId)?.value||'';
+  if(!notes)return;
 
-  // Ask AI to split notes by artisan
+  const mailZone=document.getElementById('ct-mail-zone-'+clientId)||document.getElementById('il-mail-zone-'+clientId);
+  if(mailZone){mailZone.style.display='block';mailZone.innerHTML='<div style="font-size:11px;color:#7c3aed">✨ Analyse des tâches par artisan…</div>';}
+
   const artisanList=ac.map(a=>'- '+(a.metier||'')+(a.entreprise?' ('+a.entreprise+')':'')+' : '+a.nom).join(', ');
-  const prompt='Tu es assistant pour MA 17 SUD constructeur de maisons neuves. Chantier : '+client.nom+'. Adresse : '+(client.adresse||'')+'. Artisans : '+artisanList+'. Notes : '+notes+'. Pour chaque artisan mentionné, génère un corps de mail professionnel listant ses tâches. Réponds UNIQUEMENT en JSON valide : [{"artisan":"nom","taches":"texte"}]. Si artisan non mentionné, ne pas inclure.';
-
-  toast('✨ Préparation des mails en cours…','#7c3aed');
+  const prompt='Tu es assistant pour MA 17 SUD constructeur de maisons neuves. Chantier : '+client.nom+'. Artisans : '+artisanList+'. Notes : '+notes+'. Pour chaque artisan mentionné dans les notes, liste uniquement ses taches. Reponds UNIQUEMENT en JSON valide : [{"artisan":"nom exact","taches":"liste des taches qui le concernent"}]. Si artisan non mentionné, ne pas inclure.';
 
   try{
     const response=await fetch('/api/claude',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-haiku-4-5-20251001',
-        max_tokens:1500,
-        messages:[{role:'user',content:prompt}]
-      })
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1000,messages:[{role:'user',content:prompt}]})
     });
     const data=await response.json();
     const text=data.content?.[0]?.text||'[]';
     const clean=text.replace(/```json|```/g,'').trim();
     const mails=JSON.parse(clean);
 
-    // Generate mailto links for each artisan
-    const mailZone=document.getElementById('ct-mail-zone-'+clientId)||document.getElementById('il-mail-zone-'+clientId);
     if(!mailZone)return;
+    if(mails.length===0){mailZone.innerHTML='<div style="font-size:11px;color:#94a3b8">Aucun artisan identifié dans les notes.</div>';return;}
 
-    if(mails.length===0){
-      mailZone.innerHTML='<div style="font-size:11px;color:#94a3b8">Aucun artisan identifié dans les notes.</div>';
-      return;
-    }
-
-        const rows=mails.map(m=>{
-      const artisan=ac.find(a=>a.nom===m.artisan||(a.entreprise&&a.entreprise===m.artisan)||a.nom.toLowerCase().includes(m.artisan.toLowerCase()));
-      if(!artisan||!artisan.email)return '';
+    mailZone.innerHTML=mails.map(m=>{
+      const artisan=ac.find(a=>a.nom===m.artisan||(a.entreprise&&a.entreprise===m.artisan)||a.nom.toLowerCase().includes(m.artisan.toLowerCase())||m.artisan.toLowerCase().includes(a.nom.toLowerCase()));
+      if(!artisan)return '';
       const subj=encodeURIComponent('Travaux chantier '+client.nom);
-      const bd=encodeURIComponent('Bonjour,%0A%0ASuite a la visite du chantier '+client.nom+' ('+( client.adresse||'')+'), voici vos taches :%0A%0A'+m.taches+'%0A%0AMerci de confirmer votre disponibilite.%0A%0ACordialement%0AMA 17 SUD');
-      const href='mailto:'+artisan.email+'?subject='+subj+'&body='+bd;
-      return '<div style="display:flex;align-items:center;gap:7px;margin-bottom:5px">'
-        +'<span style="font-size:11px;color:#374151;font-weight:600">'+(artisan.metier||artisan.nom)+'</span>'
-        +'<a href="'+href+'" style="padding:3px 9px;border-radius:7px;background:#ecfdf5;color:#065f46;border:1.5px solid #a7f3d0;font-size:11px;font-weight:700;text-decoration:none">✉ Ouvrir le mail</a>'
-        +'</div>';
+      const bodyText='Bonjour,\n\nSuite a la visite du chantier '+client.nom+' ('+( client.adresse||'')+'), voici vos taches :\n\n'+m.taches+'\n\nMerci de confirmer votre disponibilite.\n\nCordialement\nMA 17 SUD';
+      const bd=encodeURIComponent(bodyText);
+      const mailHref=artisan.email?'mailto:'+artisan.email+'?subject='+subj+'&body='+bd:'';
+      const smsText='Chantier '+client.nom+' - Vos taches : '+m.taches+' - MA 17 SUD';
+      const smsHref=artisan.tel?'sms:'+artisan.tel.replace(/\s/g,'')+'?body='+encodeURIComponent(smsText):'';
+      return '<div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:9px;padding:8px 11px;margin-bottom:6px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px">'
+        +'<div style="flex:1;min-width:0">'
+          +'<div style="font-size:11px;font-weight:700;color:#2563eb;margin-bottom:3px">'+(artisan.metier||artisan.nom)+(artisan.entreprise?' — '+artisan.entreprise:'')+'</div>'
+          +'<div style="font-size:11px;color:#374151;white-space:pre-wrap">'+m.taches+'</div>'
+        +'</div>'
+        +'<div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">'
+          +(mailHref?'<a href="'+mailHref+'" onclick="event.stopPropagation()" style="padding:5px 9px;border-radius:7px;background:#dbeafe;color:#2563eb;border:1.5px solid #bfdbfe;font-size:12px;font-weight:700;text-decoration:none">✉</a>':'')
+          +(smsHref?'<a href="'+smsHref+'" onclick="event.stopPropagation()" style="padding:5px 9px;border-radius:7px;background:#dcfce7;color:#16a34a;border:1.5px solid #bbf7d0;font-size:12px;font-weight:700;text-decoration:none">💬</a>':'')
+        +'</div>'
+      +'</div>';
     }).filter(Boolean).join('');
-    mailZone.innerHTML='<div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:6px">✉ Mails préparés :</div>'+rows;
-
-    toast('✅ Mails préparés !');
   }catch(e){
-    toast('Erreur: '+e.message,'#ef4444');
+    if(mailZone)mailZone.innerHTML='<div style="font-size:11px;color:#ef4444">Erreur: '+e.message+'</div>';
   }
 }
+
 
 async function saveNotesCT(clientId){
   const notes=document.getElementById('ct-notes-'+clientId)?.value.trim()||null;
@@ -1746,15 +1742,8 @@ Transforme ce texte en liste de tâches structurée et claire pour la livraison 
     const taFiche=document.getElementById('ct-notes-'+clientId);
     if(taInline)taInline.value=text;
     if(taFiche)taFiche.value=text;
-    // Afficher bouton mail artisans
-    const mailZone=document.getElementById('ct-mail-zone-'+clientId)||document.getElementById('il-mail-zone-'+clientId);
-    if(mailZone){
-      const ac=clientArtisans(clientId);
-      if(ac.length>0){
-        mailZone.style.display='block';
-        mailZone.innerHTML=`<button onclick="event.stopPropagation();prepareArtisanMails('${clientId}')" style="padding:5px 12px;border-radius:8px;border:none;background:#ecfdf5;color:#065f46;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;border:1.5px solid #a7f3d0">✉ Préparer les mails artisans</button>`;
-      }
-    }
+    // Préparer les mails artisans automatiquement
+    prepareArtisanMails(clientId, text);
     if(statusDiv){statusDiv.textContent="✨ Notes structurées — vérifiez et ajustez si besoin";setTimeout(()=>{statusDiv.style.display='none';},4000);}
   }catch(e){
     if(statusDiv){statusDiv.textContent='❌ '+e.message;statusDiv.style.color='#ef4444';setTimeout(()=>{statusDiv.style.display='none';},4000);}
