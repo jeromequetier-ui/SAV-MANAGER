@@ -1632,6 +1632,74 @@ function setSuiviTri(tri){
   goView('suivi');
 }
 
+
+async function loadAll(){
+  try{
+    const [c,a,s,ca]=await Promise.all([
+      db('GET','clients','','?order=nom'),
+      db('GET','artisans','','?order=nom'),
+      db('GET','sav','','?order=created_at.desc'),
+      db('GET','chantier_artisans','','')
+    ]);
+    clearTimeout(timeout);
+    clients=c||[];artisans=a||[];savList=s||[];chantierArtisans=ca||[];
+    updateUI();
+    document.getElementById('loader').style.display='none';
+    goView(currentView);
+  }catch(e){
+    document.getElementById('loader').innerHTML=`<div style="text-align:center;padding:20px"><div style="font-size:32px;margin-bottom:12px">⚠️</div><div style="font-size:18px;font-weight:800;color:#ef4444;margin-bottom:8px">Erreur de connexion</div><div style="color:#64748b;font-size:13px;margin-bottom:8px">${e.message}</div><button onclick="location.reload()" style="padding:10px 20px;background:#2563eb;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700">🔄 Réessayer</button></div>`;
+  }
+}
+
+function startPolling(){
+  setInterval(async()=>{
+    try{
+      const [c,s]=await Promise.all([db('GET','clients','','?order=nom'),db('GET','sav','','?order=created_at.desc')]);
+      clients=c||clients;savList=s||savList;
+      updateUI();showSync('🔄 Synchronisé');
+      if(currentView==='dashboard')renderDashSav();
+    }catch{}
+  },15000);
+}
+
+function doLogin(){
+  const user=document.getElementById('login-user').value.trim().toLowerCase();
+  const pass=document.getElementById('login-pass').value;
+  const err=document.getElementById('login-error');
+  if(USERS[user]&&USERS[user]===pass){
+    sessionStorage.setItem('sav_auth',btoa(user+':'+pass));
+    document.getElementById('login-screen').style.display='none';
+    loadAll().then(()=>startPolling());
+  } else {
+    err.style.display='block';
+    document.getElementById('login-pass').value='';
+    document.getElementById('login-pass').focus();
+    setTimeout(()=>err.style.display='none',3000);
+  }
+}
+
+function openVisite(clientId){
+  visiteClientId=clientId;
+  const client=clients.find(c=>c.id===clientId);
+  if(!client)return;
+  document.getElementById('visite-title').textContent='Visite pré-réception';
+  document.getElementById('visite-subtitle').textContent=client.nom+' — '+(client.adresse||'');
+  document.getElementById('visite-texte').value='';
+  document.getElementById('visite-ai-status').style.display='none';
+  document.getElementById('visite-mic-status').style.display='none';
+  document.getElementById('visite-send-all').style.display='none';
+  visiteTasks=client.artisan_tasks||[];
+  renderVisiteBulles();
+  document.getElementById('visite-page').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+
+function closeVisite(){
+  document.getElementById('visite-page').classList.remove('open');
+  document.body.style.overflow='';
+  if(visiteMicRecognition)visiteMicRecognition.stop();
+}
+
 // Vérifier l'auth au démarrage
 if(checkAuth()){
   document.getElementById('login-screen').style.display='none';
