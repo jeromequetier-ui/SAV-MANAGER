@@ -880,12 +880,76 @@ function renderSuivi(c){
     (x.statut==='en_cours'||x.statut==='ouverture'||x.statut==='sav_en_cours')&&
     (x.notes_ct||(x.artisan_tasks&&x.artisan_tasks.length>0))
   );
+
+  // Mode tri par artisan
+  if(suiviTri==='artisans'){
+    // Regrouper toutes les tâches par artisan
+    const byArtisan={};
+    list.forEach(cl=>{
+      (cl.artisan_tasks||[]).forEach((t,ti)=>{
+        const key=t.artisan;
+        if(!byArtisan[key])byArtisan[key]={artisan:t.artisan,chantiers:[]};
+        byArtisan[key].chantiers.push({client:cl,task:t,taskIdx:ti});
+      });
+    });
+    const artisanGroups=Object.values(byArtisan).sort((a,b)=>a.artisan.localeCompare(b.artisan));
+
+    c.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+      <h1 style="font-size:20px;font-weight:800">Suivi de chantier</h1>
+      <span style="font-size:12px;color:#64748b">${artisanGroups.length} artisan(s)</span>
+    </div>
+    <p style="color:#64748b;font-size:12px;margin-bottom:10px">Chantiers avec tâches avant livraison</p>
+    <div style="display:flex;gap:7px;margin-bottom:12px">
+      <button onclick="setSuiviTri('clients')" id="tri-clients" style="flex:1;padding:7px;border-radius:9px;border:2px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;font-size:12px;font-weight:400;font-family:inherit">🏡 Par chantier</button>
+      <button onclick="setSuiviTri('artisans')" id="tri-artisans" style="flex:1;padding:7px;border-radius:9px;border:2px solid #7c3aed;background:#f3e8ff;color:#7c3aed;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">👷 Par artisan</button>
+    </div>
+    ${artisanGroups.length===0?'<div class="empty"><div class="big">✅</div><p style="color:#10b981;font-weight:700">Aucune tâche en attente !</p></div>':
+    artisanGroups.map(group=>{
+      const ac=artisans.find(a=>a.nom===group.artisan||(a.entreprise&&a.entreprise===group.artisan)||a.nom.toLowerCase().includes(group.artisan.toLowerCase())||group.artisan.toLowerCase().includes(a.nom.toLowerCase()));
+      const subj=encodeURIComponent('Travaux chantiers');
+      const allTaches=group.chantiers.map(ch=>'Chantier '+ch.client.nom+' :\n'+ch.task.taches).join('\n\n');
+      const bd=encodeURIComponent('Bonjour,%0A%0AVoici les travaux en attente vous concernant :%0A%0A'+allTaches.replace(/\n/g,'%0A')+'%0A%0AMerci de confirmer vos disponibilites.%0A%0ACordialement%0AMA 17 SUD');
+      const mailHref=ac?.email?'mailto:'+ac.email+'?subject='+subj+'&body='+bd:'';
+      const smsHref=ac?.tel?'sms:'+ac.tel.replace(/\s/g,'')+'?body='+encodeURIComponent('Travaux en attente : '+allTaches.substring(0,160)):'' ;
+      return '<div class="card" style="margin-bottom:14px;padding:0;overflow:hidden">'
+        +'<div style="background:#4c1d95;padding:12px 15px;display:flex;align-items:center;justify-content:space-between">'
+          +'<div>'
+            +'<div style="color:#f3e8ff;font-weight:800;font-size:14px">'+(ac?.metier||group.artisan)+(ac?.entreprise?' — '+ac.entreprise:'')+'</div>'
+            +'<div style="color:#a78bfa;font-size:11px;margin-top:2px">'+(ac?.nom||group.artisan)+(ac?.tel?' · '+ac.tel:'')+'</div>'
+          +'</div>'
+          +'<div style="display:flex;gap:5px">'
+            +(ac?.tel?'<a href="tel:'+ac.tel+'" style="padding:5px 8px;border-radius:7px;background:#6d28d9;color:#f3e8ff;font-size:12px;font-weight:700;text-decoration:none">📞</a>':'')
+            +(mailHref?'<a href="'+mailHref+'" style="padding:5px 8px;border-radius:7px;background:#6d28d9;color:#f3e8ff;font-size:12px;font-weight:700;text-decoration:none">✉</a>':'')
+            +(smsHref?'<a href="'+smsHref+'" style="padding:5px 8px;border-radius:7px;background:#6d28d9;color:#f3e8ff;font-size:12px;font-weight:700;text-decoration:none">💬</a>':'')
+          +'</div>'
+        +'</div>'
+        +'<div style="padding:12px 15px">'
+          +group.chantiers.map(ch=>'<div style="border-left:3px solid #7c3aed;padding:6px 10px;margin-bottom:7px;background:#faf5ff;border-radius:0 8px 8px 0">'
+            +'<div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:3px">🏡 '+ch.client.nom+'</div>'
+            +'<div style="font-size:11px;color:#374151;white-space:pre-wrap">'+ch.task.taches+'</div>'
+            +'<div style="display:flex;gap:5px;margin-top:5px;justify-content:flex-end">'
+              +'<button onclick="editSuiviTask(\''+ch.client.id+'\','+ch.taskIdx+')" style="padding:3px 8px;border-radius:6px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:10px">✏</button>'
+              +'<button onclick="deleteSuiviTask(\''+ch.client.id+'\','+ch.taskIdx+')" style="padding:3px 8px;border-radius:6px;border:1.5px solid #fee2e2;background:#fff5f5;color:#ef4444;cursor:pointer;font-size:10px">🗑</button>'
+            +'</div>'
+          +'</div>').join('')
+        +'</div>'
+      +'</div>';
+    }).join('')}
+    `;
+    return;
+  }
+
   c.innerHTML=`
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
       <h1 style="font-size:20px;font-weight:800">Suivi de chantier</h1>
       <span style="font-size:12px;color:#64748b">${list.length} chantier(s)</span>
     </div>
     <p style="color:#64748b;font-size:12px;margin-bottom:10px">Chantiers avec tâches avant livraison</p>
+    <div style="display:flex;gap:7px;margin-bottom:12px">
+      <button onclick="setSuiviTri('clients')" id="tri-clients" style="flex:1;padding:7px;border-radius:9px;border:2px solid #2563eb;background:#eff6ff;color:#2563eb;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">🏡 Par chantier</button>
+      <button onclick="setSuiviTri('artisans')" id="tri-artisans" style="flex:1;padding:7px;border-radius:9px;border:2px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;font-size:12px;font-weight:400;font-family:inherit">👷 Par artisan</button>
+    </div>
     <div style="background:#fff;border-radius:13px;padding:14px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,0.06)">
       <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">🏗 Nouvelle visite de chantier</div>
       <textarea id="suivi-dictee" placeholder="Dictez ou tapez vos observations…&#10;Ex: Je suis chez Ardouin, le menuisier doit reprendre les portes, le plombier doit vérifier le robinet cuisine…" style="width:100%;min-height:80px;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px;font-size:13px;font-family:inherit;resize:vertical;outline:none;background:#f8fafc;box-sizing:border-box"></textarea>
@@ -2263,6 +2327,24 @@ async function deleteSuiviTask(clientId,taskIdx){
   }catch(e){toast('Erreur: '+e.message,'#ef4444');}
 }
 
+let suiviTri='clients';
+
+function setSuiviTri(tri){
+  suiviTri=tri;
+  const btnC=document.getElementById('tri-clients');
+  const btnA=document.getElementById('tri-artisans');
+  if(btnC&&btnA){
+    if(tri==='clients'){
+      btnC.style.borderColor='#2563eb';btnC.style.background='#eff6ff';btnC.style.color='#2563eb';btnC.style.fontWeight='700';
+      btnA.style.borderColor='#e2e8f0';btnA.style.background='#fff';btnA.style.color='#64748b';btnA.style.fontWeight='400';
+    } else {
+      btnA.style.borderColor='#7c3aed';btnA.style.background='#f3e8ff';btnA.style.color='#7c3aed';btnA.style.fontWeight='700';
+      btnC.style.borderColor='#e2e8f0';btnC.style.background='#fff';btnC.style.color='#64748b';btnC.style.fontWeight='400';
+    }
+  }
+  goView('suivi');
+}
+
 loadAll().then(()=>startPolling());
 } else {
   // Afficher l'écran de connexion, focus sur le champ
@@ -2635,6 +2717,24 @@ async function deleteSuiviTask(clientId,taskIdx){
     clients=clients.map(c=>c.id===clientId?{...c,artisan_tasks:tasks}:c);
     toast('Artisan retiré');goView('suivi');
   }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+let suiviTri='clients';
+
+function setSuiviTri(tri){
+  suiviTri=tri;
+  const btnC=document.getElementById('tri-clients');
+  const btnA=document.getElementById('tri-artisans');
+  if(btnC&&btnA){
+    if(tri==='clients'){
+      btnC.style.borderColor='#2563eb';btnC.style.background='#eff6ff';btnC.style.color='#2563eb';btnC.style.fontWeight='700';
+      btnA.style.borderColor='#e2e8f0';btnA.style.background='#fff';btnA.style.color='#64748b';btnA.style.fontWeight='400';
+    } else {
+      btnA.style.borderColor='#7c3aed';btnA.style.background='#f3e8ff';btnA.style.color='#7c3aed';btnA.style.fontWeight='700';
+      btnC.style.borderColor='#e2e8f0';btnC.style.background='#fff';btnC.style.color='#64748b';btnC.style.fontWeight='400';
+    }
+  }
+  goView('suivi');
 }
 
 loadAll().then(()=>startPolling());
