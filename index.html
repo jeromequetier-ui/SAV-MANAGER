@@ -885,7 +885,16 @@ function renderSuivi(c){
       <h1 style="font-size:20px;font-weight:800">Suivi de chantier</h1>
       <span style="font-size:12px;color:#64748b">${list.length} chantier(s)</span>
     </div>
-    <p style="color:#64748b;font-size:12px;margin-bottom:13px">Chantiers avec tâches avant livraison</p>
+    <p style="color:#64748b;font-size:12px;margin-bottom:10px">Chantiers avec tâches avant livraison</p>
+    <div style="background:#fff;border-radius:13px;padding:14px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,0.06)">
+      <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">🏗 Nouvelle visite de chantier</div>
+      <textarea id="suivi-dictee" placeholder="Dictez ou tapez vos observations…&#10;Ex: Je suis chez Ardouin, le menuisier doit reprendre les portes, le plombier doit vérifier le robinet cuisine…" style="width:100%;min-height:80px;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px;font-size:13px;font-family:inherit;resize:vertical;outline:none;background:#f8fafc;box-sizing:border-box"></textarea>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button id="suivi-mic-btn" onclick="toggleSuiviMic()" style="flex:1;padding:10px;border-radius:10px;border:none;background:#ef4444;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">🎤 Dicter</button>
+        <button onclick="analyserSuivi()" id="suivi-ai-btn" style="flex:1;padding:10px;border-radius:10px;border:none;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">✨ Analyser</button>
+      </div>
+      <div id="suivi-ai-status" style="font-size:11px;color:#7c3aed;margin-top:6px;display:none">✨ Analyse en cours…</div>
+    </div>
     ${list.length===0?'<div class="empty"><div class="big">✅</div><p style="color:#10b981;font-weight:700">Aucune tâche en attente !</p><p style="color:#94a3b8;font-size:12px;margin-top:6px">Ajoutez des notes CT ou faites une visite depuis un chantier</p></div>':
     list.map(cl=>{
       const sv=clientSav(cl.id).filter(s=>s.statut!=='resolu');
@@ -916,14 +925,40 @@ function renderSuivi(c){
             +'<div style="font-size:11px;font-weight:700;color:#ca8a04;margin-bottom:4px">📋 Notes CT'+(cl.ct_responsable?' — '+cl.ct_responsable:'')+'</div>'
             +'<div style="font-size:12px;color:#374151;white-space:pre-wrap">'+cl.notes_ct+'</div>'
           +'</div>':'')
-          // Tâches artisans
+          // Tâches artisans avec contact
           +(tasks.length>0?'<div style="margin-bottom:10px">'
             +'<div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:6px">👷 Tâches artisans ('+tasks.length+')</div>'
-            +tasks.map(t=>{
+            +tasks.map((t,ti)=>{
               const art=ac.find(a=>a.nom===t.artisan||(a.entreprise&&a.entreprise===t.artisan)||a.nom.toLowerCase().includes(t.artisan.toLowerCase())||t.artisan.toLowerCase().includes(a.nom.toLowerCase()));
-              return '<div style="border-left:3px solid #7c3aed;padding:6px 10px;margin-bottom:5px;background:#faf5ff;border-radius:0 8px 8px 0">'
-                +'<div style="font-size:11px;font-weight:700;color:#7c3aed">'+(art?.metier||t.artisan)+'</div>'
-                +'<div style="font-size:11px;color:#374151;white-space:pre-wrap;margin-top:2px">'+t.taches+'</div>'
+              const subj=encodeURIComponent('Travaux chantier '+cl.nom);
+              const bd=encodeURIComponent('Bonjour,%0A%0ASuite a la visite du chantier '+cl.nom+' ('+( cl.adresse||'')+'), voici vos taches :%0A%0A'+t.taches+'%0A%0AMerci de confirmer votre disponibilite.%0A%0ACordialement%0AMA 17 SUD');
+              const mailHref=art?.email?'mailto:'+art.email+'?subject='+subj+'&body='+bd:'';
+              const smsText='Chantier '+cl.nom+' - Vos taches : '+t.taches+' - MA 17 SUD';
+              const smsHref=art?.tel?'sms:'+art.tel.replace(/\s/g,'')+'?body='+encodeURIComponent(smsText):'';
+              return '<div style="border:1.5px solid #e9d5ff;border-radius:10px;padding:10px;margin-bottom:8px;background:#faf5ff">'
+                +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px">'
+                  +'<div>'
+                    +'<div style="font-size:12px;font-weight:700;color:#7c3aed">'+(art?.metier||t.artisan)+(art?.entreprise?' — '+art.entreprise:'')+'</div>'
+                    +'<div style="font-size:11px;color:#64748b">'+(art?.nom||t.artisan)+(art?.tel?' · '+art.tel:'')+'</div>'
+                  +'</div>'
+                  +'<div style="display:flex;gap:5px;flex-shrink:0">'
+                    +(art?.tel?'<a href="tel:'+art.tel+'" style="padding:4px 8px;border-radius:7px;background:#dbeafe;color:#1e40af;border:1.5px solid #bfdbfe;font-size:11px;font-weight:700;text-decoration:none">📞</a>':'')
+                    +(mailHref?'<a href="'+mailHref+'" style="padding:4px 8px;border-radius:7px;background:#ecfdf5;color:#065f46;border:1.5px solid #a7f3d0;font-size:11px;font-weight:700;text-decoration:none">✉</a>':'')
+                    +(smsHref?'<a href="'+smsHref+'" style="padding:4px 8px;border-radius:7px;background:#dcfce7;color:#166534;border:1.5px solid #bbf7d0;font-size:11px;font-weight:700;text-decoration:none">💬</a>':'')
+                  +'</div>'
+                +'</div>'
+                +'<div style="font-size:11px;color:#374151;white-space:pre-wrap;border-top:1px solid #e9d5ff;padding-top:6px" id="st-view-'+cl.id+'-'+ti+'">'+t.taches+'</div>'
+                +'<div id="st-edit-'+cl.id+'-'+ti+'" style="display:none;margin-top:6px">'
+                  +'<textarea style="width:100%;min-height:60px;padding:6px 8px;border:1.5px solid #7c3aed;border-radius:8px;font-size:11px;font-family:inherit;resize:vertical;outline:none;box-sizing:border-box" id="st-input-'+cl.id+'-'+ti+'">'+t.taches+'</textarea>'
+                  +'<div style="display:flex;gap:5px;margin-top:5px">'
+                    +'<button onclick="cancelSuiviTask(\''+cl.id+'\','+ti+')" style="flex:1;padding:5px;border-radius:7px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:11px;font-family:inherit">Annuler</button>'
+                    +'<button onclick="saveSuiviTask(\''+cl.id+'\','+ti+')" style="flex:1;padding:5px;border-radius:7px;border:none;background:#7c3aed;color:#fff;cursor:pointer;font-size:11px;font-family:inherit;font-weight:700">💾 OK</button>'
+                  +'</div>'
+                +'</div>'
+                +'<div style="display:flex;gap:5px;margin-top:6px;justify-content:flex-end">'
+                  +'<button onclick="editSuiviTask(\''+cl.id+'\','+ti+')" style="padding:3px 8px;border-radius:6px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:10px">✏</button>'
+                  +'<button onclick="deleteSuiviTask(\''+cl.id+'\','+ti+')" style="padding:3px 8px;border-radius:6px;border:1.5px solid #fee2e2;background:#fff5f5;color:#ef4444;cursor:pointer;font-size:10px">🗑</button>'
+                +'</div>'
               +'</div>';
             }).join('')
           +'</div>':'')
@@ -2078,6 +2113,156 @@ function envoyerTout(){
   toast('Mails ouverts pour tous les artisans ✓');
 }
 
+// ══════════════════════════════════════════════
+// SUIVI DE CHANTIER - DICTÉE + IA
+// ══════════════════════════════════════════════
+let suiviMicRecognition=null;
+
+function toggleSuiviMic(){
+  const btn=document.getElementById('suivi-mic-btn');
+  const status=document.getElementById('suivi-ai-status');
+  if(suiviMicRecognition){suiviMicRecognition.stop();return;}
+  if(!("webkitSpeechRecognition" in window)&&!("SpeechRecognition" in window)){
+    alert("Dictée vocale non supportée. Utilisez Chrome ou Safari.");return;
+  }
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const rec=new SR();
+  rec.lang='fr-FR';rec.continuous=true;rec.interimResults=true;
+  suiviMicRecognition=rec;
+  let final=document.getElementById('suivi-dictee')?.value||'';
+  rec.onstart=()=>{
+    btn.textContent='⏹ Arrêter';btn.style.background='#374151';
+    if(status){status.style.display='block';status.textContent='🎤 Dictée en cours…';}
+  };
+  rec.onresult=e=>{
+    let interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal)final+=e.results[i][0].transcript+' ';
+      else interim+=e.results[i][0].transcript;
+    }
+    const ta=document.getElementById('suivi-dictee');
+    if(ta)ta.value=final+interim;
+  };
+  rec.onend=()=>{
+    suiviMicRecognition=null;
+    btn.textContent='🎤 Dicter';btn.style.background='#ef4444';
+    const ta=document.getElementById('suivi-dictee');
+    if(ta)ta.value=final.trim();
+    if(status){status.textContent='🎤 Dictée terminée — cliquez ✨ Analyser';setTimeout(()=>status.style.display='none',3000);}
+  };
+  rec.onerror=()=>{suiviMicRecognition=null;btn.textContent='🎤 Dicter';btn.style.background='#ef4444';};
+  rec.start();
+}
+
+async function analyserSuivi(){
+  const notes=document.getElementById('suivi-dictee')?.value.trim();
+  if(!notes){alert("Dictez d'abord vos observations !");return;}
+  const status=document.getElementById('suivi-ai-status');
+  const btn=document.getElementById('suivi-ai-btn');
+  if(status){status.style.display='block';status.textContent='✨ Identification du chantier…';}
+  if(btn)btn.disabled=true;
+
+  // Liste des chantiers en cours pour l'IA
+  const chantiersList=clients
+    .filter(c=>c.statut==='en_cours'||c.statut==='ouverture'||c.statut==='sav_en_cours')
+    .map(c=>c.nom).join(', ');
+
+  const prompt='Tu es assistant pour MA 17 SUD constructeur de maisons neuves en Charente-Maritime. '
+    +'Chantiers en cours : '+chantiersList+'. '
+    +'Observations dictées : '+notes+'. '
+    +'1) Identifie le chantier mentionné (nom exact de la liste). '
+    +'2) Pour chaque artisan mentionné, liste ses taches. '
+    +'Reponds UNIQUEMENT en JSON valide : {"chantier":"nom exact","artisans":[{"artisan":"nom ou metier mentionné","taches":"liste des taches avec tirets"}]}';
+
+  try{
+    const r=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
+    const data=await r.json();
+    const text=data.content?.[0]?.text||'{}';
+    const clean=text.replace(/```json|```/g,'').trim();
+    const result=JSON.parse(clean);
+
+    // Trouver le client
+    const client=clients.find(c=>
+      c.nom===result.chantier||
+      c.nom.toLowerCase().includes(result.chantier?.toLowerCase())||
+      result.chantier?.toLowerCase().includes(c.nom.toLowerCase())
+    );
+
+    if(!client){
+      if(status){status.textContent='❌ Chantier "'+result.chantier+'" non trouvé';status.style.color='#ef4444';}
+      setTimeout(()=>{if(status)status.style.display='none';if(btn)btn.disabled=false;},3000);
+      return;
+    }
+
+    // Fusionner avec les tâches existantes
+    const existing=client.artisan_tasks||[];
+    const newTasks=[...existing];
+    (result.artisans||[]).forEach(na=>{
+      const idx=newTasks.findIndex(t=>
+        t.artisan===na.artisan||
+        t.artisan.toLowerCase().includes(na.artisan.toLowerCase())||
+        na.artisan.toLowerCase().includes(t.artisan.toLowerCase())
+      );
+      if(idx>=0){
+        newTasks[idx]={...newTasks[idx],taches:newTasks[idx].taches+' | '+na.taches};
+      } else {
+        newTasks.push(na);
+      }
+    });
+
+    // Sauvegarder
+    await db('PATCH','clients',{artisan_tasks:newTasks,updated_at:new Date().toISOString()},`?id=eq.${client.id}`);
+    clients=clients.map(c=>c.id===client.id?{...c,artisan_tasks:newTasks}:c);
+
+    if(status){status.textContent='✅ Chantier '+client.nom+' mis à jour !';status.style.color='#10b981';}
+    const ta=document.getElementById('suivi-dictee');
+    if(ta)ta.value='';
+    setTimeout(()=>{
+      if(status)status.style.display='none';
+      if(btn)btn.disabled=false;
+      goView('suivi'); // Refresh
+    },1500);
+
+  }catch(e){
+    if(status){status.textContent='Erreur: '+e.message;status.style.color='#ef4444';}
+    setTimeout(()=>{if(status)status.style.display='none';if(btn)btn.disabled=false;},3000);
+  }
+}
+
+function editSuiviTask(clientId,taskIdx){
+  document.getElementById('st-view-'+clientId+'-'+taskIdx).style.display='none';
+  document.getElementById('st-edit-'+clientId+'-'+taskIdx).style.display='block';
+}
+function cancelSuiviTask(clientId,taskIdx){
+  document.getElementById('st-view-'+clientId+'-'+taskIdx).style.display='block';
+  document.getElementById('st-edit-'+clientId+'-'+taskIdx).style.display='none';
+}
+async function saveSuiviTask(clientId,taskIdx){
+  const newText=document.getElementById('st-input-'+clientId+'-'+taskIdx)?.value.trim();
+  const client=clients.find(c=>c.id===clientId);
+  if(!client||!newText)return;
+  const tasks=[...(client.artisan_tasks||[])];
+  tasks[taskIdx]={...tasks[taskIdx],taches:newText};
+  try{
+    await db('PATCH','clients',{artisan_tasks:tasks,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+    clients=clients.map(c=>c.id===clientId?{...c,artisan_tasks:tasks}:c);
+    toast('Tâches mises à jour ✓');goView('suivi');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+async function deleteSuiviTask(clientId,taskIdx){
+  if(!confirm('Supprimer les tâches de cet artisan ?'))return;
+  const client=clients.find(c=>c.id===clientId);
+  if(!client)return;
+  const tasks=[...(client.artisan_tasks||[])];
+  tasks.splice(taskIdx,1);
+  try{
+    await db('PATCH','clients',{artisan_tasks:tasks,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+    clients=clients.map(c=>c.id===clientId?{...c,artisan_tasks:tasks}:c);
+    toast('Artisan retiré');goView('suivi');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
 loadAll().then(()=>startPolling());
 } else {
   // Afficher l'écran de connexion, focus sur le champ
@@ -2300,6 +2485,156 @@ function envoyerTout(){
     window.open('mailto:'+artisan.email+'?subject='+subj+'&body='+bd);
   });
   toast('Mails ouverts pour tous les artisans ✓');
+}
+
+// ══════════════════════════════════════════════
+// SUIVI DE CHANTIER - DICTÉE + IA
+// ══════════════════════════════════════════════
+let suiviMicRecognition=null;
+
+function toggleSuiviMic(){
+  const btn=document.getElementById('suivi-mic-btn');
+  const status=document.getElementById('suivi-ai-status');
+  if(suiviMicRecognition){suiviMicRecognition.stop();return;}
+  if(!("webkitSpeechRecognition" in window)&&!("SpeechRecognition" in window)){
+    alert("Dictée vocale non supportée. Utilisez Chrome ou Safari.");return;
+  }
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const rec=new SR();
+  rec.lang='fr-FR';rec.continuous=true;rec.interimResults=true;
+  suiviMicRecognition=rec;
+  let final=document.getElementById('suivi-dictee')?.value||'';
+  rec.onstart=()=>{
+    btn.textContent='⏹ Arrêter';btn.style.background='#374151';
+    if(status){status.style.display='block';status.textContent='🎤 Dictée en cours…';}
+  };
+  rec.onresult=e=>{
+    let interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal)final+=e.results[i][0].transcript+' ';
+      else interim+=e.results[i][0].transcript;
+    }
+    const ta=document.getElementById('suivi-dictee');
+    if(ta)ta.value=final+interim;
+  };
+  rec.onend=()=>{
+    suiviMicRecognition=null;
+    btn.textContent='🎤 Dicter';btn.style.background='#ef4444';
+    const ta=document.getElementById('suivi-dictee');
+    if(ta)ta.value=final.trim();
+    if(status){status.textContent='🎤 Dictée terminée — cliquez ✨ Analyser';setTimeout(()=>status.style.display='none',3000);}
+  };
+  rec.onerror=()=>{suiviMicRecognition=null;btn.textContent='🎤 Dicter';btn.style.background='#ef4444';};
+  rec.start();
+}
+
+async function analyserSuivi(){
+  const notes=document.getElementById('suivi-dictee')?.value.trim();
+  if(!notes){alert("Dictez d'abord vos observations !");return;}
+  const status=document.getElementById('suivi-ai-status');
+  const btn=document.getElementById('suivi-ai-btn');
+  if(status){status.style.display='block';status.textContent='✨ Identification du chantier…';}
+  if(btn)btn.disabled=true;
+
+  // Liste des chantiers en cours pour l'IA
+  const chantiersList=clients
+    .filter(c=>c.statut==='en_cours'||c.statut==='ouverture'||c.statut==='sav_en_cours')
+    .map(c=>c.nom).join(', ');
+
+  const prompt='Tu es assistant pour MA 17 SUD constructeur de maisons neuves en Charente-Maritime. '
+    +'Chantiers en cours : '+chantiersList+'. '
+    +'Observations dictées : '+notes+'. '
+    +'1) Identifie le chantier mentionné (nom exact de la liste). '
+    +'2) Pour chaque artisan mentionné, liste ses taches. '
+    +'Reponds UNIQUEMENT en JSON valide : {"chantier":"nom exact","artisans":[{"artisan":"nom ou metier mentionné","taches":"liste des taches avec tirets"}]}';
+
+  try{
+    const r=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
+    const data=await r.json();
+    const text=data.content?.[0]?.text||'{}';
+    const clean=text.replace(/```json|```/g,'').trim();
+    const result=JSON.parse(clean);
+
+    // Trouver le client
+    const client=clients.find(c=>
+      c.nom===result.chantier||
+      c.nom.toLowerCase().includes(result.chantier?.toLowerCase())||
+      result.chantier?.toLowerCase().includes(c.nom.toLowerCase())
+    );
+
+    if(!client){
+      if(status){status.textContent='❌ Chantier "'+result.chantier+'" non trouvé';status.style.color='#ef4444';}
+      setTimeout(()=>{if(status)status.style.display='none';if(btn)btn.disabled=false;},3000);
+      return;
+    }
+
+    // Fusionner avec les tâches existantes
+    const existing=client.artisan_tasks||[];
+    const newTasks=[...existing];
+    (result.artisans||[]).forEach(na=>{
+      const idx=newTasks.findIndex(t=>
+        t.artisan===na.artisan||
+        t.artisan.toLowerCase().includes(na.artisan.toLowerCase())||
+        na.artisan.toLowerCase().includes(t.artisan.toLowerCase())
+      );
+      if(idx>=0){
+        newTasks[idx]={...newTasks[idx],taches:newTasks[idx].taches+' | '+na.taches};
+      } else {
+        newTasks.push(na);
+      }
+    });
+
+    // Sauvegarder
+    await db('PATCH','clients',{artisan_tasks:newTasks,updated_at:new Date().toISOString()},`?id=eq.${client.id}`);
+    clients=clients.map(c=>c.id===client.id?{...c,artisan_tasks:newTasks}:c);
+
+    if(status){status.textContent='✅ Chantier '+client.nom+' mis à jour !';status.style.color='#10b981';}
+    const ta=document.getElementById('suivi-dictee');
+    if(ta)ta.value='';
+    setTimeout(()=>{
+      if(status)status.style.display='none';
+      if(btn)btn.disabled=false;
+      goView('suivi'); // Refresh
+    },1500);
+
+  }catch(e){
+    if(status){status.textContent='Erreur: '+e.message;status.style.color='#ef4444';}
+    setTimeout(()=>{if(status)status.style.display='none';if(btn)btn.disabled=false;},3000);
+  }
+}
+
+function editSuiviTask(clientId,taskIdx){
+  document.getElementById('st-view-'+clientId+'-'+taskIdx).style.display='none';
+  document.getElementById('st-edit-'+clientId+'-'+taskIdx).style.display='block';
+}
+function cancelSuiviTask(clientId,taskIdx){
+  document.getElementById('st-view-'+clientId+'-'+taskIdx).style.display='block';
+  document.getElementById('st-edit-'+clientId+'-'+taskIdx).style.display='none';
+}
+async function saveSuiviTask(clientId,taskIdx){
+  const newText=document.getElementById('st-input-'+clientId+'-'+taskIdx)?.value.trim();
+  const client=clients.find(c=>c.id===clientId);
+  if(!client||!newText)return;
+  const tasks=[...(client.artisan_tasks||[])];
+  tasks[taskIdx]={...tasks[taskIdx],taches:newText};
+  try{
+    await db('PATCH','clients',{artisan_tasks:tasks,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+    clients=clients.map(c=>c.id===clientId?{...c,artisan_tasks:tasks}:c);
+    toast('Tâches mises à jour ✓');goView('suivi');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+async function deleteSuiviTask(clientId,taskIdx){
+  if(!confirm('Supprimer les tâches de cet artisan ?'))return;
+  const client=clients.find(c=>c.id===clientId);
+  if(!client)return;
+  const tasks=[...(client.artisan_tasks||[])];
+  tasks.splice(taskIdx,1);
+  try{
+    await db('PATCH','clients',{artisan_tasks:tasks,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+    clients=clients.map(c=>c.id===clientId?{...c,artisan_tasks:tasks}:c);
+    toast('Artisan retiré');goView('suivi');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
 }
 
 loadAll().then(()=>startPolling());
