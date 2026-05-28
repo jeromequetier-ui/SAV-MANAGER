@@ -2213,6 +2213,14 @@ function doLogin(){
     // Succès
     sessionStorage.setItem('sav_auth', btoa(user+':'+pass));
     document.getElementById('login-screen').style.display = 'none';
+    loadAll().then(()=>startPolling());
+  } else {
+    err.style.display = 'block';
+    document.getElementById('login-pass').value = '';
+    document.getElementById('login-pass').focus();
+    setTimeout(()=>err.style.display='none', 3000);
+  }
+}
 
 function toggleChat(){
   chatOpen=!chatOpen;
@@ -2703,13 +2711,6 @@ loadAll().then(()=>startPolling());
 } else {
   // Afficher l'écran de connexion, focus sur le champ
   setTimeout(()=>document.getElementById('login-user').focus(), 100);
-}
-  } else {
-    err.style.display = 'block';
-    document.getElementById('login-pass').value = '';
-    document.getElementById('login-pass').focus();
-    setTimeout(()=>err.style.display='none', 3000);
-  }
 }
 
 function checkAuth(){
