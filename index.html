@@ -2213,12 +2213,6 @@ function doLogin(){
     // Succès
     sessionStorage.setItem('sav_auth', btoa(user+':'+pass));
     document.getElementById('login-screen').style.display = 'none';
-    // ══════════════════════════════════════════════
-// CHATBOT ASSISTANT
-// ══════════════════════════════════════════════
-let chatHistory=[];
-let chatMicRecognition=null;
-let chatOpen=false;
 
 function toggleChat(){
   chatOpen=!chatOpen;
