@@ -135,25 +135,6 @@ input,select,textarea{font-family:inherit;}
 #dash-map-container.fullscreen #map-main{height:calc(100vh - 180px) !important;}
 #dash-map-container.fullscreen #fs-btn{background:#0f172a;color:#fff;border-color:#0f172a;}
 @media(max-width:380px){.grid2{grid-template-columns:1fr;}.nav-btns{flex-direction:column;}}
-/* CHATBOT */
-#chat-btn{position:fixed;bottom:20px;right:16px;z-index:800;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#2563eb);border:none;color:#fff;font-size:24px;cursor:pointer;box-shadow:0 4px 16px rgba(124,58,237,0.4);display:flex;align-items:center;justify-content:center;transition:transform .2s;}
-#chat-btn:hover{transform:scale(1.08);}
-#chat-panel{position:fixed;bottom:82px;right:12px;width:340px;max-width:calc(100vw - 24px);height:520px;background:#fff;border-radius:18px;box-shadow:0 8px 40px rgba(0,0,0,0.2);z-index:800;display:none;flex-direction:column;overflow:hidden;border:1.5px solid #e2e8f0;}
-#chat-panel.open{display:flex;}
-.chat-head{background:linear-gradient(135deg,#7c3aed,#2563eb);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;}
-.chat-head-title{color:#fff;font-weight:700;font-size:14px;}
-.chat-head-sub{color:rgba(255,255,255,0.7);font-size:11px;margin-top:1px;}
-#chat-close{background:none;border:none;color:rgba(255,255,255,0.8);font-size:20px;cursor:pointer;line-height:1;}
-#chat-messages{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;background:#f8fafc;}
-.chat-msg{max-width:85%;padding:9px 12px;border-radius:12px;font-size:13px;line-height:1.5;}
-.chat-msg.user{background:#2563eb;color:#fff;align-self:flex-end;border-radius:12px 12px 2px 12px;}
-.chat-msg.bot{background:#fff;color:#0f172a;align-self:flex-start;border-radius:12px 12px 12px 2px;box-shadow:0 1px 3px rgba(0,0,0,0.08);border:1px solid #e2e8f0;}
-.chat-msg.thinking{background:#f3e8ff;color:#7c3aed;align-self:flex-start;font-style:italic;}
-#chat-input-wrap{padding:10px;border-top:1.5px solid #f1f5f9;display:flex;gap:8px;background:#fff;}
-#chat-input{flex:1;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:22px;font-size:13px;outline:none;font-family:inherit;resize:none;max-height:80px;}
-#chat-input:focus{border-color:#7c3aed;}
-#chat-send{padding:9px 14px;border-radius:22px;border:none;background:#7c3aed;color:#fff;cursor:pointer;font-size:14px;font-weight:700;}
-#chat-mic{padding:9px 12px;border-radius:22px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:14px;}
 .visite-page{position:fixed;inset:0;background:#f1f5f9;z-index:600;overflow-y:auto;display:none;}
 .visite-page.open{display:block;}
 .visite-header{background:#0f172a;padding:12px 14px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10;}
@@ -232,7 +213,6 @@ input,select,textarea{font-family:inherit;}
     <button class="nav-btn" onclick="goView('clients')" data-v="clients"><span class="icon">🏡</span>Chantiers</button>
     <button class="nav-btn" onclick="goView('sav')" data-v="sav"><span class="icon">🔧</span>Tous les SAV</button>
     <button class="nav-btn" onclick="goView('artisans')" data-v="artisans"><span class="icon">👷</span>Artisans</button>
-    <button class="nav-btn" onclick="goView('attribution')" data-v="attribution"><span class="icon">🔗</span>Attribution artisans</button>
     <button class="nav-btn" onclick="goView('suivi')" data-v="suivi"><span class="icon">📋</span>Suivi de chantier</button>
     <button class="nav-btn" onclick="goView('alertes')" data-v="alertes"><span class="icon">🔔</span>Alertes<span class="nb" id="sb-nb" style="display:none">0</span></button>
   </div>
@@ -392,7 +372,6 @@ function goView(v){
   else if(v==='clients')renderClients(c);
   else if(v==='sav')renderSav(c);
   else if(v==='artisans')renderArtisans(c);
-  else if(v==='attribution')renderAttribution(c);
   else if(v==='suivi')renderSuivi(c);
   else if(v==='alertes')renderAlertes(c);
 }
@@ -1070,10 +1049,7 @@ function renderArtisans(c){
   c.innerHTML=`
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px">
       <h1 style="font-size:20px;font-weight:800">Artisans</h1>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-secondary" onclick="goView('attribution')">👷 Attribution</button>
-        <button class="btn btn-primary" onclick="openArtisanModal(null)">+ Ajouter</button>
-      </div>
+      <button class="btn btn-primary" onclick="openArtisanModal(null)">+ Ajouter</button>
     </div>
     <div>${artisans.length===0?`<div class="empty"><div class="big">👷</div><p>Aucun artisan enregistré</p></div>`:
     artisans.map(a=>{
@@ -1094,217 +1070,6 @@ function renderArtisans(c){
       </div>`;
     }).join('')}</div>
   `;
-}
-
-// ── ATTRIBUTION ARTISANS
-function renderAttribution(c){
-  c.innerHTML=`
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
-      <h1 style="font-size:20px;font-weight:800">Attribution des artisans</h1>
-    </div>
-    <p style="color:#64748b;font-size:13px;margin-bottom:14px">Glissez un PDF de liste artisans ou importez manuellement</p>
-
-    <!-- Import PDF -->
-    <div class="card" style="margin-bottom:16px;padding:16px">
-      <div style="font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">📥 Import depuis un PDF</div>
-      <div id="pdf-drop-zone" 
-        ondragover="event.preventDefault();this.style.borderColor='#2563eb';this.style.background='#eff6ff'"
-        ondragleave="this.style.borderColor='#cbd5e1';this.style.background='#f8fafc'"
-        ondrop="handlePdfDrop(event)"
-        style="border:2px dashed #cbd5e1;border-radius:11px;background:#f8fafc;padding:24px;text-align:center;cursor:pointer;transition:all .2s"
-        onclick="document.getElementById('pdf-input').click()">
-        <div style="font-size:32px;margin-bottom:8px">📄</div>
-        <div style="font-weight:600;color:#374151;margin-bottom:4px">Glissez votre PDF ici</div>
-        <div style="font-size:12px;color:#94a3b8">ou cliquez pour sélectionner</div>
-        <input type="file" id="pdf-input" accept=".pdf" style="display:none" onchange="handlePdfFile(this.files[0])"/>
-      </div>
-      <div id="pdf-status" style="margin-top:10px;display:none"></div>
-      <div id="pdf-preview" style="margin-top:12px;display:none"></div>
-    </div>
-
-    <!-- Attribution manuelle -->
-    <div class="card" style="padding:16px">
-      <div style="font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">✏️ Attribution manuelle</div>
-      <div class="search-wrap" style="margin-bottom:10px">
-        <span class="search-ic">🔍</span>
-        <input type="text" placeholder="Rechercher un chantier…" oninput="filterAttributionList(this.value)" id="attr-search"/>
-      </div>
-      <div id="attr-list">${renderAttributionList(clients.filter(c=>c.statut==='en_cours'||c.statut==='ouverture'))}</div>
-    </div>
-  `;
-}
-
-function renderAttributionList(list){
-  if(list.length===0)return '<div class="empty"><div class="big">🏡</div><p>Aucun chantier en cours</p></div>';
-  return list.map(cl=>{
-    const assigned=chantierArtisans.filter(x=>x.client_id===cl.id).map(x=>artisans.find(a=>a.id===x.artisan_id)).filter(Boolean);
-    return '<div class="card" style="margin-bottom:8px;padding:12px">'
-      +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">'
-        +'<div style="font-weight:700;font-size:13px">'+cl.nom+'</div>'
-        +'<div style="font-size:11px;color:#64748b">'+assigned.length+' artisan(s)</div>'
-      +'</div>'
-      +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">'
-        +assigned.map(a=>'<span style="padding:3px 10px;border-radius:20px;background:#dbeafe;color:#1e40af;font-size:11px;font-weight:600">'+( a.metier||a.nom)+' — '+(a.entreprise||a.nom)+'</span>').join('')
-        +(assigned.length===0?'<span style="font-size:11px;color:#94a3b8;font-style:italic">Aucun artisan associé</span>':'')
-      +'</div>'
-      +'<button onclick="openAttrModal(\''+cl.id+'\')" style="padding:5px 12px;border-radius:8px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#374151;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit">✏ Modifier les artisans</button>'
-    +'</div>';
-  }).join('');
-}
-
-async function handlePdfDrop(event){
-  event.preventDefault();
-  const zone=document.getElementById('pdf-drop-zone');
-  zone.style.borderColor='#cbd5e1';zone.style.background='#f8fafc';
-  const file=event.dataTransfer.files[0];
-  if(file&&file.type==='application/pdf') await handlePdfFile(file);
-  else toast('Veuillez glisser un fichier PDF','#ef4444');
-}
-
-async function handlePdfFile(file){
-  if(!file)return;
-  const status=document.getElementById('pdf-status');
-  const preview=document.getElementById('pdf-preview');
-  status.style.display='block';
-  status.innerHTML='<div style="color:#7c3aed;font-size:13px">✨ Lecture du PDF en cours…</div>';
-  preview.style.display='none';
-
-  try{
-    // Convert PDF to base64
-    const base64=await new Promise((res,rej)=>{
-      const r=new FileReader();
-      r.onload=()=>res(r.result.split(',')[1]);
-      r.onerror=()=>rej(new Error('Lecture échouée'));
-      r.readAsDataURL(file);
-    });
-
-    // List of clients and artisans for context
-    const clientsList=clients.filter(c=>c.statut==='en_cours'||c.statut==='ouverture').map(c=>c.nom).join(', ');
-    const artisansList=artisans.map(a=>(a.metier||'')+(a.entreprise?' ('+a.entreprise+')':'')+' : '+a.nom).join(', ');
-
-    const response=await fetch('/api/claude',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-haiku-4-5-20251001',
-        max_tokens:2000,
-        messages:[{
-          role:'user',
-          content:[
-            {type:'document',source:{type:'base64',media_type:'application/pdf',data:base64}},
-            {type:'text',text:'Tu es assistant pour MA 17 SUD constructeur de maisons neuves. '
-              +'Chantiers en cours : '+clientsList+'. '
-              +'Artisans disponibles : '+artisansList+'. '
-              +'Lis ce PDF et identifie pour chaque chantier mentionné quels artisans y sont associés. '
-              +'Utilise UNIQUEMENT les noms exacts des listes fournies. '
-              +'Reponds UNIQUEMENT en JSON valide : [{"chantier":"nom exact","artisans":["nom exact artisan 1","nom exact artisan 2"]}]'}
-          ]
-        }]
-      })
-    });
-
-    const data=await response.json();
-    const text=data.content?.[0]?.text||'[]';
-    const clean=text.replace(/```json|```/g,'').trim();
-    const result=JSON.parse(clean);
-
-    if(result.length===0){
-      status.innerHTML='<div style="color:#ef4444;font-size:13px">❌ Aucune association détectée dans ce PDF</div>';
-      return;
-    }
-
-    // Show preview for validation
-    status.innerHTML='<div style="color:#10b981;font-size:13px;font-weight:700">✅ '+result.length+' chantier(s) détecté(s) — Vérifiez et confirmez</div>';
-    preview.style.display='block';
-    preview.innerHTML='<div style="margin-top:10px">'
-      +result.map((item,idx)=>{
-        const client=clients.find(c=>c.nom===item.chantier||c.nom.toLowerCase().includes(item.chantier.toLowerCase()));
-        const artisansFound=item.artisans.map(an=>artisans.find(a=>a.nom===an||(a.entreprise&&a.entreprise===an)||a.nom.toLowerCase().includes(an.toLowerCase())||(a.entreprise&&a.entreprise.toLowerCase().includes(an.toLowerCase())))).filter(Boolean);
-        return '<div style="border:1.5px solid '+(client?'#a7f3d0':'#fca5a5')+';border-radius:10px;padding:10px 12px;margin-bottom:8px;background:'+(client?'#f0fdf4':'#fff5f5')+'">'
-          +'<div style="font-weight:700;font-size:13px;color:'+(client?'#065f46':'#ef4444')+'">'
-            +(client?'✅ ':'⚠️ ')+item.chantier+(client?'':' (non trouvé)')
-          +'</div>'
-          +'<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:5px">'
-            +artisansFound.map(a=>'<span style="padding:2px 8px;border-radius:20px;background:#dbeafe;color:#1e40af;font-size:11px">'+(a.metier||a.nom)+' — '+(a.entreprise||a.nom)+'</span>').join('')
-            +(artisansFound.length===0?'<span style="font-size:11px;color:#94a3b8">Aucun artisan reconnu</span>':'')
-          +'</div>'
-        +'</div>';
-      }).join('')
-      +'<button onclick="importerAttributions('+JSON.stringify(result).replace(/"/g,"'")+')" style="width:100%;padding:11px;border-radius:10px;border:none;background:#10b981;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px">✅ Confirmer et importer</button>'
-    +'</div>';
-
-  }catch(e){
-    status.innerHTML='<div style="color:#ef4444;font-size:13px">❌ Erreur: '+e.message+'</div>';
-  }
-}
-
-async function importerAttributions(result){
-  let imported=0;
-  try{
-    for(const item of result){
-      const client=clients.find(c=>c.nom===item.chantier||c.nom.toLowerCase().includes(item.chantier.toLowerCase()));
-      if(!client)continue;
-      const artisansFound=item.artisans.map(an=>artisans.find(a=>a.nom===an||(a.entreprise&&a.entreprise===an)||a.nom.toLowerCase().includes(an.toLowerCase())||(a.entreprise&&a.entreprise.toLowerCase().includes(an.toLowerCase())))).filter(Boolean);
-      if(artisansFound.length===0)continue;
-      const aids=artisansFound.map(a=>a.id);
-      // Merge with existing (don't delete)
-      const existing=chantierArtisans.filter(x=>x.client_id===client.id).map(x=>x.artisan_id);
-      const newIds=aids.filter(id=>!existing.includes(id));
-      if(newIds.length>0){
-        await db('POST','chantier_artisans',newIds.map(aid=>({client_id:client.id,artisan_id:aid})));
-        newIds.forEach(aid=>chantierArtisans.push({client_id:client.id,artisan_id:aid}));
-      }
-      imported++;
-    }
-    toast('✅ '+imported+' chantier(s) mis à jour !');
-    goView('attribution');
-  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
-}
-
-function filterAttributionList(q){
-  const el=document.getElementById('attr-list');
-  if(!el)return;
-  const list=clients.filter(c=>c.statut==='en_cours'||c.statut==='ouverture');
-  const filtered=q?list.filter(c=>c.nom.toLowerCase().includes(q.toLowerCase())):list;
-  el.innerHTML=renderAttributionList(filtered);
-}
-
-function openAttrModal(clientId){
-  const cl=clients.find(c=>c.id===clientId);
-  if(!cl)return;
-  const assigned=chantierArtisans.filter(x=>x.client_id===clientId).map(x=>x.artisan_id);
-  document.getElementById('m-client-title').textContent='Artisans — '+cl.nom;
-  document.getElementById('m-client-body').innerHTML=`
-    <p style="color:#64748b;font-size:13px;margin-bottom:12px">Cochez les artisans qui interviennent sur ce chantier</p>
-    <div style="display:flex;flex-direction:column;gap:6px;max-height:60vh;overflow-y:auto">
-      ${artisans.map(a=>`
-        <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;border:1.5px solid #e2e8f0;cursor:pointer;background:#fff">
-          <input type="checkbox" ${assigned.includes(a.id)?'checked':''} value="${a.id}" style="width:16px;height:16px;cursor:pointer"/>
-          <div>
-            <div style="font-weight:600;font-size:13px">${a.entreprise||a.nom} <span style="color:#64748b;font-weight:400">— ${a.metier||''}</span></div>
-            <div style="font-size:11px;color:#94a3b8">${a.nom}${a.tel?' · '+a.tel:''}</div>
-          </div>
-        </label>`).join('')}
-    </div>
-    <div style="display:flex;justify-content:flex-end;gap:9px;margin-top:14px">
-      <button class="btn btn-secondary" onclick="closeM('m-client')">Annuler</button>
-      <button class="btn btn-primary" onclick="saveAttribution('${clientId}')">💾 Enregistrer</button>
-    </div>
-  `;
-  openM('m-client');
-}
-
-async function saveAttribution(clientId){
-  const checked=Array.from(document.querySelectorAll('#m-client-body input[type=checkbox]:checked')).map(cb=>cb.value);
-  try{
-    await db('DELETE','chantier_artisans','',`?client_id=eq.${clientId}`);
-    if(checked.length>0)await db('POST','chantier_artisans',checked.map(aid=>({client_id:clientId,artisan_id:aid})));
-    chantierArtisans=chantierArtisans.filter(x=>x.client_id!==clientId);
-    checked.forEach(aid=>chantierArtisans.push({client_id:clientId,artisan_id:aid}));
-    closeM('m-client');
-    toast('Attribution enregistrée ✓ ('+checked.length+' artisan(s))');
-    goView('attribution');
-  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
 }
 
 // ── ALERTES
@@ -2213,118 +1978,7 @@ function doLogin(){
     // Succès
     sessionStorage.setItem('sav_auth', btoa(user+':'+pass));
     document.getElementById('login-screen').style.display = 'none';
-    loadAll().then(()=>startPolling());
-  } else {
-    err.style.display = 'block';
-    document.getElementById('login-pass').value = '';
-    document.getElementById('login-pass').focus();
-    setTimeout(()=>err.style.display='none', 3000);
-  }
-}
-
-function toggleChat(){
-  chatOpen=!chatOpen;
-  const panel=document.getElementById('chat-panel');
-  const btn=document.getElementById('chat-btn');
-  panel.classList.toggle('open',chatOpen);
-  btn.textContent=chatOpen?'✕':'💬';
-  if(chatOpen)document.getElementById('chat-input').focus();
-}
-
-function toggleChatMic(){
-  const micBtn=document.getElementById('chat-mic');
-  if(chatMicRecognition){chatMicRecognition.stop();return;}
-  if(!("webkitSpeechRecognition" in window)&&!("SpeechRecognition" in window)){
-    toast('Dictée non supportée sur ce navigateur','#ef4444');return;
-  }
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  const rec=new SR();
-  rec.lang='fr-FR';rec.continuous=false;rec.interimResults=false;
-  chatMicRecognition=rec;
-  rec.onstart=()=>{micBtn.textContent='⏹';micBtn.style.background='#fee2e2';micBtn.style.color='#ef4444';};
-  rec.onresult=e=>{
-    const text=e.results[0][0].transcript;
-    const input=document.getElementById('chat-input');
-    input.value=text;
-    input.style.height='auto';
-    input.style.height=input.scrollHeight+'px';
-  };
-  rec.onend=()=>{chatMicRecognition=null;micBtn.textContent='🎤';micBtn.style.background='#f8fafc';micBtn.style.color='#64748b';};
-  rec.onerror=()=>{chatMicRecognition=null;micBtn.textContent='🎤';micBtn.style.background='#f8fafc';micBtn.style.color='#64748b';};
-  rec.start();
-}
-
-function addChatMsg(text,role){
-  const el=document.getElementById('chat-messages');
-  if(!el)return;
-  const div=document.createElement('div');
-  div.className='chat-msg '+role;
-  div.innerHTML=text.replace(/\n/g,'<br>');
-  el.appendChild(div);
-  el.scrollTop=el.scrollHeight;
-  return div;
-}
-
-async function sendChat(){
-  const input=document.getElementById('chat-input');
-  const msg=input.value.trim();
-  if(!msg)return;
-  input.value='';
-  input.style.height='auto';
-
-  addChatMsg(msg,'user');
-  chatHistory.push({role:'user',content:msg});
-
-  const thinking=addChatMsg('✨ Réflexion en cours…','thinking');
-
-  // Build context with current data
-  const activeSav=savList.filter(s=>s.statut!=='resolu');
-  const context='CONTEXTE MA 17 SUD :\n'
-    +'Chantiers en cours : '+clients.filter(c=>c.statut==='en_cours'||c.statut==='ouverture').map(c=>c.nom+' (livraison: '+(c.date_reception||'?')+')').join(', ')+'\n'
-    +'SAV actifs : '+activeSav.map(s=>{const cl=clients.find(c=>c.id===s.client_id);const art=artisans.find(a=>a.id===s.artisan_id);return (cl?.nom||'?')+' : '+s.titre+(art?' → '+art.nom:'');}).join(', ')+'\n'
-    +'Artisans : '+artisans.map(a=>(a.metier||'?')+' : '+(a.entreprise||a.nom)+(a.tel?' ('+a.tel+')':'')).join(', ')+'\n';
-
-  const systemPrompt='Tu es un assistant expert pour MA 17 SUD, constructeur de maisons neuves en Charente-Maritime. '
-    +'Tu connais les DTU, les garanties décennales, biennales et de parfait achèvement. '
-    +'Tu aides à répondre aux clients de façon professionnelle et à identifier les artisans responsables. '
-    +'Tu peux rédiger des mails clients et artisans. '
-    +'Sois concis, professionnel et pratique. '
-    +'Quand tu mentionnes un artisan de la base, précise son métier et son téléphone si disponible. '
-    +context;
-
-  try{
-    const messages=[
-      ...chatHistory.slice(-8), // Keep last 8 messages for context
-    ];
-    messages[0]={...messages[0],content:systemPrompt+'\n\nQuestion: '+messages[0].content};
-
-    const r=await fetch('/api/claude',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-haiku-4-5-20251001',
-        max_tokens:1000,
-        messages
-      })
-    });
-    const data=await r.json();
-    const reply=data.content?.[0]?.text||"Désolé, je n'ai pas pu répondre.";
-
-    thinking.remove();
-    addChatMsg(reply,'bot');
-    chatHistory.push({role:'assistant',content:reply});
-
-    // Limit history to last 10 exchanges
-    if(chatHistory.length>20)chatHistory=chatHistory.slice(-20);
-
-  }catch(e){
-    thinking.remove();
-    addChatMsg('❌ Erreur: '+e.message,'bot');
-  }
-}
-
-// ══════════════════════════════════════════════
-// Vérifier l'auth au démarrage
+    // Vérifier l'auth au démarrage
 if(checkAuth()){
   document.getElementById('login-screen').style.display='none';
   // ══════════════════════════════════════════════
@@ -2711,6 +2365,13 @@ loadAll().then(()=>startPolling());
 } else {
   // Afficher l'écran de connexion, focus sur le champ
   setTimeout(()=>document.getElementById('login-user').focus(), 100);
+}
+  } else {
+    err.style.display = 'block';
+    document.getElementById('login-pass').value = '';
+    document.getElementById('login-pass').focus();
+    setTimeout(()=>err.style.display='none', 3000);
+  }
 }
 
 function checkAuth(){
@@ -3142,26 +2803,6 @@ loadAll().then(()=>startPolling());
       <button id="visite-send-all" onclick="envoyerTout()" style="display:none;width:100%;padding:11px;border-radius:10px;border:1.5px solid #e2e8f0;background:#fff;color:#374151;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px">📤 Tout envoyer</button>
     </div>
 
-  </div>
-</div>
-
-<!-- CHATBOT -->
-<button id="chat-btn" onclick="toggleChat()" title="Assistant IA">💬</button>
-<div id="chat-panel">
-  <div class="chat-head">
-    <div>
-      <div class="chat-head-title">✨ Assistant MA 17 SUD</div>
-      <div class="chat-head-sub">Posez-moi vos questions</div>
-    </div>
-    <button id="chat-close" onclick="toggleChat()">✕</button>
-  </div>
-  <div id="chat-messages">
-    <div class="chat-msg bot">Bonjour ! Je connais tous vos chantiers, SAV et artisans. Je peux vous aider à répondre à un client, trouver les DTU applicables, identifier l'artisan responsable ou rédiger des mails. Comment puis-je vous aider ?</div>
-  </div>
-  <div id="chat-input-wrap">
-    <button id="chat-mic" onclick="toggleChatMic()" title="Dicter">🎤</button>
-    <textarea id="chat-input" placeholder="Posez votre question…" rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
-    <button id="chat-send" onclick="sendChat()">→</button>
   </div>
 </div>
 
