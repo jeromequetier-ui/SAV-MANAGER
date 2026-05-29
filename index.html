@@ -231,6 +231,7 @@ input,select,textarea{font-family:inherit;}
     <button class="nav-btn" onclick="goView('clients')" data-v="clients"><span class="icon">🏡</span>Chantiers</button>
     <button class="nav-btn" onclick="goView('sav')" data-v="sav"><span class="icon">🔧</span>Tous les SAV</button>
     <button class="nav-btn" onclick="goView('artisans')" data-v="artisans"><span class="icon">👷</span>Artisans</button>
+    <button class="nav-btn" onclick="goView('attribution')" data-v="attribution"><span class="icon">🔗</span>Attribution artisans</button>
     <button class="nav-btn" onclick="goView('suivi')" data-v="suivi"><span class="icon">📋</span>Suivi de chantier</button>
     <button class="nav-btn" onclick="goView('alertes')" data-v="alertes"><span class="icon">🔔</span>Alertes<span class="nb" id="sb-nb" style="display:none">0</span></button>
   </div>
@@ -390,6 +391,7 @@ function goView(v){
   else if(v==='clients')renderClients(c);
   else if(v==='sav')renderSav(c);
   else if(v==='artisans')renderArtisans(c);
+  else if(v==='attribution')renderAttribution(c);
   else if(v==='suivi')renderSuivi(c);
   else if(v==='alertes')renderAlertes(c);
 }
@@ -1067,7 +1069,10 @@ function renderArtisans(c){
   c.innerHTML=`
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px">
       <h1 style="font-size:20px;font-weight:800">Artisans</h1>
-      <button class="btn btn-primary" onclick="openArtisanModal(null)">+ Ajouter</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-secondary" onclick="goView('attribution')">🔗 Attribution</button>
+        <button class="btn btn-primary" onclick="openArtisanModal(null)">+ Ajouter</button>
+      </div>
     </div>
     <div>${artisans.length===0?`<div class="empty"><div class="big">👷</div><p>Aucun artisan enregistré</p></div>`:
     artisans.map(a=>{
@@ -2377,6 +2382,176 @@ function setSuiviTri(tri){
     }
   }
   goView('suivi');
+}
+
+// ══ ATTRIBUTION ARTISANS ══
+function renderAttribution(c){
+  c.innerHTML=`
+    <h1 style="font-size:20px;font-weight:800;margin-bottom:5px">Attribution des artisans</h1>
+    <p style="color:#64748b;font-size:13px;margin-bottom:14px">Glissez un PDF ou gérez manuellement</p>
+    <div class="card" style="margin-bottom:16px;padding:16px">
+      <div style="font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">📥 Import depuis un PDF</div>
+      <div id="pdf-drop-zone"
+        ondragover="event.preventDefault();this.style.borderColor='#2563eb';this.style.background='#eff6ff'"
+        ondragleave="this.style.borderColor='#cbd5e1';this.style.background='#f8fafc'"
+        ondrop="handlePdfDrop(event)"
+        style="border:2px dashed #cbd5e1;border-radius:11px;background:#f8fafc;padding:24px;text-align:center;cursor:pointer"
+        onclick="document.getElementById('pdf-input').click()">
+        <div style="font-size:32px;margin-bottom:8px">📄</div>
+        <div style="font-weight:600;color:#374151;margin-bottom:4px">Glissez votre PDF ici</div>
+        <div style="font-size:12px;color:#94a3b8">ou cliquez pour sélectionner</div>
+        <input type="file" id="pdf-input" accept=".pdf" style="display:none" onchange="handlePdfFile(this.files[0])"/>
+      </div>
+      <div id="pdf-status" style="margin-top:10px;display:none"></div>
+      <div id="pdf-preview" style="margin-top:12px;display:none"></div>
+    </div>
+    <div class="card" style="padding:16px">
+      <div style="font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">✏️ Attribution manuelle</div>
+      <div class="search-wrap" style="margin-bottom:10px">
+        <span class="search-ic">🔍</span>
+        <input type="text" placeholder="Rechercher un chantier…" oninput="filterAttributionList(this.value)" id="attr-search"/>
+      </div>
+      <div id="attr-list">${renderAttributionList(clients.filter(c=>c.statut==='en_cours'||c.statut==='ouverture'))}</div>
+    </div>
+  `;
+}
+
+function renderAttributionList(list){
+  if(list.length===0)return '<div class="empty"><div class="big">🏡</div><p>Aucun chantier en cours</p></div>';
+  return list.map(cl=>{
+    const assigned=chantierArtisans.filter(x=>x.client_id===cl.id).map(x=>artisans.find(a=>a.id===x.artisan_id)).filter(Boolean);
+    return '<div class="card" style="margin-bottom:8px;padding:12px">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">'
+        +'<div style="font-weight:700;font-size:13px">'+cl.nom+'</div>'
+        +'<div style="font-size:11px;color:#64748b">'+assigned.length+' artisan(s)</div>'
+      +'</div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">'
+        +assigned.map(a=>'<span style="padding:3px 10px;border-radius:20px;background:#dbeafe;color:#1e40af;font-size:11px;font-weight:600">'+(a.metier||a.nom)+' — '+(a.entreprise||a.nom)+'</span>').join('')
+        +(assigned.length===0?'<span style="font-size:11px;color:#94a3b8;font-style:italic">Aucun artisan associé</span>':'')
+      +'</div>'
+      +'<button onclick="openAttrModal(\''+cl.id+'\')" style="padding:5px 12px;border-radius:8px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#374151;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit">✏ Modifier les artisans</button>'
+    +'</div>';
+  }).join('');
+}
+
+function filterAttributionList(q){
+  const el=document.getElementById('attr-list');
+  if(!el)return;
+  const list=clients.filter(c=>c.statut==='en_cours'||c.statut==='ouverture');
+  const filtered=q?list.filter(c=>c.nom.toLowerCase().includes(q.toLowerCase())):list;
+  el.innerHTML=renderAttributionList(filtered);
+}
+
+function openAttrModal(clientId){
+  const cl=clients.find(c=>c.id===clientId);
+  if(!cl)return;
+  const assigned=chantierArtisans.filter(x=>x.client_id===clientId).map(x=>x.artisan_id);
+  document.getElementById('m-client-title').textContent='Artisans — '+cl.nom;
+  document.getElementById('m-client-body').innerHTML=`
+    <p style="color:#64748b;font-size:13px;margin-bottom:12px">Cochez les artisans qui interviennent sur ce chantier</p>
+    <div style="display:flex;flex-direction:column;gap:6px;max-height:60vh;overflow-y:auto">
+      ${artisans.map(a=>`<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;border:1.5px solid #e2e8f0;cursor:pointer;background:#fff">
+        <input type="checkbox" ${assigned.includes(a.id)?'checked':''} value="${a.id}" style="width:16px;height:16px;cursor:pointer"/>
+        <div>
+          <div style="font-weight:600;font-size:13px">${a.entreprise||a.nom} <span style="color:#64748b;font-weight:400">— ${a.metier||''}</span></div>
+          <div style="font-size:11px;color:#94a3b8">${a.nom}${a.tel?' · '+a.tel:''}</div>
+        </div>
+      </label>`).join('')}
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:9px;margin-top:14px">
+      <button class="btn btn-secondary" onclick="closeM('m-client')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveAttribution('${clientId}')">💾 Enregistrer</button>
+    </div>
+  `;
+  openM('m-client');
+}
+
+async function saveAttribution(clientId){
+  const checked=Array.from(document.querySelectorAll('#m-client-body input[type=checkbox]:checked')).map(cb=>cb.value);
+  try{
+    await db('DELETE','chantier_artisans','',`?client_id=eq.${clientId}`);
+    if(checked.length>0)await db('POST','chantier_artisans',checked.map(aid=>({client_id:clientId,artisan_id:aid})));
+    chantierArtisans=chantierArtisans.filter(x=>x.client_id!==clientId);
+    checked.forEach(aid=>chantierArtisans.push({client_id:clientId,artisan_id:aid}));
+    closeM('m-client');
+    toast('Attribution enregistrée ✓ ('+checked.length+' artisan(s))');
+    goView('attribution');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+async function handlePdfDrop(event){
+  event.preventDefault();
+  document.getElementById('pdf-drop-zone').style.borderColor='#cbd5e1';
+  document.getElementById('pdf-drop-zone').style.background='#f8fafc';
+  const file=event.dataTransfer.files[0];
+  if(file&&file.type==='application/pdf')await handlePdfFile(file);
+  else toast('Veuillez glisser un fichier PDF','#ef4444');
+}
+
+async function handlePdfFile(file){
+  if(!file)return;
+  const status=document.getElementById('pdf-status');
+  const preview=document.getElementById('pdf-preview');
+  status.style.display='block';
+  status.innerHTML='<div style="color:#7c3aed;font-size:13px">✨ Lecture du PDF en cours…</div>';
+  preview.style.display='none';
+  try{
+    const base64=await new Promise((res,rej)=>{
+      const r=new FileReader();
+      r.onload=()=>res(r.result.split(',')[1]);
+      r.onerror=()=>rej(new Error('Lecture échouée'));
+      r.readAsDataURL(file);
+    });
+    const clientsList=clients.filter(c=>c.statut==='en_cours'||c.statut==='ouverture').map(c=>c.nom).join(', ');
+    const artisansList=artisans.map(a=>(a.metier||'')+(a.entreprise?' ('+a.entreprise+')':'')+' : '+a.nom).join(', ');
+    const response=await fetch('/api/claude',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:2000,messages:[{
+        role:'user',
+        content:[
+          {type:'document',source:{type:'base64',media_type:'application/pdf',data:base64}},
+          {type:'text',text:'Tu es assistant pour MA 17 SUD. Chantiers : '+clientsList+'. Artisans : '+artisansList+'. Lis ce PDF et identifie pour chaque chantier quels artisans y sont associés. Utilise UNIQUEMENT les noms exacts fournis. Reponds UNIQUEMENT en JSON : [{"chantier":"nom exact","artisans":["artisan 1","artisan 2"]}]'}
+        ]
+      }]})
+    });
+    const data=await response.json();
+    const text=data.content?.[0]?.text||'[]';
+    const result=JSON.parse(text.replace(/```json|```/g,'').trim());
+    window._pdfResult=result;
+    if(result.length===0){status.innerHTML='<div style="color:#ef4444;font-size:13px">❌ Aucune association détectée</div>';return;}
+    status.innerHTML='<div style="color:#10b981;font-size:13px;font-weight:700">✅ '+result.length+' chantier(s) détecté(s) — Vérifiez et confirmez</div>';
+    preview.style.display='block';
+    preview.innerHTML='<div style="margin-top:10px">'+result.map(item=>{
+      const client=clients.find(c=>c.nom===item.chantier||c.nom.toLowerCase().includes(item.chantier.toLowerCase()));
+      const found=item.artisans.map(an=>artisans.find(a=>a.nom===an||(a.entreprise&&a.entreprise===an)||a.nom.toLowerCase().includes(an.toLowerCase()))).filter(Boolean);
+      return '<div style="border:1.5px solid '+(client?'#a7f3d0':'#fca5a5')+';border-radius:10px;padding:10px 12px;margin-bottom:8px;background:'+(client?'#f0fdf4':'#fff5f5')+'">'
+        +'<div style="font-weight:700;font-size:13px;color:'+(client?'#065f46':'#ef4444')+'">'+(client?'✅ ':'⚠️ ')+item.chantier+'</div>'
+        +'<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:5px">'+found.map(a=>'<span style="padding:2px 8px;border-radius:20px;background:#dbeafe;color:#1e40af;font-size:11px">'+(a.metier||a.nom)+'</span>').join('')+'</div>'
+      +'</div>';
+    }).join('')
+    +'<button onclick="importerAttributions()" style="width:100%;padding:11px;border-radius:10px;border:none;background:#10b981;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px">✅ Confirmer et importer</button>'
+    +'</div>';
+  }catch(e){status.innerHTML='<div style="color:#ef4444;font-size:13px">❌ Erreur: '+e.message+'</div>';}
+}
+
+async function importerAttributions(){
+  const result=window._pdfResult||[];
+  let imported=0;
+  for(const item of result){
+    const client=clients.find(c=>c.nom===item.chantier||c.nom.toLowerCase().includes(item.chantier.toLowerCase()));
+    if(!client)continue;
+    const found=item.artisans.map(an=>artisans.find(a=>a.nom===an||(a.entreprise&&a.entreprise===an)||a.nom.toLowerCase().includes(an.toLowerCase()))).filter(Boolean);
+    if(found.length===0)continue;
+    const existing=chantierArtisans.filter(x=>x.client_id===client.id).map(x=>x.artisan_id);
+    const newIds=found.map(a=>a.id).filter(id=>!existing.includes(id));
+    if(newIds.length>0){
+      await db('POST','chantier_artisans',newIds.map(aid=>({client_id:client.id,artisan_id:aid})));
+      newIds.forEach(aid=>chantierArtisans.push({client_id:client.id,artisan_id:aid}));
+    }
+    imported++;
+  }
+  toast('✅ '+imported+' chantier(s) mis à jour !');
+  goView('attribution');
 }
 
 // ══ CHATBOT ══
