@@ -2174,8 +2174,7 @@ function doLogin(){
     sessionStorage.setItem('sav_auth', btoa(user+':'+pass));
     document.getElementById('login-screen').style.display = 'none';
     // Vérifier l'auth au démarrage
-if(checkAuth()){
-  document.getElementById('login-screen').style.display='none';
+
   // ══════════════════════════════════════════════
 // PAGE VISITE CHANTIER
 // ══════════════════════════════════════════════
@@ -2631,13 +2630,15 @@ async function sendChat(){
   }
 }
 
-loadAll().then(()=>startPolling());
+
+// Functions are global (defined above)
+
+if(checkAuth()){
+  document.getElementById('login-screen').style.display='none';
+  loadAll().then(()=>startPolling());
 } else {
-  // Afficher l'écran de connexion, focus sur le champ
   setTimeout(()=>document.getElementById('login-user').focus(), 100);
 }
-  } else {
-    err.style.display = 'block';
     document.getElementById('login-pass').value = '';
     document.getElementById('login-pass').focus();
     setTimeout(()=>err.style.display='none', 3000);
