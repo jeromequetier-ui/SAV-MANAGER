@@ -162,12 +162,12 @@ input,select,textarea{font-family:inherit;}
 #chat-messages{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;background:#f8fafc;}
 .cm{max-width:86%;padding:9px 12px;border-radius:12px;font-size:13px;line-height:1.5;white-space:pre-wrap;}
 .cm.user{background:#2563eb;color:#fff;align-self:flex-end;border-radius:12px 12px 2px 12px;}
-.cm.bot{background:#fff;color:#0f172a;align-self:flex-start;border-radius:12px 12px 12px 2px;box-shadow:0 1px 3px rgba(0,0,0,0.08);border:1px solid #e2e8f0;}
+.cm.bot{background:#fff;color:#0f172a;align-self:flex-start;border-radius:2px 12px 12px 12px;box-shadow:0 1px 3px rgba(0,0,0,0.08);border:1px solid #e2e8f0;}
 .cm.thinking{background:#f3e8ff;color:#7c3aed;align-self:flex-start;font-style:italic;}
 #chat-foot{padding:10px;border-top:1.5px solid #f1f5f9;display:flex;gap:7px;background:#fff;align-items:flex-end;}
-#chat-input{flex:1;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:20px;font-size:13px;outline:none;font-family:inherit;resize:none;max-height:80px;line-height:1.4;}
+#chat-input{flex:1;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:20px;font-size:13px;outline:none;font-family:inherit;resize:none;max-height:80px;}
 #chat-input:focus{border-color:#7c3aed;}
-#chat-send{padding:8px 13px;border-radius:20px;border:none;background:#7c3aed;color:#fff;cursor:pointer;font-size:15px;font-weight:700;flex-shrink:0;}
+#chat-send{padding:8px 13px;border-radius:20px;border:none;background:#7c3aed;color:#fff;cursor:pointer;font-size:15px;flex-shrink:0;}
 #chat-mic-btn{padding:8px 10px;border-radius:20px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:14px;flex-shrink:0;}
 </style>
 </head>
@@ -231,7 +231,6 @@ input,select,textarea{font-family:inherit;}
     <button class="nav-btn" onclick="goView('clients')" data-v="clients"><span class="icon">🏡</span>Chantiers</button>
     <button class="nav-btn" onclick="goView('sav')" data-v="sav"><span class="icon">🔧</span>Tous les SAV</button>
     <button class="nav-btn" onclick="goView('artisans')" data-v="artisans"><span class="icon">👷</span>Artisans</button>
-    <button class="nav-btn" onclick="goView('attribution')" data-v="attribution"><span class="icon">🔗</span>Attribution artisans</button>
     <button class="nav-btn" onclick="goView('suivi')" data-v="suivi"><span class="icon">📋</span>Suivi de chantier</button>
     <button class="nav-btn" onclick="goView('alertes')" data-v="alertes"><span class="icon">🔔</span>Alertes<span class="nb" id="sb-nb" style="display:none">0</span></button>
   </div>
@@ -391,7 +390,6 @@ function goView(v){
   else if(v==='clients')renderClients(c);
   else if(v==='sav')renderSav(c);
   else if(v==='artisans')renderArtisans(c);
-  else if(v==='attribution')renderAttribution(c);
   else if(v==='suivi')renderSuivi(c);
   else if(v==='alertes')renderAlertes(c);
 }
@@ -1069,10 +1067,7 @@ function renderArtisans(c){
   c.innerHTML=`
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px">
       <h1 style="font-size:20px;font-weight:800">Artisans</h1>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-secondary" onclick="goView('attribution')">🔗 Attribution</button>
-        <button class="btn btn-primary" onclick="openArtisanModal(null)">+ Ajouter</button>
-      </div>
+      <button class="btn btn-primary" onclick="openArtisanModal(null)">+ Ajouter</button>
     </div>
     <div>${artisans.length===0?`<div class="empty"><div class="big">👷</div><p>Aucun artisan enregistré</p></div>`:
     artisans.map(a=>{
@@ -1093,178 +1088,6 @@ function renderArtisans(c){
       </div>`;
     }).join('')}</div>
   `;
-}
-
-// ── ATTRIBUTION ARTISANS
-function renderAttribution(c){
-  c.innerHTML=`
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
-      <h1 style="font-size:20px;font-weight:800">Attribution des artisans</h1>
-    </div>
-    <p style="color:#64748b;font-size:13px;margin-bottom:14px">Glissez un PDF de liste artisans ou gérez manuellement</p>
-    <div class="card" style="margin-bottom:16px;padding:16px">
-      <div style="font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">📥 Import depuis un PDF</div>
-      <div id="pdf-drop-zone"
-        ondragover="event.preventDefault();this.style.borderColor='#2563eb';this.style.background='#eff6ff'"
-        ondragleave="this.style.borderColor='#cbd5e1';this.style.background='#f8fafc'"
-        ondrop="handlePdfDrop(event)"
-        style="border:2px dashed #cbd5e1;border-radius:11px;background:#f8fafc;padding:24px;text-align:center;cursor:pointer"
-        onclick="document.getElementById('pdf-input').click()">
-        <div style="font-size:32px;margin-bottom:8px">📄</div>
-        <div style="font-weight:600;color:#374151;margin-bottom:4px">Glissez votre PDF ici</div>
-        <div style="font-size:12px;color:#94a3b8">ou cliquez pour sélectionner</div>
-        <input type="file" id="pdf-input" accept=".pdf" style="display:none" onchange="handlePdfFile(this.files[0])"/>
-      </div>
-      <div id="pdf-status" style="margin-top:10px;display:none"></div>
-      <div id="pdf-preview" style="margin-top:12px;display:none"></div>
-    </div>
-    <div class="card" style="padding:16px">
-      <div style="font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">✏️ Attribution manuelle</div>
-      <div class="search-wrap" style="margin-bottom:10px">
-        <span class="search-ic">🔍</span>
-        <input type="text" placeholder="Rechercher un chantier…" oninput="filterAttributionList(this.value)" id="attr-search"/>
-      </div>
-      <div id="attr-list">${renderAttributionList(clients.filter(c=>c.statut==='en_cours'||c.statut==='ouverture'))}</div>
-    </div>
-  `;
-}
-
-function renderAttributionList(list){
-  if(list.length===0)return '<div class="empty"><div class="big">🏡</div><p>Aucun chantier en cours</p></div>';
-  return list.map(cl=>{
-    const assigned=chantierArtisans.filter(x=>x.client_id===cl.id).map(x=>artisans.find(a=>a.id===x.artisan_id)).filter(Boolean);
-    return '<div class="card" style="margin-bottom:8px;padding:12px">'
-      +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">'
-        +'<div style="font-weight:700;font-size:13px">'+cl.nom+'</div>'
-        +'<div style="font-size:11px;color:#64748b">'+assigned.length+' artisan(s)</div>'
-      +'</div>'
-      +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">'
-        +assigned.map(a=>'<span style="padding:3px 10px;border-radius:20px;background:#dbeafe;color:#1e40af;font-size:11px;font-weight:600">'+(a.metier||a.nom)+' — '+(a.entreprise||a.nom)+'</span>').join('')
-        +(assigned.length===0?'<span style="font-size:11px;color:#94a3b8;font-style:italic">Aucun artisan associé</span>':'')
-      +'</div>'
-      +'<button onclick="openAttrModal(\''+cl.id+'\')" style="padding:5px 12px;border-radius:8px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#374151;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit">✏ Modifier les artisans</button>'
-    +'</div>';
-  }).join('');
-}
-
-function filterAttributionList(q){
-  const el=document.getElementById('attr-list');
-  if(!el)return;
-  const list=clients.filter(c=>c.statut==='en_cours'||c.statut==='ouverture');
-  const filtered=q?list.filter(c=>c.nom.toLowerCase().includes(q.toLowerCase())):list;
-  el.innerHTML=renderAttributionList(filtered);
-}
-
-function openAttrModal(clientId){
-  const cl=clients.find(c=>c.id===clientId);
-  if(!cl)return;
-  const assigned=chantierArtisans.filter(x=>x.client_id===clientId).map(x=>x.artisan_id);
-  document.getElementById('m-client-title').textContent='Artisans — '+cl.nom;
-  document.getElementById('m-client-body').innerHTML=`
-    <p style="color:#64748b;font-size:13px;margin-bottom:12px">Cochez les artisans qui interviennent sur ce chantier</p>
-    <div style="display:flex;flex-direction:column;gap:6px;max-height:60vh;overflow-y:auto">
-      ${artisans.map(a=>`<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;border:1.5px solid #e2e8f0;cursor:pointer;background:#fff">
-        <input type="checkbox" ${assigned.includes(a.id)?'checked':''} value="${a.id}" style="width:16px;height:16px;cursor:pointer"/>
-        <div>
-          <div style="font-weight:600;font-size:13px">${a.entreprise||a.nom} <span style="color:#64748b;font-weight:400">— ${a.metier||''}</span></div>
-          <div style="font-size:11px;color:#94a3b8">${a.nom}${a.tel?' · '+a.tel:''}</div>
-        </div>
-      </label>`).join('')}
-    </div>
-    <div style="display:flex;justify-content:flex-end;gap:9px;margin-top:14px">
-      <button class="btn btn-secondary" onclick="closeM('m-client')">Annuler</button>
-      <button class="btn btn-primary" onclick="saveAttribution('${clientId}')">💾 Enregistrer</button>
-    </div>
-  `;
-  openM('m-client');
-}
-
-async function saveAttribution(clientId){
-  const checked=Array.from(document.querySelectorAll('#m-client-body input[type=checkbox]:checked')).map(cb=>cb.value);
-  try{
-    await db('DELETE','chantier_artisans','',`?client_id=eq.${clientId}`);
-    if(checked.length>0)await db('POST','chantier_artisans',checked.map(aid=>({client_id:clientId,artisan_id:aid})));
-    chantierArtisans=chantierArtisans.filter(x=>x.client_id!==clientId);
-    checked.forEach(aid=>chantierArtisans.push({client_id:clientId,artisan_id:aid}));
-    closeM('m-client');
-    toast('Attribution enregistrée ✓ ('+checked.length+' artisan(s))');
-    goView('attribution');
-  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
-}
-
-async function handlePdfDrop(event){
-  event.preventDefault();
-  const zone=document.getElementById('pdf-drop-zone');
-  zone.style.borderColor='#cbd5e1';zone.style.background='#f8fafc';
-  const file=event.dataTransfer.files[0];
-  if(file&&file.type==='application/pdf')await handlePdfFile(file);
-  else toast('Veuillez glisser un fichier PDF','#ef4444');
-}
-
-async function handlePdfFile(file){
-  if(!file)return;
-  const status=document.getElementById('pdf-status');
-  const preview=document.getElementById('pdf-preview');
-  status.style.display='block';
-  status.innerHTML='<div style="color:#7c3aed;font-size:13px">✨ Lecture du PDF en cours…</div>';
-  preview.style.display='none';
-  try{
-    const base64=await new Promise((res,rej)=>{
-      const r=new FileReader();
-      r.onload=()=>res(r.result.split(',')[1]);
-      r.onerror=()=>rej(new Error('Lecture échouée'));
-      r.readAsDataURL(file);
-    });
-    const clientsList=clients.filter(c=>c.statut==='en_cours'||c.statut==='ouverture').map(c=>c.nom).join(', ');
-    const artisansList=artisans.map(a=>(a.metier||'')+(a.entreprise?' ('+a.entreprise+')':'')+' : '+a.nom).join(', ');
-    const response=await fetch('/api/claude',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:2000,messages:[{
-        role:'user',
-        content:[
-          {type:'document',source:{type:'base64',media_type:'application/pdf',data:base64}},
-          {type:'text',text:'Tu es assistant pour MA 17 SUD. Chantiers : '+clientsList+'. Artisans : '+artisansList+'. Lis ce PDF et identifie pour chaque chantier quels artisans y sont associés. Utilise UNIQUEMENT les noms exacts fournis. Reponds UNIQUEMENT en JSON : [{"chantier":"nom exact","artisans":["artisan 1","artisan 2"]}]'}
-        ]
-      }]})
-    });
-    const data=await response.json();
-    const text=data.content?.[0]?.text||'[]';
-    const result=JSON.parse(text.replace(/```json|```/g,'').trim());
-    if(result.length===0){status.innerHTML='<div style="color:#ef4444;font-size:13px">❌ Aucune association détectée</div>';return;}
-    window._pdfImportResult=result;
-    status.innerHTML='<div style="color:#10b981;font-size:13px;font-weight:700">✅ '+result.length+' chantier(s) détecté(s) — Vérifiez et confirmez</div>';
-    preview.style.display='block';
-    preview.innerHTML='<div style="margin-top:10px">'+result.map(item=>{
-      const client=clients.find(c=>c.nom===item.chantier||c.nom.toLowerCase().includes(item.chantier.toLowerCase()));
-      const found=item.artisans.map(an=>artisans.find(a=>a.nom===an||(a.entreprise&&a.entreprise===an)||a.nom.toLowerCase().includes(an.toLowerCase()))).filter(Boolean);
-      return '<div style="border:1.5px solid '+(client?'#a7f3d0':'#fca5a5')+';border-radius:10px;padding:10px 12px;margin-bottom:8px;background:'+(client?'#f0fdf4':'#fff5f5')+'">'
-        +'<div style="font-weight:700;font-size:13px;color:'+(client?'#065f46':'#ef4444')+'">'+(client?'✅ ':'⚠️ ')+item.chantier+'</div>'
-        +'<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:5px">'+found.map(a=>'<span style="padding:2px 8px;border-radius:20px;background:#dbeafe;color:#1e40af;font-size:11px">'+(a.metier||a.nom)+'</span>').join('')+'</div>'
-      +'</div>';
-    }).join('')
-    +'<button onclick="importerAttributions()" style="width:100%;padding:11px;border-radius:10px;border:none;background:#10b981;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px">✅ Confirmer et importer</button>'
-    +'</div>';
-  }catch(e){status.innerHTML='<div style="color:#ef4444;font-size:13px">❌ Erreur: '+e.message+'</div>';}
-}
-
-async function importerAttributions(){
-  const result=window._pdfImportResult||[];
-  let imported=0;
-  for(const item of result){
-    const client=clients.find(c=>c.nom===item.chantier||c.nom.toLowerCase().includes(item.chantier.toLowerCase()));
-    if(!client)continue;
-    const found=item.artisans.map(an=>artisans.find(a=>a.nom===an||(a.entreprise&&a.entreprise===an)||a.nom.toLowerCase().includes(an.toLowerCase()))).filter(Boolean);
-    if(found.length===0)continue;
-    const existing=chantierArtisans.filter(x=>x.client_id===client.id).map(x=>x.artisan_id);
-    const newIds=found.map(a=>a.id).filter(id=>!existing.includes(id));
-    if(newIds.length>0){
-      await db('POST','chantier_artisans',newIds.map(aid=>({client_id:client.id,artisan_id:aid})));
-      newIds.forEach(aid=>chantierArtisans.push({client_id:client.id,artisan_id:aid}));
-    }
-    imported++;
-  }
-  toast('✅ '+imported+' chantier(s) mis à jour !');
-  goView('attribution');
 }
 
 // ── ALERTES
@@ -2174,7 +1997,8 @@ function doLogin(){
     sessionStorage.setItem('sav_auth', btoa(user+':'+pass));
     document.getElementById('login-screen').style.display = 'none';
     // Vérifier l'auth au démarrage
-
+if(checkAuth()){
+  document.getElementById('login-screen').style.display='none';
   // ══════════════════════════════════════════════
 // PAGE VISITE CHANTIER
 // ══════════════════════════════════════════════
@@ -2555,9 +2379,7 @@ function setSuiviTri(tri){
   goView('suivi');
 }
 
-// ══════════════════════════════════════
-// CHATBOT
-// ══════════════════════════════════════
+// ══ CHATBOT ══
 let chatHistory=[];
 let chatMicRec=null;
 let chatIsOpen=false;
@@ -2609,17 +2431,17 @@ async function sendChat(){
   chatHistory.push({role:'user',content:msg});
   const thinking=appendChatMsg('✨ Réflexion en cours…','thinking');
   const activeSav=savList.filter(s=>s.statut!=='resolu');
-  const ctx='CONTEXTE MA 17 SUD : '
-    +'Chantiers en cours: '+clients.filter(c=>c.statut==='en_cours'||c.statut==='ouverture').map(c=>c.nom+(c.date_reception?' (livraison:'+c.date_reception+')':'')).join(', ')+'. '
-    +'SAV actifs: '+activeSav.map(s=>{const cl=clients.find(c=>c.id===s.client_id);const ar=artisans.find(a=>a.id===s.artisan_id);return (cl?.nom||'?')+':'+s.titre+(ar?'->'+ar.nom:'');}).join(', ')+'. '
-    +'Artisans: '+artisans.map(a=>(a.metier||'')+(a.entreprise?' ('+a.entreprise+')':'')+(a.tel?' '+a.tel:'')).join(', ')+'.';
-  const sys='Tu es un assistant expert pour MA 17 SUD, constructeur de maisons neuves en Charente-Maritime. Tu connais les DTU, garanties décennale/biennale/parfait achèvement. Tu aides à répondre aux clients professionnellement et identifier les artisans responsables. Tu peux rédiger des mails. Sois concis et pratique. '+ctx;
-  const msgs=[{role:'user',content:sys+' Question: '+chatHistory[0].content},...chatHistory.slice(1)];
+  const ctx='CONTEXTE MA 17 SUD : Chantiers en cours: '
+    +clients.filter(c=>c.statut==='en_cours'||c.statut==='ouverture').map(c=>c.nom).join(', ')
+    +'. SAV actifs: '+activeSav.map(s=>{const cl=clients.find(c=>c.id===s.client_id);const ar=artisans.find(a=>a.id===s.artisan_id);return (cl?.nom||'?')+':'+s.titre+(ar?'->'+ar.nom:'');}).join(', ')
+    +'. Artisans: '+artisans.map(a=>(a.metier||'?')+(a.entreprise?' ('+a.entreprise+')':'')+(a.tel?' '+a.tel:'')).join(', ')+'.';
+  const sys='Tu es assistant expert pour MA 17 SUD, constructeur de maisons neuves en Charente-Maritime. Tu connais les DTU et garanties décennale/biennale/parfait achèvement. Sois concis et pratique. '+ctx+' Question: ';
+  const msgs=chatHistory.map((m,i)=>i===0?{role:'user',content:sys+m.content}:m).slice(-10);
   try{
     const r=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1000,messages:msgs.slice(-10)})});
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:800,messages:msgs})});
     const data=await r.json();
-    const reply=data.content?.[0]?.text||"Je n'ai pas pu répondre.";
+    const reply=data.content?.[0]?.text||"Désolé, je n'ai pas pu répondre.";
     if(thinking)thinking.remove();
     appendChatMsg(reply,'bot');
     chatHistory.push({role:'assistant',content:reply});
@@ -2630,15 +2452,22 @@ async function sendChat(){
   }
 }
 
+// Attacher les événements du chatbot
+document.getElementById('chat-btn').addEventListener('click',toggleChat);
+document.getElementById('chat-close').addEventListener('click',toggleChat);
+document.getElementById('chat-send').addEventListener('click',sendChat);
+document.getElementById('chat-mic-btn').addEventListener('click',toggleChatMic);
+document.getElementById('chat-input').addEventListener('keydown',function(e){
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}
+});
 
-// Functions are global (defined above)
-
-if(checkAuth()){
-  document.getElementById('login-screen').style.display='none';
-  loadAll().then(()=>startPolling());
+loadAll().then(()=>startPolling());
 } else {
+  // Afficher l'écran de connexion, focus sur le champ
   setTimeout(()=>document.getElementById('login-user').focus(), 100);
 }
+  } else {
+    err.style.display = 'block';
     document.getElementById('login-pass').value = '';
     document.getElementById('login-pass').focus();
     setTimeout(()=>err.style.display='none', 3000);
@@ -2660,6 +2489,382 @@ function checkAuth(){
 // PAGE VISITE CHANTIER
 // ══════════════════════════════════════════════
 let visiteClientId=null;
+let visiteMicRecognition=null;
+let visiteTasks=[];
+
+function openVisite(clientId){
+  visiteClientId=clientId;
+  const client=clients.find(c=>c.id===clientId);
+  if(!client)return;
+  document.getElementById('visite-title').textContent='Visite pré-réception';
+  document.getElementById('visite-subtitle').textContent=client.nom+' — '+(client.adresse||'');
+  document.getElementById('visite-texte').value='';
+  document.getElementById('visite-ai-status').style.display='none';
+  document.getElementById('visite-mic-status').style.display='none';
+  document.getElementById('visite-send-all').style.display='none';
+  // Charger tâches existantes
+  visiteTasks=client.artisan_tasks||[];
+  renderVisiteBulles();
+  document.getElementById('visite-page').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+
+function closeVisite(){
+  document.getElementById('visite-page').classList.remove('open');
+  document.body.style.overflow='';
+  if(visiteMicRecognition)visiteMicRecognition.stop();
+}
+
+function toggleVisiteMic(){
+  const btn=document.getElementById('visite-mic-btn');
+  const status=document.getElementById('visite-mic-status');
+  if(visiteMicRecognition&&btn.textContent.includes('Arrêter')){
+    visiteMicRecognition.stop();return;
+  }
+  if(!('webkitSpeechRecognition' in window)&&!('SpeechRecognition' in window)){
+    alert('Dictée vocale non supportée. Utilisez Chrome ou Safari.');return;
+  }
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const rec=new SR();
+  rec.lang='fr-FR';rec.continuous=true;rec.interimResults=true;
+  visiteMicRecognition=rec;
+  let final=document.getElementById('visite-texte').value||'';
+  rec.onstart=()=>{
+    btn.textContent='⏹ Arrêter la dictée';
+    btn.style.background='#374151';
+    status.style.display='block';
+    status.textContent='🎤 Dictée en cours…';
+  };
+  rec.onresult=e=>{
+    let interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal)final+=e.results[i][0].transcript+' ';
+      else interim+=e.results[i][0].transcript;
+    }
+    document.getElementById('visite-texte').value=final+interim;
+  };
+  rec.onend=()=>{
+    visiteMicRecognition=null;
+    btn.textContent='🎤 Démarrer la dictée';
+    btn.style.background='#ef4444';
+    document.getElementById('visite-texte').value=final.trim();
+    status.textContent='🎤 Dictée terminée — cliquez sur ✨ pour analyser';
+    setTimeout(()=>status.style.display='none',4000);
+  };
+  rec.onerror=()=>{
+    visiteMicRecognition=null;
+    btn.textContent='🎤 Démarrer la dictée';
+    btn.style.background='#ef4444';
+  };
+  rec.start();
+}
+
+async function analyserVisite(){
+  const notes=document.getElementById('visite-texte').value.trim();
+  if(!notes){alert("Dictez d'abord vos observations !");return;}
+  const client=clients.find(c=>c.id===visiteClientId);
+  if(!client)return;
+  const ac=clientArtisans(visiteClientId);
+  if(ac.length===0){alert("Aucun artisan associé à ce chantier.");return;}
+  const status=document.getElementById('visite-ai-status');
+  const btn=document.getElementById('visite-ai-btn');
+  status.style.display='block';
+  status.textContent='✨ Analyse en cours…';
+  btn.disabled=true;
+  const artisanList=ac.map(a=>'- '+(a.metier||'')+(a.entreprise?' ('+a.entreprise+')':'')+' : '+a.nom).join(', ');
+  const existing=visiteTasks.length>0?'Taches existantes a fusionner : '+JSON.stringify(visiteTasks)+'. ':'';
+  const prompt='Tu es assistant pour MA 17 SUD constructeur de maisons neuves. Chantier : '+client.nom+'. Artisans disponibles : '+artisanList+'. '+existing+'Nouvelles observations du conducteur de travaux : '+notes+'. IMPORTANT : inclus UNIQUEMENT les artisans explicitement mentionnés dans les nouvelles observations. Pour les artisans des taches existantes non mentionnés dans les nouvelles observations, conserve-les tels quels. Reponds UNIQUEMENT en JSON valide : [{"artisan":"nom exact de la liste","taches":"liste des taches ligne par ligne avec tiret"}].';
+  try{
+    const r=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1500,messages:[{role:'user',content:prompt}]})});
+    const data=await r.json();
+    const text=data.content?.[0]?.text||'[]';
+    const clean=text.replace(/```json|```/g,'').trim();
+    visiteTasks=JSON.parse(clean);
+    // Sauvegarder
+    await db('PATCH','clients',{artisan_tasks:visiteTasks,updated_at:new Date().toISOString()},`?id=eq.${visiteClientId}`);
+    clients=clients.map(c=>c.id===visiteClientId?{...c,artisan_tasks:visiteTasks}:c);
+    renderVisiteBulles();
+    status.textContent='✅ '+visiteTasks.length+' artisan(s) identifié(s)';
+    setTimeout(()=>status.style.display='none',3000);
+    document.getElementById('visite-texte').value='';
+  }catch(e){
+    status.textContent='Erreur: '+e.message;
+    status.style.color='#ef4444';
+  }finally{btn.disabled=false;}
+}
+
+function renderVisiteBulles(){
+  const el=document.getElementById('visite-bulles');
+  const sendBtn=document.getElementById('visite-send-all');
+  const client=clients.find(c=>c.id===visiteClientId);
+  if(!client||visiteTasks.length===0){
+    el.innerHTML="<div style='color:#94a3b8;font-size:13px;text-align:center;padding:16px'>Les tâches apparaîtront ici après l'analyse IA</div>";
+    sendBtn.style.display='none';
+    return;
+  }
+  const ac=clientArtisans(visiteClientId);
+  el.innerHTML=visiteTasks.map((m,i)=>{
+    const artisan=ac.find(a=>a.nom===m.artisan||(a.entreprise&&a.entreprise===m.artisan)||a.nom.toLowerCase().includes(m.artisan.toLowerCase())||m.artisan.toLowerCase().includes(a.nom.toLowerCase()));
+    const subj=encodeURIComponent('Travaux chantier '+client.nom);
+    const tachesEncoded=m.taches.replace(/\n/g,'%0A').replace(/\r/g,'');
+    const bd=encodeURIComponent('Bonjour,')+'%0A%0A'+encodeURIComponent('Suite a la visite du chantier '+client.nom+' ('+( client.adresse||'')+'), voici vos taches :')+'%0A%0A'+tachesEncoded+'%0A%0A'+encodeURIComponent('Merci de confirmer votre disponibilite.')+'%0A%0A'+encodeURIComponent('Cordialement')+'%0AMA 17 SUD';
+    const mailHref=artisan?.email?'mailto:'+artisan.email+'?subject='+subj+'&body='+bd:'';
+    const smsText='Chantier '+client.nom+' :%0A%0A'+encodeURIComponent(m.taches)+'%0A%0AMA 17 SUD';
+    const smsHref=artisan?.tel?'sms:'+artisan.tel.replace(/\s/g,'')+'?body='+smsText:'';
+    return '<div class="artisan-bubble" id="bubble-'+i+'">'
+      +'<div class="artisan-bubble-head">'
+        +'<div style="flex:1;min-width:0">'
+          +'<div style="font-weight:700;font-size:13px;color:#0f172a">'+(artisan?.metier||m.artisan)+(artisan?.entreprise?' — '+artisan.entreprise:'')+'</div>'
+          +(artisan?.tel?'<div style="font-size:11px;color:#64748b">'+artisan.tel+'</div>':'')
+          +(artisan?.email?'<div style="font-size:11px;color:#64748b">'+artisan.email+'</div>':'')
+        +'</div>'
+        +'<button onclick="editBubble('+i+')" style="padding:5px 8px;border-radius:8px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:12px">✏</button>'
+      +'</div>'
+      +'<div class="artisan-tasks" id="tasks-view-'+i+'">'+m.taches+'</div>'
+      +'<div id="tasks-edit-'+i+'" style="display:none">'
+        +'<textarea class="artisan-tasks-edit" id="tasks-input-'+i+'">'+m.taches+'</textarea>'
+        +'<div style="display:flex;gap:6px">'
+          +'<button onclick="cancelEditBubble('+i+')" style="flex:1;padding:7px;border-radius:8px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:12px;font-family:inherit">Annuler</button>'
+          +'<button onclick="saveEditBubble('+i+')" style="flex:1;padding:7px;border-radius:8px;border:none;background:#2563eb;color:#fff;cursor:pointer;font-size:12px;font-family:inherit;font-weight:700">💾 Enregistrer</button>'
+        +'</div>'
+      +'</div>'
+      +'<div class="artisan-actions">'
+        +(mailHref?'<a href="'+mailHref+'" style="flex:1;padding:8px;border-radius:8px;background:#dbeafe;color:#1e40af;border:1.5px solid #bfdbfe;font-size:12px;font-weight:700;text-align:center;text-decoration:none">✉ Mail</a>':'')
+        +(smsHref?'<a href="'+smsHref+'" style="flex:1;padding:8px;border-radius:8px;background:#dcfce7;color:#166534;border:1.5px solid #bbf7d0;font-size:12px;font-weight:700;text-align:center;text-decoration:none">💬 SMS</a>':'')
+        +'<button onclick="deleteBubble('+i+')" style="padding:8px 10px;border-radius:8px;border:1.5px solid #fee2e2;background:#fff5f5;color:#ef4444;cursor:pointer;font-size:12px">🗑</button>'
+      +'</div>'
+    +'</div>';
+  }).join('');
+  sendBtn.style.display='block';
+  sendBtn.textContent='📤 Tout envoyer ('+visiteTasks.filter((m,i)=>{const a=ac.find(x=>x.nom===m.artisan||(x.entreprise&&x.entreprise===m.artisan)||x.nom.toLowerCase().includes(m.artisan.toLowerCase()));return a?.email;}).length+' artisans)';
+}
+
+function editBubble(i){
+  document.getElementById('tasks-view-'+i).style.display='none';
+  document.getElementById('tasks-edit-'+i).style.display='block';
+  document.getElementById('tasks-input-'+i).focus();
+}
+
+function cancelEditBubble(i){
+  document.getElementById('tasks-view-'+i).style.display='block';
+  document.getElementById('tasks-edit-'+i).style.display='none';
+}
+
+async function saveEditBubble(i){
+  const newTasks=document.getElementById('tasks-input-'+i).value.trim();
+  visiteTasks[i].taches=newTasks;
+  try{
+    await db('PATCH','clients',{artisan_tasks:visiteTasks,updated_at:new Date().toISOString()},`?id=eq.${visiteClientId}`);
+    clients=clients.map(c=>c.id===visiteClientId?{...c,artisan_tasks:visiteTasks}:c);
+    renderVisiteBulles();
+    toast('Tâches mises à jour ✓');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+async function deleteBubble(i){
+  if(!confirm('Supprimer les tâches de cet artisan ?'))return;
+  visiteTasks.splice(i,1);
+  try{
+    await db('PATCH','clients',{artisan_tasks:visiteTasks,updated_at:new Date().toISOString()},`?id=eq.${visiteClientId}`);
+    clients=clients.map(c=>c.id===visiteClientId?{...c,artisan_tasks:visiteTasks}:c);
+    renderVisiteBulles();
+    toast('Artisan retiré');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+function envoyerTout(){
+  const client=clients.find(c=>c.id===visiteClientId);
+  if(!client)return;
+  const ac=clientArtisans(visiteClientId);
+  visiteTasks.forEach(m=>{
+    const artisan=ac.find(a=>a.nom===m.artisan||(a.entreprise&&a.entreprise===m.artisan)||a.nom.toLowerCase().includes(m.artisan.toLowerCase())||m.artisan.toLowerCase().includes(a.nom.toLowerCase()));
+    if(!artisan?.email)return;
+    const subj=encodeURIComponent('Travaux chantier '+client.nom);
+    const tachesEncoded=m.taches.replace(/\n/g,'%0A').replace(/\r/g,'');
+    const bd=encodeURIComponent('Bonjour,')+'%0A%0A'+encodeURIComponent('Suite a la visite du chantier '+client.nom+' ('+( client.adresse||'')+'), voici vos taches :')+'%0A%0A'+tachesEncoded+'%0A%0A'+encodeURIComponent('Merci de confirmer votre disponibilite.')+'%0A%0A'+encodeURIComponent('Cordialement')+'%0AMA 17 SUD';
+    window.open('mailto:'+artisan.email+'?subject='+subj+'&body='+bd);
+  });
+  toast('Mails ouverts pour tous les artisans ✓');
+}
+
+// ══════════════════════════════════════════════
+// SUIVI DE CHANTIER - DICTÉE + IA
+// ══════════════════════════════════════════════
+let suiviMicRecognition=null;
+
+function toggleSuiviMic(){
+  const btn=document.getElementById('suivi-mic-btn');
+  const status=document.getElementById('suivi-ai-status');
+  if(suiviMicRecognition){suiviMicRecognition.stop();return;}
+  if(!("webkitSpeechRecognition" in window)&&!("SpeechRecognition" in window)){
+    alert("Dictée vocale non supportée. Utilisez Chrome ou Safari.");return;
+  }
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const rec=new SR();
+  rec.lang='fr-FR';rec.continuous=true;rec.interimResults=true;
+  suiviMicRecognition=rec;
+  let final=document.getElementById('suivi-dictee')?.value||'';
+  rec.onstart=()=>{
+    btn.textContent='⏹ Arrêter';btn.style.background='#374151';
+    if(status){status.style.display='block';status.textContent='🎤 Dictée en cours…';}
+  };
+  rec.onresult=e=>{
+    let interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal)final+=e.results[i][0].transcript+' ';
+      else interim+=e.results[i][0].transcript;
+    }
+    const ta=document.getElementById('suivi-dictee');
+    if(ta)ta.value=final+interim;
+  };
+  rec.onend=()=>{
+    suiviMicRecognition=null;
+    btn.textContent='🎤 Dicter';btn.style.background='#ef4444';
+    const ta=document.getElementById('suivi-dictee');
+    if(ta)ta.value=final.trim();
+    if(status){status.textContent='🎤 Dictée terminée — cliquez ✨ Analyser';setTimeout(()=>status.style.display='none',3000);}
+  };
+  rec.onerror=()=>{suiviMicRecognition=null;btn.textContent='🎤 Dicter';btn.style.background='#ef4444';};
+  rec.start();
+}
+
+async function analyserSuivi(){
+  const notes=document.getElementById('suivi-dictee')?.value.trim();
+  if(!notes){alert("Dictez d'abord vos observations !");return;}
+  const status=document.getElementById('suivi-ai-status');
+  const btn=document.getElementById('suivi-ai-btn');
+  if(status){status.style.display='block';status.textContent='✨ Identification du chantier…';}
+  if(btn)btn.disabled=true;
+
+  // Liste des chantiers en cours pour l'IA
+  const chantiersList=clients
+    .filter(c=>c.statut==='en_cours'||c.statut==='ouverture'||c.statut==='sav_en_cours')
+    .map(c=>c.nom).join(', ');
+
+  // Construire la liste des chantiers avec leurs artisans associés
+  const chantiersAvecArtisans=clients
+    .filter(c=>c.statut==='en_cours'||c.statut==='ouverture'||c.statut==='sav_en_cours')
+    .map(c=>{
+      const ac=clientArtisans(c.id);
+      const artisansList=ac.map(a=>(a.metier||'')+' : '+(a.entreprise||a.nom)).join(', ');
+      return c.nom+(artisansList?' (artisans: '+artisansList+')':'');
+    }).join(' | ');
+
+  const prompt='Tu es assistant pour MA 17 SUD constructeur de maisons neuves en Charente-Maritime. '
+    +'Chantiers en cours avec leurs artisans : '+chantiersAvecArtisans+'. '
+    +'Observations dictées : '+notes+'. '
+    +'1) Identifie le chantier mentionné (nom exact). '
+    +'2) Pour chaque artisan ou métier mentionné, retrouve le nom exact de l artisan associé à ce chantier et liste ses taches. '
+    +'Si le conducteur dit "le menuisier", utilise le nom de l artisan menuisier de ce chantier. '
+    +'Reponds UNIQUEMENT en JSON valide : {"chantier":"nom exact du chantier","artisans":[{"artisan":"nom exact de l artisan","taches":"liste des taches avec tirets"}]}';
+
+  try{
+    const r=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
+    const data=await r.json();
+    const text=data.content?.[0]?.text||'{}';
+    const clean=text.replace(/```json|```/g,'').trim();
+    const result=JSON.parse(clean);
+
+    // Trouver le client
+    const client=clients.find(c=>
+      c.nom===result.chantier||
+      c.nom.toLowerCase().includes(result.chantier?.toLowerCase())||
+      result.chantier?.toLowerCase().includes(c.nom.toLowerCase())
+    );
+
+    if(!client){
+      if(status){status.textContent='❌ Chantier "'+result.chantier+'" non trouvé';status.style.color='#ef4444';}
+      setTimeout(()=>{if(status)status.style.display='none';if(btn)btn.disabled=false;},3000);
+      return;
+    }
+
+    // Fusionner avec les tâches existantes
+    const existing=client.artisan_tasks||[];
+    const newTasks=[...existing];
+    (result.artisans||[]).forEach(na=>{
+      const idx=newTasks.findIndex(t=>
+        t.artisan===na.artisan||
+        t.artisan.toLowerCase().includes(na.artisan.toLowerCase())||
+        na.artisan.toLowerCase().includes(t.artisan.toLowerCase())
+      );
+      if(idx>=0){
+        newTasks[idx]={...newTasks[idx],taches:newTasks[idx].taches+' | '+na.taches};
+      } else {
+        newTasks.push(na);
+      }
+    });
+
+    // Sauvegarder
+    await db('PATCH','clients',{artisan_tasks:newTasks,updated_at:new Date().toISOString()},`?id=eq.${client.id}`);
+    clients=clients.map(c=>c.id===client.id?{...c,artisan_tasks:newTasks}:c);
+
+    if(status){status.textContent='✅ Chantier '+client.nom+' mis à jour !';status.style.color='#10b981';}
+    const ta=document.getElementById('suivi-dictee');
+    if(ta)ta.value='';
+    setTimeout(()=>{
+      if(status)status.style.display='none';
+      if(btn)btn.disabled=false;
+      goView('suivi'); // Refresh
+    },1500);
+
+  }catch(e){
+    if(status){status.textContent='Erreur: '+e.message;status.style.color='#ef4444';}
+    setTimeout(()=>{if(status)status.style.display='none';if(btn)btn.disabled=false;},3000);
+  }
+}
+
+function editSuiviTask(clientId,taskIdx){
+  document.getElementById('st-view-'+clientId+'-'+taskIdx).style.display='none';
+  document.getElementById('st-edit-'+clientId+'-'+taskIdx).style.display='block';
+}
+function cancelSuiviTask(clientId,taskIdx){
+  document.getElementById('st-view-'+clientId+'-'+taskIdx).style.display='block';
+  document.getElementById('st-edit-'+clientId+'-'+taskIdx).style.display='none';
+}
+async function saveSuiviTask(clientId,taskIdx){
+  const newText=document.getElementById('st-input-'+clientId+'-'+taskIdx)?.value.trim();
+  const client=clients.find(c=>c.id===clientId);
+  if(!client||!newText)return;
+  const tasks=[...(client.artisan_tasks||[])];
+  tasks[taskIdx]={...tasks[taskIdx],taches:newText};
+  try{
+    await db('PATCH','clients',{artisan_tasks:tasks,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+    clients=clients.map(c=>c.id===clientId?{...c,artisan_tasks:tasks}:c);
+    toast('Tâches mises à jour ✓');goView('suivi');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+async function deleteSuiviTask(clientId,taskIdx){
+  if(!confirm('Supprimer les tâches de cet artisan ?'))return;
+  const client=clients.find(c=>c.id===clientId);
+  if(!client)return;
+  const tasks=[...(client.artisan_tasks||[])];
+  tasks.splice(taskIdx,1);
+  try{
+    await db('PATCH','clients',{artisan_tasks:tasks,updated_at:new Date().toISOString()},`?id=eq.${clientId}`);
+    clients=clients.map(c=>c.id===clientId?{...c,artisan_tasks:tasks}:c);
+    toast('Artisan retiré');goView('suivi');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+let suiviTri='clients';
+
+function setSuiviTri(tri){
+  suiviTri=tri;
+  const btnC=document.getElementById('tri-clients');
+  const btnA=document.getElementById('tri-artisans');
+  if(btnC&&btnA){
+    if(tri==='clients'){
+      btnC.style.borderColor='#2563eb';btnC.style.background='#eff6ff';btnC.style.color='#2563eb';btnC.style.fontWeight='700';
+      btnA.style.borderColor='#e2e8f0';btnA.style.background='#fff';btnA.style.color='#64748b';btnA.style.fontWeight='400';
+    } else {
+      btnA.style.borderColor='#7c3aed';btnA.style.background='#f3e8ff';btnA.style.color='#7c3aed';btnA.style.fontWeight='700';
+      btnC.style.borderColor='#e2e8f0';btnC.style.background='#fff';btnC.style.color='#64748b';btnC.style.fontWeight='400';
+    }
+  }
+  goView('suivi');
+}
+
 loadAll().then(()=>startPolling());
 </script>
 <!-- PAGE VISITE CHANTIER -->
@@ -2702,19 +2907,19 @@ loadAll().then(()=>startPolling());
 </div>
 
 <!-- CHATBOT -->
-<button id="chat-btn" onclick="toggleChat()" title="Assistant IA">💬</button>
+<button id="chat-btn" title="Assistant IA">💬</button>
 <div id="chat-panel">
   <div class="chat-head">
     <div><div class="chat-title">✨ Assistant MA 17 SUD</div><div class="chat-sub">Posez vos questions</div></div>
-    <button id="chat-close" onclick="toggleChat()">✕</button>
+    <button id="chat-close">✕</button>
   </div>
   <div id="chat-messages">
-    <div class="cm bot">Bonjour ! Je connais vos chantiers, SAV et artisans. Je peux vous aider à répondre à un client, trouver les DTU applicables, identifier les responsables ou rédiger des mails. Comment puis-je vous aider ?</div>
+    <div class="cm bot">Bonjour ! Je connais vos chantiers, SAV et artisans. Je peux vous aider à répondre à un client, trouver les DTU applicables ou rédiger des mails. Comment puis-je vous aider ?</div>
   </div>
   <div id="chat-foot">
-    <button id="chat-mic-btn" onclick="toggleChatMic()">🎤</button>
-    <textarea id="chat-input" placeholder="Posez votre question…" rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px'"></textarea>
-    <button id="chat-send" onclick="sendChat()">→</button>
+    <button id="chat-mic-btn">🎤</button>
+    <textarea id="chat-input" placeholder="Posez votre question…" rows="1" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px'"></textarea>
+    <button id="chat-send">→</button>
   </div>
 </div>
 </body>
