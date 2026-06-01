@@ -2002,8 +2002,6 @@ function doLogin(){
     sessionStorage.setItem('sav_auth', btoa(user+':'+pass));
     document.getElementById('login-screen').style.display = 'none';
     // Vérifier l'auth au démarrage
-if(checkAuth()){
-  document.getElementById('login-screen').style.display='none';
   // ══════════════════════════════════════════════
 // PAGE VISITE CHANTIER
 // ══════════════════════════════════════════════
@@ -2627,6 +2625,30 @@ async function sendChat(){
   }
 }
 
+// Exposer toutes les fonctions locales dans window
+window.analyserSuivi = analyserSuivi;
+window.analyserVisite = analyserVisite;
+window.cancelEditBubble = cancelEditBubble;
+window.cancelSuiviTask = cancelSuiviTask;
+window.closeVisite = closeVisite;
+window.deleteBubble = deleteBubble;
+window.deleteSuiviTask = deleteSuiviTask;
+window.editBubble = editBubble;
+window.editSuiviTask = editSuiviTask;
+window.envoyerTout = envoyerTout;
+window.filterAttributionList = filterAttributionList;
+window.handlePdfDrop = handlePdfDrop;
+window.handlePdfFile = handlePdfFile;
+window.importerAttributions = importerAttributions;
+window.openAttrModal = openAttrModal;
+window.openVisite = openVisite;
+window.saveAttribution = saveAttribution;
+window.saveEditBubble = saveEditBubble;
+window.saveSuiviTask = saveSuiviTask;
+window.setSuiviTri = setSuiviTri;
+window.toggleSuiviMic = toggleSuiviMic;
+window.toggleVisiteMic = toggleVisiteMic;
+
 // Attacher les événements du chatbot
 document.getElementById('chat-btn').addEventListener('click',toggleChat);
 document.getElementById('chat-close').addEventListener('click',toggleChat);
@@ -2636,9 +2658,11 @@ document.getElementById('chat-input').addEventListener('keydown',function(e){
   if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}
 });
 
-loadAll().then(()=>startPolling());
+// Auth check - runs after all functions are defined
+if(checkAuth()){
+  document.getElementById('login-screen').style.display='none';
+  loadAll().then(()=>startPolling());
 } else {
-  // Afficher l'écran de connexion, focus sur le champ
   setTimeout(()=>document.getElementById('login-user').focus(), 100);
 }
   } else {
