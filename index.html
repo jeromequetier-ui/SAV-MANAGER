@@ -984,7 +984,11 @@ async function relanceIA(artisanId){
     // Open mail with reformulated content
     const subj=encodeURIComponent('Relance SAV — Interventions en attente');
     const body=encodeURIComponent(mailText);
-    window.open('mailto:'+art.email+'?subject='+subj+'&body='+body);
+    const a=document.createElement('a');
+    a.href='mailto:'+art.email+'?subject='+subj+'&body='+body;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
     toast('✅ Mail reformulé prêt !');
   }catch(e){
     toast('Erreur: '+e.message,'#ef4444');
