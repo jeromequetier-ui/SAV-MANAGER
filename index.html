@@ -438,39 +438,42 @@ function renderDashSav(){
     el.innerHTML='<div class="empty" style="padding:20px"><div class="big">✅</div><p style="color:#10b981;font-weight:700">Aucun SAV en cours !</p></div>';
     return;
   }
-  // Grouper par client, triés par nom
+  // Grouper par client
   const grouped={};
   active.forEach(s=>{
     if(!grouped[s.client_id])grouped[s.client_id]=[];
     grouped[s.client_id].push(s);
   });
-  const sorted=Object.entries(grouped).sort(([a],[b])=>{
-    const na=clients.find(c=>c.id===a)?.nom||'';
-    const nb=clients.find(c=>c.id===b)?.nom||'';
-    return na.localeCompare(nb);
+  // Trier : clients avec "nouveau" en premier, puis attente, puis par nombre de SAV
+  const sorted=Object.entries(grouped).sort(([a,sa],[b,sb])=>{
+    const aNouv=sa.filter(s=>s.statut==='nouveau').length;
+    const bNouv=sb.filter(s=>s.statut==='nouveau').length;
+    if(aNouv!==bNouv)return bNouv-aNouv; // Plus de nouveau en premier
+    return sb.length-sa.length; // Puis plus de SAV
   });
+  el.style.maxHeight='270px';
+  el.style.overflowY='auto';
+  el.style.borderRadius='11px';
   el.innerHTML=sorted.map(([clientId,savs])=>{
     const client=clients.find(c=>c.id===clientId);
-    const hasRetard=savs.some(s=>jours(s.date_signalement)>DELAI);
-    const cardDiv='<div class="card" data-cid="'+clientId+'" style="padding:0;margin-bottom:9px;overflow:hidden;cursor:pointer;border:1.5px solid '+(hasRetard?'#fca5a5':'#e2e8f0')+'">';
-    return cardDiv
-      +'<div style="padding:8px 13px;background:'+(hasRetard?'#fef2f2':'#f8fafc')+';border-bottom:1px solid '+(hasRetard?'#fecaca':'#f1f5f9')+';display:flex;align-items:center;justify-content:space-between">'
-        +'<span style="font-weight:700;font-size:13px;color:'+(hasRetard?'#ef4444':'#0f172a')+'">'+(client?.nom||'—')+'</span>'
-        +'<span style="font-size:11px;font-weight:700;background:'+(hasRetard?'#ef4444':'#2563eb')+';color:#fff;padding:2px 8px;border-radius:20px">'+savs.length+' SAV</span>'
+    const nbNouv=savs.filter(s=>s.statut==='nouveau').length;
+    const nbAttente=savs.filter(s=>s.statut==='attente_intervention').length;
+    const hasRetard=savs.some(s=>s.statut==='attente_intervention'&&jours(s.date_mail||s.date_signalement)>7);
+    const bg=nbNouv>0?'#fff':hasRetard?'#fff5f5':'#fff';
+    const border=nbNouv>0?'#bfdbfe':hasRetard?'#fca5a5':'#e2e8f0';
+    return '<div data-cid="'+clientId+'" style="padding:10px 13px;border-bottom:1px solid #f1f5f9;cursor:pointer;background:'+bg+';display:flex;align-items:center;justify-content:space-between;gap:8px">'
+      +'<div style="flex:1;min-width:0">'
+        +'<div style="font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:'+(nbNouv>0?'#1e40af':hasRetard?'#ef4444':'#0f172a')+'">'+(client?.nom||'—')+'</div>'
+        +'<div style="display:flex;gap:5px;margin-top:3px;flex-wrap:wrap">'
+          +(nbNouv>0?'<span style="padding:1px 7px;border-radius:20px;background:#dbeafe;color:#1e40af;font-size:10px;font-weight:700">'+nbNouv+' nouveau'+(nbNouv>1?'x':'')+'</span>':'')
+          +(nbAttente>0?'<span style="padding:1px 7px;border-radius:20px;background:'+(hasRetard?'#fee2e2':'#fef3c7')+';color:'+(hasRetard?'#ef4444':'#d97706')+';font-size:10px;font-weight:700">'+nbAttente+' en attente'+(hasRetard?' ⚠':'')+'</span>':'')
+        +'</div>'
       +'</div>'
-      +savs.map(s=>{
-        const artisan=artisans.find(a=>a.id===s.artisan_id);
-        const j=jours(s.date_signalement);
-        return '<div style="padding:8px 13px;border-bottom:1px solid #f8fafc;display:flex;align-items:center;justify-content:space-between;gap:8px">'
-          +'<div style="min-width:0;flex:1">'
-            +'<div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+s.titre+'</div>'
-            +'<div style="font-size:11px;color:#64748b">'+j+'j'+( artisan?' · '+artisan.nom:'')+'</div>'
-          +'</div>'
-          +statusBadge(s.statut)
-        +'</div>';
-      }).join('')
+      +'<span style="font-size:18px;font-weight:800;color:'+(nbNouv>0?'#2563eb':hasRetard?'#ef4444':'#64748b')+'">'+savs.length+'</span>'
     +'</div>';
   }).join('');
+  // Wrapper avec border
+  el.style.border='1.5px solid #e2e8f0';
 }
 
 function setupDashSavClicks(){
@@ -779,6 +782,7 @@ function renderSav(c){
       <button onclick="filterSavByStatut('nouveau')" id="sf-nouveau" class="status s-nouveau" style="cursor:pointer;font-family:inherit">Nouveau (${sv.filter(s=>s.statut==='nouveau').length})</button>
       <button onclick="filterSavByStatut('attente_intervention')" id="sf-attente_intervention" class="status s-attente" style="cursor:pointer;font-family:inherit">Attente artisan (${sv.filter(s=>s.statut==='attente_intervention').length})</button>
       <button onclick="filterSavByStatut('resolu')" id="sf-resolu" class="status s-resolu" style="cursor:pointer;font-family:inherit">Résolu (${sv.filter(s=>s.statut==='resolu').length})</button>
+      <button onclick="filterSavByStatut('interne')" id="sf-interne" style="padding:2px 10px;border-radius:20px;border:1px solid #e9d5ff;background:#f3e8ff;color:#7c3aed;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit">🏠 Interne (${sv.filter(s=>!s.artisan_id).length})</button>
     </div>
     <div id="sav-list-container"></div>
   `;
@@ -823,7 +827,7 @@ function renderSavItems(list){
     const client=clients.find(c=>c.id===client_id);
     const allResolved=savs.every(s=>s.statut==='resolu');
     const hasRetard=savs.some(s=>s.statut==='attente_intervention'&&jours(s.date_mail||s.date_signalement)>7);
-    const bgHeader=allResolved?'#064e3b':hasRetard?'#7f1d1d':'#0f172a';
+    const bgHeader=allResolved?'#064e3b':'#0f172a';
     return '<div class="sav-group" data-cid="'+client_id+'" style="border-radius:13px;overflow:hidden;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,0.08)">'
       // Header client
       +'<div style="background:'+bgHeader+';padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px">'
@@ -904,6 +908,8 @@ function renderOneSav(s,client){
     html+='<span style="font-weight:600">'+(artisan.metier||'Artisan')+' :</span>'+(artisan.entreprise||artisan.nom);
     if(artisan.tel)html+='<a href="tel:'+artisan.tel+'" onclick="event.stopPropagation()" style="margin-left:auto;padding:3px 8px;border-radius:6px;background:#dbeafe;color:#1e40af;font-weight:700;text-decoration:none;font-size:11px">📞</a>';
     html+='</div>';
+  } else {
+    html+='<div style="font-size:11px;background:#f3e8ff;color:#7c3aed;padding:4px 9px;border-radius:7px;font-weight:600">🏠 SAV Interne — MA 17 SUD</div>';
   }
   if(s.statut==='nouveau'&&artisan?.email){
     html+='<a href="'+mailHref+'" class="btn btn-primary btn-sm" style="text-decoration:none" onclick="event.stopPropagation();sendMailAndUpdateStatus(this.dataset.sid,this.dataset.cid,event)" data-sid="'+sid+'" data-cid="'+cid+'">✉ Demander</a>';
@@ -944,6 +950,8 @@ function filterSavByStatut(statut){
     const btn=document.getElementById('sf-'+k);
     if(btn){btn.style.fontWeight=statut===k?'700':'400';btn.style.opacity=statut===k||statut===null?'1':'0.5';}
   });
+  const btnInt=document.getElementById('sf-interne');
+  if(btnInt){btnInt.style.fontWeight=statut==='interne'?'700':'400';btnInt.style.opacity=statut==='interne'||statut===null?'1':'0.5';}
   applyAllSavFilters(document.getElementById('sav-search')?.value||'');
 }
 
@@ -1127,7 +1135,8 @@ function renderSavByArtisan(list){
 
 function applyAllSavFilters(q){
   let list=savList;
-  if(savStatutFilter)list=list.filter(s=>s.statut===savStatutFilter);
+  if(savStatutFilter==='interne')list=list.filter(s=>!s.artisan_id);
+  else if(savStatutFilter)list=list.filter(s=>s.statut===savStatutFilter);
   if(q){
     const lq=q.toLowerCase();
     list=list.filter(s=>{
