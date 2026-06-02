@@ -2647,13 +2647,15 @@ async function sendChat(){
   }
 }
 
-// Attacher les événements via addEventListener (pas onclick)
-document.getElementById('chat-btn').addEventListener('click',toggleChat);
-document.getElementById('chat-close').addEventListener('click',toggleChat);
-document.getElementById('chat-send').addEventListener('click',sendChat);
-document.getElementById('chat-mic-btn').addEventListener('click',toggleChatMic);
-document.getElementById('chat-input').addEventListener('keydown',function(e){
-  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}
+// Attacher les événements chat après chargement du DOM
+document.addEventListener('DOMContentLoaded',function(){
+  document.getElementById('chat-btn').addEventListener('click',toggleChat);
+  document.getElementById('chat-close').addEventListener('click',toggleChat);
+  document.getElementById('chat-send').addEventListener('click',sendChat);
+  document.getElementById('chat-mic-btn').addEventListener('click',toggleChatMic);
+  document.getElementById('chat-input').addEventListener('keydown',function(e){
+    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}
+  });
 });
 
 
