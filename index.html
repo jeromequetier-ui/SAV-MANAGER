@@ -319,170 +319,300 @@ const timeout=setTimeout(()=>{
 },10000);
 
 function renderArtisanView(){
-  // Hide sidebar nav items not needed for artisans
   document.getElementById('loader').style.display='none';
-
   const artisanNom=getArtisanName();
   const artisan=artisans.find(a=>a.nom===artisanNom||(a.entreprise&&a.entreprise===artisanNom));
+
   if(!artisan){
-    document.getElementById('content').innerHTML='<div class="empty"><div class="big">⚠️</div><p>Artisan non trouvé dans la base.<br><small>'+artisanNom+'</small></p></div>';
-    document.getElementById('loader').style.display='none';
+    document.getElementById('content').innerHTML='<div class="empty"><div class="big">⚠️</div><p>Artisan non trouvé.<br><small>'+artisanNom+'</small></p></div>';
     return;
   }
 
-  // Filter data for this artisan
   const mesChantiers=chantierArtisans.filter(x=>x.artisan_id===artisan.id).map(x=>clients.find(c=>c.id===x.client_id)).filter(Boolean).sort((a,b)=>a.nom.localeCompare(b.nom));
   const mesSav=savList.filter(s=>s.artisan_id===artisan.id&&s.statut!=='resolu');
 
-  // Hide sidebar nav — show only relevant items
-  document.querySelectorAll('.nav-btn').forEach(b=>{
-    const v=b.dataset.v;
-    b.style.display=['dashboard','clients','sav'].includes(v)?'flex':'none';
-  });
-  document.getElementById('page-title').textContent='Espace artisan';
-
-  // Render artisan dashboard
-  const c=document.getElementById('content');
-  c.innerHTML=`
-    <div style="background:linear-gradient(135deg,#1e3a5f,#0f172a);border-radius:13px;padding:16px;margin-bottom:14px;color:#fff">
-      <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Espace artisan</div>
-      <div style="font-size:20px;font-weight:800">${artisan.entreprise||artisan.nom}</div>
-      <div style="font-size:13px;color:#94a3b8;margin-top:2px">${artisan.metier||''}</div>
-      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-        ${artisan.tel?`<a href="tel:${artisan.tel}" style="padding:5px 12px;border-radius:8px;background:rgba(255,255,255,0.1);color:#fff;font-size:12px;font-weight:700;text-decoration:none">📞 ${artisan.tel}</a>`:''}
-        ${artisan.email?`<span style="padding:5px 12px;border-radius:8px;background:rgba(255,255,255,0.1);color:#94a3b8;font-size:12px">${artisan.email}</span>`:''}
-      </div>
-    </div>
-
-    ${mesSav.length>0?`
-    <div style="margin-bottom:14px">
-      <div style="font-weight:700;font-size:15px;margin-bottom:8px">🔧 Mes SAV en cours (${mesSav.length})</div>
-      ${mesSav.map(s=>{
-        const cl=clients.find(c=>c.id===s.client_id);
-        const j=jours(s.date_signalement);
-        return `<div class="card" style="margin-bottom:8px;border-left:4px solid ${s.statut==='nouveau'?'#ef4444':'#f59e0b'}">
-          <div style="font-weight:700;font-size:13px">${s.titre}</div>
-          <div style="font-size:12px;color:#2563eb;font-weight:600;margin-top:3px">${cl?.nom||'—'}</div>
-          <div style="font-size:11px;color:#64748b">${cl?.adresse||''}</div>
-          <div style="font-size:11px;color:#64748b;margin-top:2px">Signalé le ${frDate(s.date_signalement)} · ${j}j</div>
-          ${s.notes?`<div style="font-size:11px;color:#374151;background:#f8fafc;padding:6px 8px;border-radius:6px;margin-top:5px">${s.notes}</div>`:''}
-          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
-            ${cl?.tel?`<a href="tel:${cl.tel}" style="padding:5px 10px;border-radius:8px;background:#dbeafe;color:#1e40af;font-size:11px;font-weight:700;text-decoration:none">📞 ${cl.conjoint1?cl.conjoint1+' '+cl.tel:cl.tel}</a>`:''}
-            ${cl?.tel2?`<a href="tel:${cl.tel2}" style="padding:5px 10px;border-radius:8px;background:#e0e7ff;color:#3730a3;font-size:11px;font-weight:700;text-decoration:none">📞 ${cl.conjoint2?cl.conjoint2+' '+cl.tel2:cl.tel2}</a>`:''}
-            ${cl?.email?`<a href="mailto:${cl.email}" style="padding:5px 10px;border-radius:8px;background:#ecfdf5;color:#065f46;font-size:11px;font-weight:700;text-decoration:none">✉ ${cl.email}</a>`:''}
-            ${cl?.email2?`<a href="mailto:${cl.email2}" style="padding:5px 10px;border-radius:8px;background:#ecfdf5;color:#065f46;font-size:11px;font-weight:700;text-decoration:none">✉ ${cl.email2}</a>`:''}
-            ${cl?.lat&&cl?.lng?`<button onclick="openNavArtisan('${cl.id}')" style="padding:5px 10px;border-radius:8px;background:#fef3c7;color:#d97706;border:none;cursor:pointer;font-size:11px;font-weight:700">🧭 Itinéraire</button>`:''}
-          </div>
-        </div>`;
-      }).join('')}
-    </div>`:'<div class="card" style="text-align:center;padding:20px;color:#10b981;font-weight:700">✅ Aucun SAV en cours !</div>'}
-
-    <div style="margin-bottom:14px">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
-        <div style="font-weight:700;font-size:15px">🏡 Mes chantiers (${mesChantiers.length})</div>
-      </div>
-      <div class="search-wrap" style="margin-bottom:10px">
-        <span class="search-ic">🔍</span>
-        <input type="text" id="artisan-search" placeholder="Rechercher un client…" oninput="filterArtisanClients(this.value)" style="font-size:13px"/>
-      </div>
-      <div id="artisan-clients-list">
-      ${mesChantiers.map(cl=>{
-        const statut=CHANTIER_STATUTS[cl.statut]||CHANTIER_STATUTS.en_cours;
-        return `<div class="card" style="margin-bottom:8px;padding:0;overflow:hidden">
-          <div style="background:#0f172a;padding:10px 13px;display:flex;align-items:center;justify-content:space-between;gap:8px">
-            <div>
-              <div style="font-weight:700;font-size:13px;color:#f1f5f9">${cl.nom}</div>
-              <div style="font-size:11px;color:#64748b;margin-top:1px">${cl.adresse||''}</div>
-            </div>
-            <span class="ch-badge ${statut.cls}">${statut.l}</span>
-          </div>
-          <div style="padding:10px 13px">
-            ${cl.conjoint1||cl.conjoint2?`<div style="font-size:11px;color:#374151;margin-bottom:6px;font-weight:600">${[cl.conjoint1,cl.conjoint2].filter(Boolean).join(' · ')}</div>`:''}
-            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
-              ${cl.tel?`<a href="tel:${cl.tel}" style="padding:4px 9px;border-radius:7px;background:#dbeafe;color:#1e40af;font-size:11px;font-weight:700;text-decoration:none">📞 ${cl.tel}</a>`:''}
-              ${cl.tel2?`<a href="tel:${cl.tel2}" style="padding:4px 9px;border-radius:7px;background:#e0e7ff;color:#3730a3;font-size:11px;font-weight:700;text-decoration:none">📞 ${cl.tel2}</a>`:''}
-              ${cl.lat&&cl.lng?`<button onclick="openNavArtisan('${cl.id}')" style="padding:4px 9px;border-radius:7px;background:#fef3c7;color:#d97706;border:none;cursor:pointer;font-size:11px;font-weight:700">🧭 Itinéraire</button>`:''}
-            </div>
-            ${cl.email||cl.email2?`<div style="display:flex;gap:6px;flex-wrap:wrap">
-              ${cl.email?`<a href="mailto:${cl.email}" style="padding:4px 9px;border-radius:7px;background:#ecfdf5;color:#065f46;font-size:11px;font-weight:700;text-decoration:none">✉ ${cl.email}</a>`:''}
-              ${cl.email2?`<a href="mailto:${cl.email2}" style="padding:4px 9px;border-radius:7px;background:#ecfdf5;color:#065f46;font-size:11px;font-weight:700;text-decoration:none">✉ ${cl.email2}</a>`:''}
-            </div>`:''}
-          </div>
-        </div>`;
-      }).join('')}
-    </div>
-
-    <!-- CARTE -->
-    <div style="font-weight:700;font-size:15px;margin-bottom:8px">🗺️ Carte de mes chantiers</div>
-    <div class="map-wrap">
-      <div id="map-artisan" style="height:350px;width:100%"></div>
-    </div>
-  `;
-
-  // Render map
-  setTimeout(()=>{
-    const el=document.getElementById('map-artisan');
-    if(!el)return;
-    const map=L.map(el).setView([45.748,-0.62],9);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(map);
-    mesChantiers.filter(c=>c.lat&&c.lng).forEach(c=>{
-      const hasSav=mesSav.some(s=>s.client_id===c.id);
-      const color=hasSav?'#ef4444':'#2563eb';
-      const icon=L.divIcon({className:'',
-        html:`<div style="width:28px;height:28px;border-radius:50% 50% 50% 0;background:${color};border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);transform:rotate(-45deg)"></div>`,
-        iconSize:[28,28],iconAnchor:[14,28]});
-      L.marker([c.lat,c.lng],{icon}).bindPopup(`<b>${c.nom}</b><br>${c.adresse||''}`).addTo(map);
-    });
-  },200);
-
-  // Masquer la bulle de chat pour les artisans
+  // Masquer chat
   const chatBtn=document.getElementById('chat-btn');
   const chatPanel=document.getElementById('chat-panel');
   if(chatBtn)chatBtn.style.display='none';
   if(chatPanel)chatPanel.style.display='none';
 
-  // Block sidebar nav for non-admin pages
-  document.querySelectorAll('.nav-btn[data-v]').forEach(b=>{
-    if(!['dashboard'].includes(b.dataset.v)){
-      b.onclick=e=>{e.preventDefault();};
+  // Topbar simplifié
+  const topbar=document.querySelector('.topbar');
+  if(topbar){
+    topbar.innerHTML=`
+      <button class="hamburger" onclick="toggleSB()" style="background:#1e293b;border:none;color:#94a3b8;border-radius:9px;padding:7px 9px;cursor:pointer;font-size:18px">☰</button>
+      <div style="font-weight:800;font-size:15px;color:#f1f5f9;flex:1;margin-left:10px">${artisan.entreprise||artisan.nom}</div>
+      <div style="font-size:11px;color:#64748b">${artisan.metier||''}</div>
+    `;
+  }
+
+  window._artisanData={artisan, mesChantiers, mesSav};
+
+  // Garder seulement 2 boutons dans la nav : accueil, mes SAV, mes chantiers
+  document.querySelectorAll('.nav-btn').forEach(b=>{
+    const v=b.dataset.v;
+    if(v==='dashboard'){
+      b.querySelector('span')||b;
+      b.innerHTML='🏠 Accueil';
+      b.onclick=e=>{e.preventDefault();closeSB();renderArtisanView();};
+    } else if(v==='sav'){
+      b.innerHTML='🔧 Mes SAV';
+      b.onclick=e=>{e.preventDefault();closeSB();renderArtisanSav();};
+    } else if(v==='clients'){
+      b.innerHTML='🏡 Mes chantiers';
+      b.onclick=e=>{e.preventDefault();closeSB();renderArtisanChantiers();};
+    } else {
+      b.style.display='none';
     }
   });
+
+
+  const c=document.getElementById('content');
+
+  // Heure du jour
+  const heure=new Date().getHours();
+  const salut=heure<12?'Bonjour':'Bonjour';
+  const nbEnCours=mesChantiers.filter(cl=>cl.statut==='en_cours'||cl.statut==='ouverture').length;
+  const nbSav=mesSav.length;
+  const msgs=[
+    'L\'équipe MA 17 SUD vous souhaite une excellente journée ! 💪',
+    'Bonne continuation sur vos chantiers ! 🏗️',
+    'Merci pour votre travail et votre sérieux ! 🤝',
+    'L\'équipe MA 17 SUD compte sur vous ! ⭐'
+  ];
+  const msgJour=msgs[new Date().getDay()%msgs.length];
+
+  c.innerHTML=`
+    <!-- BANNIÈRE ACCUEIL -->
+    <div style="background:linear-gradient(135deg,#1e3a5f,#0f172a);border-radius:13px;padding:16px;margin-bottom:14px;color:#fff">
+      <div style="font-size:13px;color:#94a3b8;margin-bottom:2px">${salut},</div>
+      <div style="font-size:20px;font-weight:800;margin-bottom:6px">${artisan.entreprise||artisan.nom} 👋</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <span style="padding:4px 10px;border-radius:20px;background:rgba(245,158,11,0.2);color:#fcd34d;font-size:12px;font-weight:700">
+          🏗️ ${nbEnCours} chantier${nbEnCours>1?'s':''} en cours
+        </span>
+        ${nbSav>0?`<span style="padding:4px 10px;border-radius:20px;background:rgba(239,68,68,0.2);color:#fca5a5;font-size:12px;font-weight:700">
+          🔧 ${nbSav} SAV à traiter
+        </span>`:'<span style="padding:4px 10px;border-radius:20px;background:rgba(16,185,129,0.2);color:#6ee7b7;font-size:12px;font-weight:700">✅ Aucun SAV en cours</span>'}
+      </div>
+      <div style="font-size:12px;color:#64748b;font-style:italic;margin-bottom:10px">${msgJour}</div>
+      <div id="meteo-artisan" style="font-size:12px;color:#94a3b8">⏳ Météo en chargement…</div>
+    </div>
+
+    <!-- CARTE -->
+    <div style="font-weight:700;font-size:14px;margin-bottom:8px">🗺️ Carte de mes chantiers</div>
+    <div class="map-wrap" style="margin-bottom:16px">
+      <div id="map-artisan" style="height:300px;width:100%;border-radius:13px;overflow:hidden"></div>
+    </div>
+
+    <!-- SAV -->
+    ${mesSav.length>0?`
+    <div style="font-weight:700;font-size:14px;margin-bottom:8px">🔧 Mes SAV en cours (${mesSav.length})</div>
+    ${mesSav.map(s=>{
+      const cl=clients.find(c=>c.id===s.client_id);
+      const j=jours(s.date_signalement);
+      return `<div class="card" style="margin-bottom:10px;border-left:4px solid ${s.statut==='nouveau'?'#ef4444':'#f59e0b'}">
+        <div style="font-weight:700;font-size:13px;margin-bottom:3px">${s.titre}</div>
+        <div style="font-size:12px;color:#2563eb;font-weight:600">${cl?.nom||'—'}</div>
+        <div style="font-size:11px;color:#64748b">${cl?.adresse||''} · ${j}j</div>
+        ${s.notes?`<div style="font-size:11px;color:#374151;background:#f8fafc;padding:6px 8px;border-radius:6px;margin-top:6px">${s.notes}</div>`:''}
+        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+          ${cl?.tel?`<a href="tel:${cl.tel}" style="padding:4px 9px;border-radius:7px;background:#dbeafe;color:#1e40af;font-size:11px;font-weight:700;text-decoration:none">📞 ${cl.conjoint1?cl.conjoint1+' — '+cl.tel:cl.tel}</a>`:''}
+          ${cl?.tel2?`<a href="tel:${cl.tel2}" style="padding:4px 9px;border-radius:7px;background:#e0e7ff;color:#3730a3;font-size:11px;font-weight:700;text-decoration:none">📞 ${cl.conjoint2?cl.conjoint2+' — '+cl.tel2:cl.tel2}</a>`:''}
+          ${cl?.email?`<a href="mailto:${cl.email}" style="padding:4px 9px;border-radius:7px;background:#ecfdf5;color:#065f46;font-size:11px;font-weight:700;text-decoration:none">✉ ${cl.email}</a>`:''}
+          ${cl?.lat&&cl?.lng?`<button onclick="openNavArtisan('${cl.id}')" style="padding:4px 9px;border-radius:7px;background:#fef3c7;color:#d97706;border:none;cursor:pointer;font-size:11px;font-weight:700">🧭 Itinéraire</button>`:''}
+        </div>
+      </div>`;
+    }).join('')}`
+    :'<div class="card" style="text-align:center;padding:16px;color:#10b981;font-weight:700;margin-bottom:16px">✅ Aucun SAV en cours !</div>'}
+
+
+  `;
+
+  // Météo artisan
+  setTimeout(()=>{
+    const el=document.getElementById('meteo-artisan');
+    if(!el)return;
+    // Prendre coord du premier chantier avec lat/lng ou coord Saintes par défaut
+    const cl=mesChantiers.find(c=>c.lat&&c.lng);
+    const lat=cl?.lat||45.748;
+    const lng=cl?.lng||-0.633;
+    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weathercode,windspeed_10m&wind_speed_unit=kmh&timezone=Europe/Paris`)
+      .then(r=>r.json()).then(data=>{
+        const t=data.current?.temperature_2m;
+        const wind=data.current?.windspeed_10m;
+        const code=data.current?.weathercode;
+        const icons={0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',53:'🌦️',55:'🌧️',61:'🌧️',63:'🌧️',65:'🌧️',71:'🌨️',73:'🌨️',75:'❄️',80:'🌦️',81:'🌧️',82:'⛈️',95:'⛈️'};
+        const icon=icons[code]||'🌡️';
+        el.innerHTML=`${icon} ${Math.round(t)}°C · 💨 ${Math.round(wind)} km/h — ${cl?getCommune(cl.adresse)||'Charente-Maritime':'Charente-Maritime'}`;
+      }).catch(()=>{el.innerHTML='';});
+  },500);
+
+  // Init map
+  setTimeout(()=>{
+    const el=document.getElementById('map-artisan');
+    if(!el)return;
+    const map=L.map(el).setView([45.748,-0.62],9);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(map);
+    mesChantiers.filter(cl=>cl.lat&&cl.lng).forEach(cl=>{
+      const hasSav=mesSav.some(s=>s.client_id===cl.id);
+      const st=cl.statut||'en_cours';
+      const color=hasSav?'#ef4444':st==='livre'?'#10b981':st==='en_cours'||st==='ouverture'?'#f59e0b':'#64748b';
+      const icon=L.divIcon({className:'',html:`<div style="width:26px;height:26px;border-radius:50% 50% 50% 0;background:${color};border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);transform:rotate(-45deg)"></div>`,iconSize:[26,26],iconAnchor:[13,26]});
+      const popup=`<div style="min-width:160px">
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px">${cl.nom}</div>
+        <div style="font-size:11px;color:#64748b;margin-bottom:8px">${cl.adresse||''}</div>
+        <div style="display:flex;gap:6px">
+          ${cl.lat&&cl.lng?`<a href="https://www.google.com/maps/dir/?api=1&destination=${cl.lat},${cl.lng}&travelmode=driving" target="_blank" style="flex:1;padding:5px;border-radius:7px;background:#fef3c7;color:#d97706;font-size:11px;font-weight:700;text-decoration:none;text-align:center">🧭 Itinéraire</a>`:''}
+          <button onclick="scrollToArtisanClient('${cl.id}')" style="flex:1;padding:5px;border-radius:7px;background:#dbeafe;color:#1e40af;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit">👤 Fiche</button>
+        </div>
+      </div>`;
+      L.marker([cl.lat,cl.lng],{icon}).bindPopup(popup).addTo(map);
+    });
+  },200);
+}
+
+function renderArtisanClientCard(cl, mesSav){
+  const hasSav=mesSav&&mesSav.some(s=>s.client_id===cl.id);
+  const st=cl.statut||'en_cours';
+  const bannerBg='#0f172a';
+  const badgeBg=hasSav?'#ef4444':st==='livre'?'#10b981':st==='en_cours'||st==='ouverture'?'#f59e0b':'#64748b';
+  const badgeLabel=hasSav?'🔧 SAV':st==='livre'?'✅ Livré':st==='en_cours'||st==='ouverture'?'🔨 En cours':'—';
+  return `<div style="margin-bottom:8px;border-radius:11px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.10)">
+    <div style="background:${bannerBg};padding:10px 13px;display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer" onclick="toggleArtisanCard('ac-${cl.id}')">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:13px;color:#f1f5f9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cl.nom}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <span style="background:${badgeBg};color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;white-space:nowrap">${badgeLabel}</span>
+        ${cl.lat&&cl.lng?`<button onclick="event.stopPropagation();openNavArtisan('${cl.id}')" style="padding:3px 8px;border-radius:7px;background:#fef3c7;color:#d97706;border:none;cursor:pointer;font-size:11px;font-weight:700">🧭</button>`:''}
+        <span style="color:#94a3b8;font-size:12px" id="ac-arrow-${cl.id}">▶</span>
+      </div>
+    </div>
+    <div id="ac-${cl.id}" style="display:none;background:#fff;padding:10px 13px">
+      ${cl.adresse?`<div style="font-size:11px;color:#64748b;margin-bottom:8px;display:flex;align-items:center;gap:6px">📍 ${cl.adresse}</div>`:''}
+      ${cl.conjoint1||cl.conjoint2?`<div style="font-size:11px;color:#374151;margin-bottom:6px;font-weight:600">${[cl.conjoint1,cl.conjoint2].filter(Boolean).join(' · ')}</div>`:''}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+        ${cl.tel?`<a href="tel:${cl.tel}" style="padding:4px 9px;border-radius:7px;background:#dbeafe;color:#1e40af;font-size:11px;font-weight:700;text-decoration:none">📞 ${cl.tel}</a>`:''}
+        ${cl.tel2?`<a href="tel:${cl.tel2}" style="padding:4px 9px;border-radius:7px;background:#e0e7ff;color:#3730a3;font-size:11px;font-weight:700;text-decoration:none">📞 ${cl.tel2}</a>`:''}
+      </div>
+      ${cl.email||cl.email2?`<div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${cl.email?`<a href="mailto:${cl.email}" style="padding:4px 9px;border-radius:7px;background:#ecfdf5;color:#065f46;font-size:11px;font-weight:700;text-decoration:none">✉ ${cl.email}</a>`:''}
+        ${cl.email2?`<a href="mailto:${cl.email2}" style="padding:4px 9px;border-radius:7px;background:#ecfdf5;color:#065f46;font-size:11px;font-weight:700;text-decoration:none">✉ ${cl.email2}</a>`:''}
+      </div>`:''}
+    </div>
+  </div>`;
+}
+
+function toggleArtisanCard(id){
+  const el=document.getElementById(id);
+  const arrow=document.getElementById('ac-arrow-'+id.replace('ac-',''));
+  if(!el)return;
+  const open=el.style.display==='none';
+  el.style.display=open?'block':'none';
+  if(arrow)arrow.textContent=open?'▼':'▶';
 }
 
 function filterArtisanClients(q){
   const el=document.getElementById('artisan-clients-list');
   if(!el)return;
-  const artisanNom=getArtisanName();
-  const artisan=artisans.find(a=>a.nom===artisanNom||(a.entreprise&&a.entreprise===artisanNom));
-  if(!artisan)return;
-  const mesChantiers=chantierArtisans.filter(x=>x.artisan_id===artisan.id).map(x=>clients.find(c=>c.id===x.client_id)).filter(Boolean).sort((a,b)=>a.nom.localeCompare(b.nom));
-  const mesSav=savList.filter(s=>s.artisan_id===artisan.id&&s.statut!=='resolu');
-  const filtered=q?mesChantiers.filter(cl=>cl.nom.toLowerCase().includes(q.toLowerCase())||(cl.adresse||'').toLowerCase().includes(q.toLowerCase())):mesChantiers;
-  el.innerHTML=filtered.map(cl=>{
-    const statut=CHANTIER_STATUTS[cl.statut]||CHANTIER_STATUTS.en_cours;
-    return `<div class="card" style="margin-bottom:8px;padding:0;overflow:hidden">
-      <div style="background:#0f172a;padding:10px 13px;display:flex;align-items:center;justify-content:space-between;gap:8px">
-        <div>
-          <div style="font-weight:700;font-size:13px;color:#f1f5f9">${cl.nom}</div>
-          <div style="font-size:11px;color:#64748b;margin-top:1px">${cl.adresse||''}</div>
-        </div>
-        <span class="ch-badge ${statut.cls}">${statut.l}</span>
-      </div>
-      <div style="padding:10px 13px">
-        ${cl.conjoint1||cl.conjoint2?`<div style="font-size:11px;color:#374151;margin-bottom:6px;font-weight:600">${[cl.conjoint1,cl.conjoint2].filter(Boolean).join(' · ')}</div>`:''}
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
-          ${cl.tel?`<a href="tel:${cl.tel}" style="padding:4px 9px;border-radius:7px;background:#dbeafe;color:#1e40af;font-size:11px;font-weight:700;text-decoration:none">📞 ${cl.tel}</a>`:''}
-          ${cl.tel2?`<a href="tel:${cl.tel2}" style="padding:4px 9px;border-radius:7px;background:#e0e7ff;color:#3730a3;font-size:11px;font-weight:700;text-decoration:none">📞 ${cl.tel2}</a>`:''}
-          ${cl.lat&&cl.lng?`<button onclick="openNavArtisan('${cl.id}')" style="padding:4px 9px;border-radius:7px;background:#fef3c7;color:#d97706;border:none;cursor:pointer;font-size:11px;font-weight:700">🧭 Itinéraire</button>`:''}
-        </div>
-        ${cl.email||cl.email2?`<div style="display:flex;gap:6px;flex-wrap:wrap">
-          ${cl.email?`<a href="mailto:${cl.email}" style="padding:4px 9px;border-radius:7px;background:#ecfdf5;color:#065f46;font-size:11px;font-weight:700;text-decoration:none">✉ ${cl.email}</a>`:''}
-          ${cl.email2?`<a href="mailto:${cl.email2}" style="padding:4px 9px;border-radius:7px;background:#ecfdf5;color:#065f46;font-size:11px;font-weight:700;text-decoration:none">✉ ${cl.email2}</a>`:''}
-        </div>`:''}
-      </div>
-    </div>`;
-  }).join('');
+  const {mesChantiers,mesSav}=window._artisanData||{};
+  if(!mesChantiers)return;
+  const filtre=window._artisanFiltre||'tous';
+  let liste=mesChantiers;
+  if(filtre==='en_cours')liste=mesChantiers.filter(cl=>cl.statut==='en_cours'||cl.statut==='ouverture');
+  else if(filtre==='livre')liste=mesChantiers.filter(cl=>cl.statut==='livre');
+  else if(filtre==='sav')liste=mesChantiers.filter(cl=>mesSav.some(s=>s.client_id===cl.id));
+  const filtered=q?liste.filter(cl=>cl.nom.toLowerCase().includes(q.toLowerCase())||(cl.adresse||'').toLowerCase().includes(q.toLowerCase())):liste;
+  el.innerHTML=filtered.map(cl=>renderArtisanClientCard(cl,mesSav)).join('');
   if(filtered.length===0)el.innerHTML='<div class="empty"><div class="big">🔍</div><p>Aucun client trouvé</p></div>';
+}
+
+
+function renderArtisanSav(){
+  const {artisan,mesSav}=window._artisanData||{};
+  if(!artisan)return;
+  document.getElementById('page-title').textContent='Mes SAV';
+  const c=document.getElementById('content');
+  if(mesSav.length===0){
+    c.innerHTML='<div class="card" style="text-align:center;padding:24px;color:#10b981;font-weight:700;font-size:15px">✅ Aucun SAV en cours !</div>';
+    return;
+  }
+  c.innerHTML='<div style="font-weight:700;font-size:14px;margin-bottom:10px">🔧 Mes SAV en cours ('+mesSav.length+')</div>'
+    +mesSav.map(s=>{
+      const cl=clients.find(c=>c.id===s.client_id);
+      const j=jours(s.date_signalement);
+      return `<div class="card" style="margin-bottom:10px;border-left:4px solid ${s.statut==='nouveau'?'#ef4444':'#f59e0b'}">
+        <div style="font-weight:700;font-size:13px;margin-bottom:3px">${s.titre}</div>
+        <div style="font-size:12px;color:#2563eb;font-weight:600">${cl?.nom||'—'}</div>
+        <div style="font-size:11px;color:#64748b">${cl?.adresse||''} · ${j}j</div>
+        ${s.notes?`<div style="font-size:11px;color:#374151;background:#f8fafc;padding:6px 8px;border-radius:6px;margin-top:6px">${s.notes}</div>`:''}
+        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+          ${cl?.tel?`<a href="tel:${cl.tel}" style="padding:4px 9px;border-radius:7px;background:#dbeafe;color:#1e40af;font-size:11px;font-weight:700;text-decoration:none">📞 ${cl.conjoint1?cl.conjoint1+' — '+cl.tel:cl.tel}</a>`:''}
+          ${cl?.tel2?`<a href="tel:${cl.tel2}" style="padding:4px 9px;border-radius:7px;background:#e0e7ff;color:#3730a3;font-size:11px;font-weight:700;text-decoration:none">📞 ${cl.conjoint2?cl.conjoint2+' — '+cl.tel2:cl.tel2}</a>`:''}
+          ${cl?.email?`<a href="mailto:${cl.email}" style="padding:4px 9px;border-radius:7px;background:#ecfdf5;color:#065f46;font-size:11px;font-weight:700;text-decoration:none">✉ ${cl.email}</a>`:''}
+          ${cl?.lat&&cl?.lng?`<button onclick="openNavArtisan('${cl.id}')" style="padding:4px 9px;border-radius:7px;background:#fef3c7;color:#d97706;border:none;cursor:pointer;font-size:11px;font-weight:700">🧭 Itinéraire</button>`:''}
+        </div>
+      </div>`;
+    }).join('');
+}
+
+function renderArtisanChantiers(filtre){
+  const {mesChantiers,mesSav}=window._artisanData||{};
+  if(!mesChantiers)return;
+  window._artisanFiltre=filtre||'tous';
+  document.getElementById('page-title').textContent='Mes chantiers';
+  const c=document.getElementById('content');
+  let liste=mesChantiers;
+  if(filtre==='en_cours')liste=mesChantiers.filter(cl=>cl.statut==='en_cours'||cl.statut==='ouverture');
+  else if(filtre==='livre')liste=mesChantiers.filter(cl=>cl.statut==='livre');
+  else if(filtre==='sav')liste=mesChantiers.filter(cl=>mesSav.some(s=>s.client_id===cl.id));
+  c.innerHTML=`
+    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+      <button onclick="renderArtisanChantiers('tous')" style="padding:4px 12px;border-radius:20px;border:2px solid ${!filtre||filtre==='tous'?'#2563eb':'#e2e8f0'};background:${!filtre||filtre==='tous'?'#eff6ff':'#fff'};color:${!filtre||filtre==='tous'?'#2563eb':'#64748b'};cursor:pointer;font-size:11px;font-weight:700;font-family:inherit">Tous (${mesChantiers.length})</button>
+      <button onclick="renderArtisanChantiers('en_cours')" style="padding:4px 12px;border-radius:20px;border:2px solid ${filtre==='en_cours'?'#f59e0b':'#e2e8f0'};background:${filtre==='en_cours'?'#fff7ed':'#fff'};color:${filtre==='en_cours'?'#d97706':'#64748b'};cursor:pointer;font-size:11px;font-weight:700;font-family:inherit">🔨 En cours (${mesChantiers.filter(cl=>cl.statut==='en_cours'||cl.statut==='ouverture').length})</button>
+      <button onclick="renderArtisanChantiers('livre')" style="padding:4px 12px;border-radius:20px;border:2px solid ${filtre==='livre'?'#10b981':'#e2e8f0'};background:${filtre==='livre'?'#ecfdf5':'#fff'};color:${filtre==='livre'?'#065f46':'#64748b'};cursor:pointer;font-size:11px;font-weight:700;font-family:inherit">✅ Livrés (${mesChantiers.filter(cl=>cl.statut==='livre').length})</button>
+      <button onclick="renderArtisanChantiers('sav')" style="padding:4px 12px;border-radius:20px;border:2px solid ${filtre==='sav'?'#ef4444':'#e2e8f0'};background:${filtre==='sav'?'#fef2f2':'#fff'};color:${filtre==='sav'?'#ef4444':'#64748b'};cursor:pointer;font-size:11px;font-weight:700;font-family:inherit">🔧 SAV (${mesSav.length})</button>
+    </div>
+    <div class="search-wrap" style="margin-bottom:10px">
+      <span class="search-ic">🔍</span>
+      <input type="text" placeholder="Rechercher un client…" oninput="filterArtisanClients(this.value)" style="font-size:13px"/>
+    </div>
+    <div id="artisan-clients-list">
+      ${liste.map(cl=>renderArtisanClientCard(cl,mesSav)).join('')}
+    </div>
+  `;
+}
+
+function scrollToArtisanClient(clientId){
+  // Si on est dans la vue accueil, la liste n'existe pas — basculer sur Mes chantiers
+  const listEl=document.getElementById('artisan-clients-list');
+  if(!listEl){
+    renderArtisanChantiers();
+    setTimeout(()=>_doScrollArtisan(clientId),300);
+    return;
+  }
+  _doScrollArtisan(clientId);
+}
+
+function _doScrollArtisan(clientId){
+  const card=document.getElementById('ac-'+clientId);
+  if(!card)return;
+  // Ouvrir si fermé
+  if(card.style.display==='none'){
+    card.style.display='block';
+    const arrow=document.getElementById('ac-arrow-'+clientId);
+    if(arrow)arrow.textContent='▼';
+  }
+  // Trouver le wrapper parent avec border-radius
+  let wrapper=card.parentElement;
+  while(wrapper&&!wrapper.style.borderRadius)wrapper=wrapper.parentElement;
+  const target=wrapper||card;
+  const offset=target.getBoundingClientRect().top+window.scrollY-70;
+  window.scrollTo({top:offset,behavior:'smooth'});
+  target.style.outline='2.5px solid #2563eb';
+  setTimeout(()=>{target.style.outline='';},2000);
 }
 
 function openNavArtisan(clientId){
