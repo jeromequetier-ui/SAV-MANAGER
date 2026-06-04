@@ -1149,6 +1149,18 @@ function applyAllSavFilters(q){
 }
 
 // ── SUIVI DE CHANTIER
+function getCommune(adresse){
+  if(!adresse)return '';
+  const m=adresse.match(/[0-9]{5}\s+([^,]+)/);
+  if(m)return m[1].trim();
+  const parts=adresse.split(',');
+  if(parts.length>1){
+    const last=parts[parts.length-1].trim();
+    return last.replace(/Charente.Maritime/i,'').trim();
+  }
+  return '';
+}
+
 function renderSuivi(c){
   // Uniquement chantiers avec tâches en attente (notes CT ou tâches artisans)
   const list=clients.filter(x=>
