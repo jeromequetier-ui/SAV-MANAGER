@@ -444,7 +444,22 @@ function renderArtisanView(){
     } else {
       map.setView([45.748,-0.62],11);
     }
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(map);
+    const layerStreet=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19});
+    const layerSat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:19});
+    layerStreet.addTo(map);
+    let isSat=false;
+    // Bouton bascule
+    const togBtn=document.createElement('button');
+    togBtn.innerHTML='🛰️';
+    togBtn.title='Vue satellite';
+    togBtn.style.cssText='position:absolute;top:10px;right:10px;z-index:1000;padding:6px 10px;border-radius:8px;border:2px solid #fff;background:#fff;font-size:16px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.3)';
+    togBtn.onclick=()=>{
+      isSat=!isSat;
+      if(isSat){map.removeLayer(layerStreet);layerSat.addTo(map);togBtn.innerHTML='🗺️';togBtn.title='Vue plan';}
+      else{map.removeLayer(layerSat);layerStreet.addTo(map);togBtn.innerHTML='🛰️';togBtn.title='Vue satellite';}
+    };
+    el.style.position='relative';
+    el.appendChild(togBtn);
     mesChantiers.filter(cl=>cl.lat&&cl.lng).forEach(cl=>{
       const hasSav=mesSav.some(s=>s.client_id===cl.id);
       const st=cl.statut||'en_cours';
