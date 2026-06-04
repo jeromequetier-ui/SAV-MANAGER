@@ -387,14 +387,12 @@ function renderArtisanView(){
     <!-- BANNIÈRE ACCUEIL -->
     <div style="background:linear-gradient(135deg,#1e3a5f,#0f172a);border-radius:13px;padding:16px;margin-bottom:14px;color:#fff">
       <div style="font-size:13px;color:#94a3b8;margin-bottom:2px">${salut},</div>
-      <div style="font-size:20px;font-weight:800;margin-bottom:6px">${artisan.entreprise||artisan.nom} 👋</div>
+      <div style="font-size:20px;font-weight:800;margin-bottom:10px">${artisan.entreprise||artisan.nom} 👋</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-        <span style="padding:4px 10px;border-radius:20px;background:rgba(245,158,11,0.2);color:#fcd34d;font-size:12px;font-weight:700">
-          🏗️ ${nbEnCours} chantier${nbEnCours>1?'s':''} en cours
-        </span>
-        ${nbSav>0?`<span style="padding:4px 10px;border-radius:20px;background:rgba(239,68,68,0.2);color:#fca5a5;font-size:12px;font-weight:700">
-          🔧 ${nbSav} SAV à traiter
-        </span>`:'<span style="padding:4px 10px;border-radius:20px;background:rgba(16,185,129,0.2);color:#6ee7b7;font-size:12px;font-weight:700">✅ Aucun SAV en cours</span>'}
+        <button onclick="renderArtisanChantiers('en_cours')" style="padding:6px 12px;border-radius:20px;background:rgba(245,158,11,0.25);color:#fcd34d;font-size:12px;font-weight:700;border:none;cursor:pointer;font-family:inherit">🏗️ ${nbEnCours} chantier${nbEnCours>1?'s':''} en cours</button>
+        ${nbSav>0
+          ?`<button onclick="renderArtisanSav()" style="padding:6px 12px;border-radius:20px;background:rgba(239,68,68,0.25);color:#fca5a5;font-size:12px;font-weight:700;border:none;cursor:pointer;font-family:inherit">🔧 ${nbSav} SAV à traiter</button>`
+          :`<span style="padding:6px 12px;border-radius:20px;background:rgba(16,185,129,0.2);color:#6ee7b7;font-size:12px;font-weight:700">✅ Aucun SAV</span>`}
       </div>
       <div style="font-size:12px;color:#64748b;font-style:italic;margin-bottom:10px">${msgJour}</div>
       <div id="meteo-artisan" style="font-size:12px;color:#94a3b8">⏳ Météo en chargement…</div>
@@ -402,32 +400,9 @@ function renderArtisanView(){
 
     <!-- CARTE -->
     <div style="font-weight:700;font-size:14px;margin-bottom:8px">🗺️ Carte de mes chantiers</div>
-    <div class="map-wrap" style="margin-bottom:16px">
-      <div id="map-artisan" style="height:300px;width:100%;border-radius:13px;overflow:hidden"></div>
+    <div class="map-wrap" style="margin-bottom:14px">
+      <div id="map-artisan" style="height:calc(100vh - 280px);min-height:250px;width:100%;border-radius:13px;overflow:hidden"></div>
     </div>
-
-    <!-- SAV -->
-    ${mesSav.length>0?`
-    <div style="font-weight:700;font-size:14px;margin-bottom:8px">🔧 Mes SAV en cours (${mesSav.length})</div>
-    ${mesSav.map(s=>{
-      const cl=clients.find(c=>c.id===s.client_id);
-      const j=jours(s.date_signalement);
-      return `<div class="card" style="margin-bottom:10px;border-left:4px solid ${s.statut==='nouveau'?'#ef4444':'#f59e0b'}">
-        <div style="font-weight:700;font-size:13px;margin-bottom:3px">${s.titre}</div>
-        <div style="font-size:12px;color:#2563eb;font-weight:600">${cl?.nom||'—'}</div>
-        <div style="font-size:11px;color:#64748b">${cl?.adresse||''} · ${j}j</div>
-        ${s.notes?`<div style="font-size:11px;color:#374151;background:#f8fafc;padding:6px 8px;border-radius:6px;margin-top:6px">${s.notes}</div>`:''}
-        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
-          ${cl?.tel?`<a href="tel:${cl.tel}" style="padding:4px 9px;border-radius:7px;background:#dbeafe;color:#1e40af;font-size:11px;font-weight:700;text-decoration:none">📞 ${cl.conjoint1?cl.conjoint1+' — '+cl.tel:cl.tel}</a>`:''}
-          ${cl?.tel2?`<a href="tel:${cl.tel2}" style="padding:4px 9px;border-radius:7px;background:#e0e7ff;color:#3730a3;font-size:11px;font-weight:700;text-decoration:none">📞 ${cl.conjoint2?cl.conjoint2+' — '+cl.tel2:cl.tel2}</a>`:''}
-          ${cl?.email?`<a href="mailto:${cl.email}" style="padding:4px 9px;border-radius:7px;background:#ecfdf5;color:#065f46;font-size:11px;font-weight:700;text-decoration:none">✉ ${cl.email}</a>`:''}
-          ${cl?.lat&&cl?.lng?`<button onclick="openNavArtisan('${cl.id}')" style="padding:4px 9px;border-radius:7px;background:#fef3c7;color:#d97706;border:none;cursor:pointer;font-size:11px;font-weight:700">🧭 Itinéraire</button>`:''}
-        </div>
-      </div>`;
-    }).join('')}`
-    :'<div class="card" style="text-align:center;padding:16px;color:#10b981;font-weight:700;margin-bottom:16px">✅ Aucun SAV en cours !</div>'}
-
-
   `;
 
   // Météo artisan
