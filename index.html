@@ -358,6 +358,12 @@ function renderArtisanView(){
   window._artisanData={artisan, mesChantiers, mesSav};
 
   // Garder seulement 2 boutons dans la nav : accueil, mes SAV, mes chantiers
+  // Bottom nav active state
+  document.querySelectorAll('.bnav-btn').forEach(b=>{
+    const active=b.dataset.v===currentView;
+    b.style.color=active?'#3b82f6':'#64748b';
+    b.querySelector('span:last-child').style.color=active?'#3b82f6':'#64748b';
+  });
   document.querySelectorAll('.nav-btn').forEach(b=>{
     const v=b.dataset.v;
     if(v==='dashboard'){
@@ -3341,6 +3347,26 @@ loadAll().then(()=>startPolling());
     <textarea id="chat-input" placeholder="Posez votre question…" rows="1" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px'"></textarea>
     <button id="chat-send">→</button>
   </div>
+</div>
+<div id="bottom-nav" style="display:none;position:fixed;bottom:0;left:0;right:0;height:60px;background:#0f172a;border-top:1px solid #1e293b;z-index:100;align-items:stretch;justify-content:space-around;padding:0 4px;">
+  <button onclick="goView('dashboard')" data-v="dashboard" class="bnav-btn" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:2px;padding:4px;font-family:inherit">
+    <span style="font-size:20px">🏠</span><span style="font-size:9px;font-weight:600">Accueil</span>
+  </button>
+  <button onclick="goView('sav')" data-v="sav" class="bnav-btn" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:2px;padding:4px;font-family:inherit">
+    <span style="font-size:20px">🔧</span><span style="font-size:9px;font-weight:600">SAV</span>
+  </button>
+  <button onclick="goView('clients')" data-v="clients" class="bnav-btn" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:2px;padding:4px;font-family:inherit">
+    <span style="font-size:20px">🏡</span><span style="font-size:9px;font-weight:600">Chantiers</span>
+  </button>
+  <button onclick="goView('suivi')" data-v="suivi" class="bnav-btn" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:2px;padding:4px;font-family:inherit">
+    <span style="font-size:20px">📋</span><span style="font-size:9px;font-weight:600">Suivi</span>
+  </button>
+  <button onclick="goView('artisans')" data-v="artisans" class="bnav-btn" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:2px;padding:4px;font-family:inherit">
+    <span style="font-size:20px">👷</span><span style="font-size:9px;font-weight:600">Artisans</span>
+  </button>
+  <button onclick="goView('alertes')" data-v="alertes" class="bnav-btn" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:2px;padding:4px;font-family:inherit">
+    <span style="font-size:20px">⚠️</span><span style="font-size:9px;font-weight:600">Alertes</span>
+  </button>
 </div>
 </body>
 </html>
