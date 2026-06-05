@@ -324,12 +324,20 @@ function renderArtisanView(){
   const artisan=artisans.find(a=>a.nom===artisanNom||(a.entreprise&&a.entreprise===artisanNom));
 
   if(!artisan){
-    document.getElementById('content').innerHTML='<div class="empty"><div class="big">⚠️</div><p>Artisan non trouvé.<br><small>'+artisanNom+'</small></p></div>';
+    // Sécurité : artisan non trouvé → déconnexion forcée, jamais d'accès admin
+    sessionStorage.removeItem('sav_auth');
+    document.getElementById('content').innerHTML='';
+    document.getElementById('login-screen').style.display='flex';
+    document.getElementById('login-error').textContent='Compte artisan non configuré. Contactez MA 17 SUD.';
+    document.getElementById('login-error').style.display='block';
     return;
   }
 
   const mesChantiers=chantierArtisans.filter(x=>x.artisan_id===artisan.id).map(x=>clients.find(c=>c.id===x.client_id)).filter(Boolean).sort((a,b)=>a.nom.localeCompare(b.nom));
   const mesSav=savList.filter(s=>s.artisan_id===artisan.id&&s.statut!=='resolu');
+
+  // Restaurer visibilité
+  document.getElementById('content').style.visibility='visible';
 
   // Masquer chat
   const chatBtn=document.getElementById('chat-btn');
@@ -697,6 +705,8 @@ function updateUI(){
 function goView(v){
   currentView=v;closeSB();updateUI();
   const c=document.getElementById('content');
+  c.style.visibility='visible';
+  c.classList.remove('artisan-accueil');
   if(v==='dashboard')renderDashboard(c);
   else if(v==='clients')renderClients(c);
   else if(v==='sav')renderSav(c);
@@ -2586,9 +2596,18 @@ function doLogin(){
     sessionStorage.setItem('sav_auth', btoa(user+':'+pass));
     document.getElementById('login-screen').style.display = 'none';
     if(isArtisanUser()){
+      document.getElementById('loader').style.display='flex';
+      document.getElementById('sidebar').style.visibility='hidden';
+      document.getElementById('content').style.visibility='hidden';
       loadAll().then(()=>renderArtisanView());
-    } else {
+    } else if(!ARTISAN_USERS[document.getElementById('login-user').value.trim().toLowerCase()]){
       loadAll().then(()=>startPolling());
+    } else {
+      // Sécurité : compte artisan non reconnu → déconnexion forcée
+      sessionStorage.removeItem('sav_auth');
+      document.getElementById('login-error').textContent='Accès non autorisé.';
+      document.getElementById('login-error').style.display='block';
+      document.getElementById('login-screen').style.display='flex';
     }
   } else {
     err.style.display = 'block';
