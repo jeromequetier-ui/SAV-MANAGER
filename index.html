@@ -346,9 +346,22 @@ function renderArtisanView(){
   // Restaurer visibilité
   document.getElementById('content').style.visibility='visible';
 
-  // Masquer chat et bottom nav pour artisans
+  // Remplacer la barre du bas par les boutons artisan
   const bottomNav=document.getElementById('bottom-nav');
-  if(bottomNav)bottomNav.style.display='none!important'||'none';
+  if(bottomNav){
+    bottomNav.innerHTML=`
+      <button onclick="renderArtisanView()" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#3b82f6;cursor:pointer;gap:1px;font-family:inherit;border-top:2px solid #3b82f6">
+        <span style="font-size:19px">🗺️</span><span style="font-size:9px;font-weight:600">Carte</span>
+      </button>
+      <button onclick="renderArtisanSav()" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:1px;font-family:inherit;border-top:2px solid transparent">
+        <span style="font-size:19px">🔧</span><span style="font-size:9px;font-weight:600">Mes SAV</span>
+      </button>
+      <button onclick="renderArtisanChantiers()" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:1px;font-family:inherit;border-top:2px solid transparent">
+        <span style="font-size:19px">🏡</span><span style="font-size:9px;font-weight:600">Chantiers</span>
+      </button>
+    `;
+    bottomNav.style.display='flex';
+  }
   const chatBtn=document.getElementById('chat-btn');
   const chatPanel=document.getElementById('chat-panel');
   if(chatBtn)chatBtn.style.display='none';
