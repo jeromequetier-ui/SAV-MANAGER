@@ -13,10 +13,11 @@
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f1f5f9;color:#0f172a;overscroll-behavior:none;}
 #bottom-nav{display:none;}
 @media(max-width:768px){
-  #bottom-nav{display:flex;position:fixed;bottom:0;left:0;right:0;height:58px;background:#0f172a;border-top:1px solid #1e293b;z-index:200;align-items:stretch;justify-content:space-around;}
-  #content{padding-bottom:68px!important;}
+  #topbar{padding-top:env(safe-area-inset-top);padding-top:max(env(safe-area-inset-top),14px);}
+  #bottom-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:#0f172a;border-top:1px solid #1e293b;z-index:200;align-items:stretch;justify-content:space-around;padding-bottom:env(safe-area-inset-bottom);height:calc(58px + env(safe-area-inset-bottom));}
+  #content{padding-bottom:calc(68px + env(safe-area-inset-bottom))!important;}
   .hamburger{display:none!important;}
-  #topbar .page-title{display:block;}
+  .page-title{display:block;}
 }
 button,a{font-family:inherit;cursor:pointer;}
 input,select,textarea{font-family:inherit;}
@@ -51,6 +52,10 @@ input,select,textarea{font-family:inherit;}
 .live-dot{width:7px;height:7px;border-radius:50%;background:#10b981;animation:pulse 2s infinite;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 #content{padding:14px;min-height:calc(100vh - 48px);}#content.artisan-accueil{padding:0;min-height:0;overflow:hidden;}
+#more-menu-panel{display:none;position:fixed;bottom:calc(58px + env(safe-area-inset-bottom));left:0;right:0;background:#0f172a;border-radius:20px 20px 0 0;z-index:199;padding:16px;box-shadow:0 -4px 20px rgba(0,0,0,0.3);}
+#more-menu-panel.open{display:block;}
+#more-menu-overlay{display:none;position:fixed;inset:0;z-index:198;background:rgba(0,0,0,0.5);}
+#more-menu-overlay.open{display:block;}
 .card{background:#fff;border-radius:13px;padding:13px 15px;box-shadow:0 1px 4px rgba(0,0,0,0.07);margin-bottom:9px;}
 .card.warn{border:1.5px solid #fecaca;background:#fff5f5;}
 .status{display:inline-block;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:600;white-space:nowrap;}
@@ -383,8 +388,9 @@ function renderArtisanView(){
   document.querySelectorAll('.bnav-btn').forEach(b=>{
     const on=b.dataset.v===currentView;
     b.style.color=on?'#3b82f6':'#64748b';
-    b.style.borderTopColor=on?'#3b82f6':'transparent';
   });
+  // Close more menu on nav
+  closeMoreMenu();
   document.querySelectorAll('.nav-btn').forEach(b=>{
     const v=b.dataset.v;
     if(v==='dashboard'){
@@ -551,6 +557,22 @@ function toggleArtisanCard(id){
   const open=el.style.display==='none';
   el.style.display=open?'block':'none';
   if(arrow)arrow.textContent=open?'▼':'▶';
+}
+
+function toggleMoreMenu(){
+  const panel=document.getElementById('more-menu-panel');
+  const overlay=document.getElementById('more-menu-overlay');
+  const btn=document.getElementById('bnav-more');
+  const isOpen=panel.classList.contains('open');
+  panel.classList.toggle('open');
+  overlay.classList.toggle('open');
+  if(btn)btn.style.color=isOpen?'#64748b':'#3b82f6';
+}
+function closeMoreMenu(){
+  document.getElementById('more-menu-panel').classList.remove('open');
+  document.getElementById('more-menu-overlay').classList.remove('open');
+  const btn=document.getElementById('bnav-more');
+  if(btn)btn.style.color='#64748b';
 }
 
 function filterArtisanClients(q){
@@ -3372,24 +3394,46 @@ loadAll().then(()=>startPolling());
     <button id="chat-send">→</button>
   </div>
 </div>
+<!-- More menu overlay -->
+<div id="more-menu-overlay" onclick="closeMoreMenu()"></div>
+<!-- More menu panel -->
+<div id="more-menu-panel">
+  <div style="width:36px;height:4px;background:#334155;border-radius:4px;margin:0 auto 16px"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <button onclick="closeMoreMenu();goView('clients')" style="display:flex;align-items:center;gap:10px;padding:13px 14px;border-radius:12px;background:#1e293b;border:none;color:#f1f5f9;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600">
+      <span style="font-size:22px">🏡</span>Chantiers
+    </button>
+    <button onclick="closeMoreMenu();goView('artisans')" style="display:flex;align-items:center;gap:10px;padding:13px 14px;border-radius:12px;background:#1e293b;border:none;color:#f1f5f9;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600">
+      <span style="font-size:22px">👷</span>Artisans
+    </button>
+    <button onclick="closeMoreMenu();goView('attribution')" style="display:flex;align-items:center;gap:10px;padding:13px 14px;border-radius:12px;background:#1e293b;border:none;color:#f1f5f9;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600">
+      <span style="font-size:22px">🔗</span>Attribution
+    </button>
+    <button onclick="closeMoreMenu();goView('alertes')" style="display:flex;align-items:center;gap:10px;padding:13px 14px;border-radius:12px;background:#1e293b;border:none;color:#f1f5f9;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600">
+      <span style="font-size:22px">⚠️</span>Alertes
+    </button>
+  </div>
+</div>
+<!-- Bottom nav -->
 <div id="bottom-nav">
-  <button onclick="goView('dashboard')" data-v="dashboard" class="bnav-btn" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:1px;font-family:inherit;border-top:2px solid transparent">
-    <span style="font-size:19px">🏠</span><span style="font-size:9px;font-weight:600;letter-spacing:.01em">Accueil</span>
+  <button onclick="goView('dashboard')" data-v="dashboard" class="bnav-btn" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:2px;font-family:inherit;padding-top:8px">
+    <span style="font-size:22px">🏠</span><span style="font-size:9px;font-weight:600">Accueil</span>
   </button>
-  <button onclick="goView('sav')" data-v="sav" class="bnav-btn" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:1px;font-family:inherit;border-top:2px solid transparent">
-    <span style="font-size:19px">🔧</span><span style="font-size:9px;font-weight:600;letter-spacing:.01em">SAV</span>
+  <button onclick="goView('sav')" data-v="sav" class="bnav-btn" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:2px;font-family:inherit;padding-top:8px">
+    <span style="font-size:22px">🔧</span><span style="font-size:9px;font-weight:600">SAV</span>
   </button>
-  <button onclick="goView('clients')" data-v="clients" class="bnav-btn" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:1px;font-family:inherit;border-top:2px solid transparent">
-    <span style="font-size:19px">🏡</span><span style="font-size:9px;font-weight:600;letter-spacing:.01em">Chantiers</span>
+  <!-- Bouton central + SAV -->
+  <button onclick="openSavModal()" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;font-family:inherit;position:relative;padding-bottom:4px">
+    <div style="width:52px;height:52px;border-radius:50%;background:#ef4444;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(239,68,68,0.5);position:absolute;top:-18px;border:3px solid #0f172a">
+      <span style="font-size:24px;color:#fff;font-weight:700">+</span>
+    </div>
+    <span style="font-size:9px;font-weight:600;color:#64748b;margin-top:28px">Nouveau SAV</span>
   </button>
-  <button onclick="goView('suivi')" data-v="suivi" class="bnav-btn" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:1px;font-family:inherit;border-top:2px solid transparent">
-    <span style="font-size:19px">📋</span><span style="font-size:9px;font-weight:600;letter-spacing:.01em">Suivi</span>
+  <button onclick="goView('suivi')" data-v="suivi" class="bnav-btn" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:2px;font-family:inherit;padding-top:8px">
+    <span style="font-size:22px">📋</span><span style="font-size:9px;font-weight:600">Suivi</span>
   </button>
-  <button onclick="goView('artisans')" data-v="artisans" class="bnav-btn" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:1px;font-family:inherit;border-top:2px solid transparent">
-    <span style="font-size:19px">👷</span><span style="font-size:9px;font-weight:600;letter-spacing:.01em">Artisans</span>
-  </button>
-  <button onclick="goView('alertes')" data-v="alertes" class="bnav-btn" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:1px;font-family:inherit;border-top:2px solid transparent">
-    <span style="font-size:19px">⚠️</span><span style="font-size:9px;font-weight:600;letter-spacing:.01em">Alertes</span>
+  <button onclick="toggleMoreMenu()" id="bnav-more" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:2px;font-family:inherit;padding-top:8px">
+    <span style="font-size:22px">☰</span><span style="font-size:9px;font-weight:600">Menu</span>
   </button>
 </div>
 </body>
