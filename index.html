@@ -12,15 +12,21 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f1f5f9;color:#0f172a;overscroll-behavior:none;}
 #bottom-nav{display:none;}
+#more-menu-panel{display:none;position:fixed;bottom:calc(58px + max(env(safe-area-inset-bottom),20px));left:0;right:0;background:#0f172a;border-radius:20px 20px 0 0;z-index:199;padding:16px;box-shadow:0 -4px 20px rgba(0,0,0,0.3);}
+#more-menu-panel.open{display:block;}
+#more-menu-overlay{display:none;position:fixed;inset:0;z-index:198;background:rgba(0,0,0,0.5);}
+#more-menu-overlay.open{display:block;}
 @media(max-width:768px){
+  #content.sav-view,#content.suivi-view{height:calc(100vh - max(env(safe-area-inset-bottom),20px) - 64px)!important;}
   #topbar{display:none!important;}
   #bottom-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:#0f172a;border-top:1px solid #1e293b;z-index:200;align-items:flex-start;justify-content:space-around;padding-bottom:max(env(safe-area-inset-bottom),20px);padding-top:6px;height:auto;min-height:58px;}
   #content{padding-top:env(safe-area-inset-top)!important;padding-bottom:calc(80px + max(env(safe-area-inset-bottom),20px))!important;}
-  #more-menu-panel{bottom:calc(58px + max(env(safe-area-inset-bottom),20px));}
   .hamburger{display:none!important;}
-  .page-title{display:block;}
   #chat-btn{display:none!important;}
   #chat-panel{display:none!important;}
+}
+@media(min-width:769px){
+  #bottom-nav{display:none!important;}
 }
 button,a{font-family:inherit;cursor:pointer;}
 input,select,textarea{font-family:inherit;}
@@ -54,11 +60,7 @@ input,select,textarea{font-family:inherit;}
 .sb-live{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:11px;color:#10b981;}
 .live-dot{width:7px;height:7px;border-radius:50%;background:#10b981;animation:pulse 2s infinite;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-#content{padding:14px;min-height:calc(100vh - 48px);}#content.artisan-accueil{padding:0;min-height:0;overflow:hidden;}
-#more-menu-panel{display:none;position:fixed;bottom:calc(58px + env(safe-area-inset-bottom));left:0;right:0;background:#0f172a;border-radius:20px 20px 0 0;z-index:199;padding:16px;box-shadow:0 -4px 20px rgba(0,0,0,0.3);}
-#more-menu-panel.open{display:block;}
-#more-menu-overlay{display:none;position:fixed;inset:0;z-index:198;background:rgba(0,0,0,0.5);}
-#more-menu-overlay.open{display:block;}
+#content{padding:14px;min-height:calc(100vh - 48px);overflow-y:auto;height:calc(100vh - 48px);}#content.sav-view,#content.suivi-view{padding:0;display:flex;flex-direction:column;overflow:hidden;}#content.sav-view #sav-sticky-header,#content.suivi-view #suivi-header{padding:14px;background:#f1f5f9;border-bottom:3px solid #00B4C5;flex-shrink:0;}#content.sav-view #sav-list-container,#content.suivi-view #suivi-list{flex:1;overflow-y:auto;padding:14px;}#content.artisan-accueil{padding:0;min-height:0;overflow:hidden;}
 .card{background:#fff;border-radius:13px;padding:13px 15px;box-shadow:0 1px 4px rgba(0,0,0,0.07);margin-bottom:9px;}
 .card.warn{border:1.5px solid #fecaca;background:#fff5f5;}
 .status{display:inline-block;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:600;white-space:nowrap;}
@@ -354,22 +356,17 @@ function renderArtisanView(){
   // Restaurer visibilité
   document.getElementById('content').style.visibility='visible';
 
-  // Remplacer la barre du bas par les boutons artisan
+  // Remplacer barre du bas pour artisans
   const bottomNav=document.getElementById('bottom-nav');
   if(bottomNav){
     bottomNav.innerHTML=`
-      <button onclick="renderArtisanView()" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#3b82f6;cursor:pointer;gap:1px;font-family:inherit;border-top:2px solid #3b82f6">
-        <span style="font-size:19px">🗺️</span><span style="font-size:9px;font-weight:600">Carte</span>
-      </button>
-      <button onclick="renderArtisanSav()" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:1px;font-family:inherit;border-top:2px solid transparent">
-        <span style="font-size:19px">🔧</span><span style="font-size:9px;font-weight:600">Mes SAV</span>
-      </button>
-      <button onclick="renderArtisanChantiers()" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:1px;font-family:inherit;border-top:2px solid transparent">
-        <span style="font-size:19px">🏡</span><span style="font-size:9px;font-weight:600">Chantiers</span>
-      </button>
+      <button onclick="renderArtisanView()" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#3b82f6;cursor:pointer;gap:2px;font-family:inherit;padding-top:2px;border-top:2px solid #3b82f6"><span style="font-size:22px">🗺️</span><span style="font-size:9px;font-weight:600">Carte</span></button>
+      <button onclick="renderArtisanSav()" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:2px;font-family:inherit;padding-top:2px"><span style="font-size:22px">🔧</span><span style="font-size:9px;font-weight:600">Mes SAV</span></button>
+      <button onclick="renderArtisanChantiers()" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:2px;font-family:inherit;padding-top:2px"><span style="font-size:22px">🏡</span><span style="font-size:9px;font-weight:600">Chantiers</span></button>
     `;
     bottomNav.style.display='flex';
   }
+  // Masquer chat
   const chatBtn=document.getElementById('chat-btn');
   const chatPanel=document.getElementById('chat-panel');
   if(chatBtn)chatBtn.style.display='none';
@@ -389,10 +386,8 @@ function renderArtisanView(){
 
   // Garder seulement 2 boutons dans la nav : accueil, mes SAV, mes chantiers
   document.querySelectorAll('.bnav-btn').forEach(b=>{
-    const on=b.dataset.v===currentView;
-    b.style.color=on?'#3b82f6':'#64748b';
+    b.style.color=b.dataset.v===currentView?'#3b82f6':'#64748b';
   });
-  // Close more menu on nav
   closeMoreMenu();
   document.querySelectorAll('.nav-btn').forEach(b=>{
     const v=b.dataset.v;
@@ -496,7 +491,7 @@ function renderArtisanView(){
     const togBtn=document.createElement('button');
     togBtn.innerHTML='🛰️';
     togBtn.title='Vue satellite';
-    togBtn.style.cssText='position:absolute;bottom:10px;right:10px;z-index:1000;padding:6px 10px;border-radius:8px;border:2px solid #fff;background:#fff;font-size:16px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.3)';
+    togBtn.style.cssText='position:absolute;top:10px;right:10px;z-index:1000;padding:6px 10px;border-radius:8px;border:2px solid #fff;background:#fff;font-size:16px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.3)';
     togBtn.onclick=()=>{
       isSat=!isSat;
       if(isSat){map.removeLayer(layerStreet);layerSat.addTo(map);togBtn.innerHTML='🗺️';togBtn.title='Vue plan';}
@@ -572,8 +567,10 @@ function toggleMoreMenu(){
   if(btn)btn.style.color=isOpen?'#64748b':'#3b82f6';
 }
 function closeMoreMenu(){
-  document.getElementById('more-menu-panel').classList.remove('open');
-  document.getElementById('more-menu-overlay').classList.remove('open');
+  const panel=document.getElementById('more-menu-panel');
+  const overlay=document.getElementById('more-menu-overlay');
+  if(panel)panel.classList.remove('open');
+  if(overlay)overlay.classList.remove('open');
   const btn=document.getElementById('bnav-more');
   if(btn)btn.style.color='#64748b';
 }
@@ -757,11 +754,15 @@ function updateUI(){
 function goView(v){
   currentView=v;closeSB();updateUI();
   const c=document.getElementById('content');
+  c.classList.remove('sav-view','suivi-view');
+  c.style.visibility='visible';
+  const sb=document.getElementById('sidebar');
+  if(sb)sb.style.visibility='visible';
+  const tb=document.querySelector('#topbar');
+  if(tb)tb.style.display='flex';
   c.style.visibility='visible';
   c.classList.remove('artisan-accueil');
   document.getElementById('sidebar').style.visibility='visible';
-  const tb=document.querySelector('#topbar');
-  if(tb)tb.style.display='flex';
   if(v==='dashboard')renderDashboard(c);
   else if(v==='clients')renderClients(c);
   else if(v==='sav')renderSav(c);
@@ -1136,6 +1137,7 @@ function quickNav(clientId){
 
 // ── SAV LIST
 function renderSav(c){
+  c.classList.add('sav-view');
   savStatutFilter=null;
   const sv=savList;
   c.innerHTML=`
@@ -1157,6 +1159,7 @@ function renderSav(c){
       <button onclick="filterSavByStatut('attente_intervention')" id="sf-attente_intervention" class="status s-attente" style="cursor:pointer;font-family:inherit">Attente artisan (${sv.filter(s=>s.statut==='attente_intervention').length})</button>
       <button onclick="filterSavByStatut('resolu')" id="sf-resolu" class="status s-resolu" style="cursor:pointer;font-family:inherit">Résolu (${sv.filter(s=>s.statut==='resolu').length})</button>
       <button onclick="filterSavByStatut('interne')" id="sf-interne" style="padding:2px 10px;border-radius:20px;border:1px solid #e9d5ff;background:#f3e8ff;color:#7c3aed;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit">🏠 Interne (${sv.filter(s=>!s.artisan_id).length})</button>
+    </div>
     </div>
     <div id="sav-list-container"></div>
   `;
@@ -1536,6 +1539,7 @@ function getCommune(adresse){
 }
 
 function renderSuivi(c){
+  c.classList.add('suivi-view');
   // Uniquement chantiers avec tâches en attente (notes CT ou tâches artisans)
   const list=clients.filter(x=>
     (x.statut==='en_cours'||x.statut==='ouverture'||x.statut==='sav_en_cours')&&
@@ -1556,6 +1560,7 @@ function renderSuivi(c){
     const artisanGroups=Object.values(byArtisan).sort((a,b)=>a.artisan.localeCompare(b.artisan));
 
     c.innerHTML=`
+    <div id="suivi-header">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
       <h1 style="font-size:20px;font-weight:800">Suivi de chantier</h1>
       <span style="font-size:12px;color:#64748b">${artisanGroups.length} artisan(s)</span>
@@ -1565,6 +1570,8 @@ function renderSuivi(c){
       <button onclick="setSuiviTri('clients')" id="tri-clients" style="flex:1;padding:7px;border-radius:9px;border:2px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;font-size:12px;font-weight:400;font-family:inherit">🏡 Par chantier</button>
       <button onclick="setSuiviTri('artisans')" id="tri-artisans" style="flex:1;padding:7px;border-radius:9px;border:2px solid #7c3aed;background:#f3e8ff;color:#7c3aed;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">👷 Par artisan</button>
     </div>
+    </div>
+    <div id="suivi-list">
     ${artisanGroups.length===0?'<div class="empty"><div class="big">✅</div><p style="color:#10b981;font-weight:700">Aucune tâche en attente !</p></div>':
     artisanGroups.map(group=>{
       const ac=artisans.find(a=>a.nom===group.artisan||(a.entreprise&&a.entreprise===group.artisan)||a.nom.toLowerCase().includes(group.artisan.toLowerCase())||group.artisan.toLowerCase().includes(a.nom.toLowerCase()));
@@ -1600,11 +1607,13 @@ function renderSuivi(c){
         +'</div>'
       +'</div>';
     }).join('')}
-    `;
+    </div>
+  `;
     return;
   }
 
   c.innerHTML=`
+    <div id="suivi-header">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
       <h1 style="font-size:20px;font-weight:800">Suivi de chantier</h1>
       <span style="font-size:12px;color:#64748b">${list.length} chantier(s)</span>
@@ -1623,6 +1632,8 @@ function renderSuivi(c){
       </div>
       <div id="suivi-ai-status" style="font-size:11px;color:#7c3aed;margin-top:6px;display:none">✨ Analyse en cours…</div>
     </div>
+    </div>
+    <div id="suivi-list">
     ${list.length===0?'<div class="empty"><div class="big">✅</div><p style="color:#10b981;font-weight:700">Aucune tâche en attente !</p><p style="color:#94a3b8;font-size:12px;margin-top:6px">Ajoutez des notes CT ou faites une visite depuis un chantier</p></div>':
     list.map(cl=>{
       const sv=clientSav(cl.id).filter(s=>s.statut!=='resolu');
@@ -1704,6 +1715,7 @@ function renderSuivi(c){
         +'</div>'
       +'</div>';
     }).join('')}
+    </div>
   `;
 }
 
@@ -3399,45 +3411,24 @@ loadAll().then(()=>startPolling());
 </div>
 <!-- More menu overlay -->
 <div id="more-menu-overlay" onclick="closeMoreMenu()"></div>
-<!-- More menu panel -->
 <div id="more-menu-panel">
   <div style="width:36px;height:4px;background:#334155;border-radius:4px;margin:0 auto 16px"></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-    <button onclick="closeMoreMenu();goView('clients')" style="display:flex;align-items:center;gap:10px;padding:13px 14px;border-radius:12px;background:#1e293b;border:none;color:#f1f5f9;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600">
-      <span style="font-size:22px">🏡</span>Chantiers
-    </button>
-    <button onclick="closeMoreMenu();goView('artisans')" style="display:flex;align-items:center;gap:10px;padding:13px 14px;border-radius:12px;background:#1e293b;border:none;color:#f1f5f9;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600">
-      <span style="font-size:22px">👷</span>Artisans
-    </button>
-    <button onclick="closeMoreMenu();goView('attribution')" style="display:flex;align-items:center;gap:10px;padding:13px 14px;border-radius:12px;background:#1e293b;border:none;color:#f1f5f9;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600">
-      <span style="font-size:22px">🔗</span>Attribution
-    </button>
-    <button onclick="closeMoreMenu();goView('alertes')" style="display:flex;align-items:center;gap:10px;padding:13px 14px;border-radius:12px;background:#1e293b;border:none;color:#f1f5f9;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600">
-      <span style="font-size:22px">⚠️</span>Alertes
-    </button>
+    <button onclick="closeMoreMenu();goView('clients')" style="display:flex;align-items:center;gap:10px;padding:13px 14px;border-radius:12px;background:#1e293b;border:none;color:#f1f5f9;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600"><span style="font-size:22px">🏡</span>Chantiers</button>
+    <button onclick="closeMoreMenu();goView('artisans')" style="display:flex;align-items:center;gap:10px;padding:13px 14px;border-radius:12px;background:#1e293b;border:none;color:#f1f5f9;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600"><span style="font-size:22px">👷</span>Artisans</button>
+    <button onclick="closeMoreMenu();goView('attribution')" style="display:flex;align-items:center;gap:10px;padding:13px 14px;border-radius:12px;background:#1e293b;border:none;color:#f1f5f9;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600"><span style="font-size:22px">🔗</span>Attribution</button>
+    <button onclick="closeMoreMenu();goView('alertes')" style="display:flex;align-items:center;gap:10px;padding:13px 14px;border-radius:12px;background:#1e293b;border:none;color:#f1f5f9;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600"><span style="font-size:22px">⚠️</span>Alertes</button>
   </div>
 </div>
-<!-- Bottom nav -->
 <div id="bottom-nav">
-  <button onclick="goView('dashboard')" data-v="dashboard" class="bnav-btn" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:2px;font-family:inherit;padding-top:8px">
-    <span style="font-size:22px">🏠</span><span style="font-size:9px;font-weight:600">Accueil</span>
-  </button>
-  <button onclick="goView('sav')" data-v="sav" class="bnav-btn" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:2px;font-family:inherit;padding-top:8px">
-    <span style="font-size:22px">🔧</span><span style="font-size:9px;font-weight:600">SAV</span>
-  </button>
-  <!-- Bouton central + SAV -->
+  <button onclick="goView('dashboard')" data-v="dashboard" class="bnav-btn" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:2px;font-family:inherit;padding-top:2px"><span style="font-size:22px">🏠</span><span style="font-size:9px;font-weight:600">Accueil</span></button>
+  <button onclick="goView('sav')" data-v="sav" class="bnav-btn" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:2px;font-family:inherit;padding-top:2px"><span style="font-size:22px">🔧</span><span style="font-size:9px;font-weight:600">SAV</span></button>
   <button onclick="openSavModal()" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;font-family:inherit;position:relative;padding-bottom:4px">
-    <div style="width:52px;height:52px;border-radius:50%;background:#ef4444;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(239,68,68,0.5);position:absolute;top:-18px;border:3px solid #0f172a">
-      <span style="font-size:24px;color:#fff;font-weight:700">+</span>
-    </div>
+    <div style="width:52px;height:52px;border-radius:50%;background:#ef4444;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(239,68,68,0.5);position:absolute;top:-18px;border:3px solid #0f172a"><span style="font-size:24px;color:#fff;font-weight:700">+</span></div>
     <span style="font-size:9px;font-weight:600;color:#64748b;margin-top:28px">Nouveau SAV</span>
   </button>
-  <button onclick="goView('suivi')" data-v="suivi" class="bnav-btn" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:2px;font-family:inherit;padding-top:8px">
-    <span style="font-size:22px">📋</span><span style="font-size:9px;font-weight:600">Suivi</span>
-  </button>
-  <button onclick="toggleMoreMenu()" id="bnav-more" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:2px;font-family:inherit;padding-top:8px">
-    <span style="font-size:22px">☰</span><span style="font-size:9px;font-weight:600">Menu</span>
-  </button>
+  <button onclick="goView('suivi')" data-v="suivi" class="bnav-btn" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:2px;font-family:inherit;padding-top:2px"><span style="font-size:22px">📋</span><span style="font-size:9px;font-weight:600">Suivi</span></button>
+  <button onclick="toggleMoreMenu()" id="bnav-more" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:2px;font-family:inherit;padding-top:2px"><span style="font-size:22px">☰</span><span style="font-size:9px;font-weight:600">Menu</span></button>
 </div>
 </body>
 </html>
