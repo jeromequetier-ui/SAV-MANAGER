@@ -14,8 +14,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #bottom-nav{display:none;}
 @media(max-width:768px){
   #topbar{display:none!important;}
-  #bottom-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:#0f172a;border-top:1px solid #1e293b;z-index:200;align-items:stretch;justify-content:space-around;padding-bottom:env(safe-area-inset-bottom);height:calc(58px + env(safe-area-inset-bottom));}
-  #content{padding-top:env(safe-area-inset-top)!important;padding-bottom:calc(68px + env(safe-area-inset-bottom))!important;}
+  #bottom-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:#0f172a;border-top:1px solid #1e293b;z-index:200;align-items:flex-start;justify-content:space-around;padding-bottom:max(env(safe-area-inset-bottom),20px);padding-top:6px;height:auto;min-height:58px;}
+  #content{padding-top:env(safe-area-inset-top)!important;padding-bottom:calc(80px + max(env(safe-area-inset-bottom),20px))!important;}
+  #more-menu-panel{bottom:calc(58px + max(env(safe-area-inset-bottom),20px));}
   .hamburger{display:none!important;}
   .page-title{display:block;}
   #chat-btn{display:none!important;}
