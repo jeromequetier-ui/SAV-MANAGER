@@ -307,6 +307,7 @@ let currentView='dashboard',lbPhotos=[],lbIdx=0,lbClientId=null;
 let activeLayers=new Set(['ouverture','en_cours','sav_en_cours','livre','sav']);
 let dashMapInst=null,dashMapMarkers=[];
 let savStatutFilter=null;
+let planningList=[];
 let savTri='clients';
 
 const STATUTS={
@@ -684,6 +685,216 @@ function openNavArtisan(clientId){
   window.open(`https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}&travelmode=driving`,'_blank');
 }
 
+
+// ══════════════════════════════════════
+// PLANNING
+// ══════════════════════════════════════
+function renderPlanning(c){
+  c.classList.remove('sav-view','suivi-view');
+  const today=new Date();
+  const todayStr=today.toISOString().split('T')[0];
+
+  // Grouper par date
+  const byDate={};
+  planningList.forEach(p=>{
+    if(!byDate[p.date])byDate[p.date]=[];
+    byDate[p.date].push(p);
+  });
+
+  // Générer les 14 prochains jours
+  const days=[];
+  for(let i=0;i<14;i++){
+    const d=new Date(today);
+    d.setDate(today.getDate()+i);
+    days.push(d.toISOString().split('T')[0]);
+  }
+
+  const typeIcon={sav:'🔧',tache:'✅',visite:'🏡'};
+  const typeLabel={sav:'SAV Interne',tache:'Tâche chantier',visite:'Visite'};
+
+  c.innerHTML=`
+    <div id="planning-header" style="background:#f1f5f9;padding-bottom:10px;border-bottom:3px solid #00B4C5;margin-bottom:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <h1 style="font-size:20px;font-weight:800">📅 Mon Planning</h1>
+        <button onclick="openAddPlanningModal()" class="btn btn-primary" style="font-size:12px;padding:6px 12px">+ Ajouter</button>
+      </div>
+      <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px" id="planning-days-nav">
+        ${days.map(d=>{
+          const dt=new Date(d+'T12:00:00');
+          const nb=(byDate[d]||[]).length;
+          const isToday=d===todayStr;
+          return `<button onclick="scrollToPlanningDay('${d}')" style="flex-shrink:0;padding:6px 10px;border-radius:10px;border:none;cursor:pointer;font-family:inherit;background:${isToday?'#0f172a':'#fff'};color:${isToday?'#fff':'#64748b'};font-size:11px;font-weight:${isToday?700:400};position:relative">
+            <div style="font-size:9px;text-transform:uppercase">${dt.toLocaleDateString('fr-FR',{weekday:'short'})}</div>
+            <div style="font-weight:700;font-size:14px">${dt.getDate()}</div>
+            ${nb>0?`<div style="position:absolute;top:4px;right:4px;background:#ef4444;color:#fff;border-radius:50%;width:14px;height:14px;font-size:8px;display:flex;align-items:center;justify-content:center;font-weight:700">${nb}</div>`:''}
+          </button>`;
+        }).join('')}
+      </div>
+    </div>
+    <div id="planning-list" style="padding-top:10px">
+      ${days.map(d=>{
+        const items=byDate[d]||[];
+        const dt=new Date(d+'T12:00:00');
+        const isToday=d===todayStr;
+        return `<div id="pday-${d}" style="margin-bottom:16px">
+          <div style="font-size:12px;font-weight:700;color:${isToday?'#0f172a':'#64748b'};text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;display:flex;align-items:center;gap:6px">
+            ${isToday?'<span style="background:#0f172a;color:#fff;padding:2px 8px;border-radius:20px;font-size:10px">Aujourd\'hui</span>':''}
+            ${dt.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}
+          </div>
+          ${items.length===0?`<div style="padding:10px 14px;border-radius:10px;border:1.5px dashed #e2e8f0;color:#94a3b8;font-size:12px;text-align:center">Aucune tâche</div>`
+          :items.sort((a,b)=>(a.heure||'23:59').localeCompare(b.heure||'23:59')).map(p=>{
+            const cl=clients.find(c=>c.id===p.client_id);
+            return `<div style="margin-bottom:8px;border-radius:11px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);border-left:4px solid ${p.statut==='fait'?'#10b981':p.type==='sav'?'#ef4444':'#f59e0b'}">
+              <div style="background:#fff;padding:10px 13px">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                  <div style="flex:1;min-width:0">
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+                      ${p.heure?`<span style="background:#f1f5f9;color:#374151;font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px">${p.heure.slice(0,5)}</span>`:''}
+                      <span style="font-size:10px;color:#64748b">${typeIcon[p.type]||'📌'} ${typeLabel[p.type]||p.type}</span>
+                    </div>
+                    <div style="font-weight:700;font-size:13px">${p.titre}</div>
+                    ${cl?`<div style="font-size:11px;color:#2563eb;font-weight:600;margin-top:2px">${cl.nom}</div>`:''}
+                    ${cl?.adresse?`<div style="font-size:11px;color:#64748b">${cl.adresse}</div>`:''}
+                    ${p.notes?`<div style="font-size:11px;color:#94a3b8;font-style:italic;margin-top:3px">${p.notes}</div>`:''}
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
+                    ${p.statut!=='fait'?`<button onclick="markPlanningDone('${p.id}')" style="padding:4px 8px;border-radius:7px;background:#ecfdf5;color:#10b981;border:1.5px solid #a7f3d0;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit">✓ Fait</button>`:'<span style="font-size:11px;color:#10b981;font-weight:700">✅ Fait</span>'}
+                    <button onclick="deletePlanningItem('${p.id}')" style="padding:4px 8px;border-radius:7px;background:#fff5f5;color:#ef4444;border:1.5px solid #fee2e2;cursor:pointer;font-size:11px;font-family:inherit">🗑</button>
+                  </div>
+                </div>
+                ${cl?.tel||cl?.tel2?`<div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap">
+                  ${cl.tel?`<a href="tel:${cl.tel}" style="padding:3px 8px;border-radius:6px;background:#dbeafe;color:#1e40af;font-size:11px;font-weight:700;text-decoration:none">📞 ${cl.conjoint1||cl.tel}</a>`:''}
+                  ${cl.tel2?`<a href="tel:${cl.tel2}" style="padding:3px 8px;border-radius:6px;background:#e0e7ff;color:#3730a3;font-size:11px;font-weight:700;text-decoration:none">📞 ${cl.conjoint2||cl.tel2}</a>`:''}
+                  ${cl.lat&&cl.lng?`<a href="https://www.google.com/maps/dir/?api=1&destination=${cl.lat},${cl.lng}" target="_blank" style="padding:3px 8px;border-radius:6px;background:#fef3c7;color:#d97706;font-size:11px;font-weight:700;text-decoration:none">🧭</a>`:''}
+                </div>`:''}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+}
+
+function scrollToPlanningDay(date){
+  const el=document.getElementById('pday-'+date);
+  if(!el)return;
+  const offset=el.getBoundingClientRect().top+window.scrollY-120;
+  window.scrollTo({top:offset,behavior:'smooth'});
+}
+
+async function markPlanningDone(id){
+  await db('PATCH','planning',{statut:'fait'},`?id=eq.${id}`);
+  planningList=planningList.map(p=>p.id===id?{...p,statut:'fait'}:p);
+  goView('planning');
+  toast('✅ Tâche marquée comme faite !');
+}
+
+async function deletePlanningItem(id){
+  if(!confirm('Supprimer cette tâche du planning ?'))return;
+  await db('DELETE','planning','',`?id=eq.${id}`);
+  planningList=planningList.filter(p=>p.id!==id);
+  goView('planning');
+  toast('Tâche supprimée');
+}
+
+function openAddPlanningModal(prefill){
+  const clientOptions=clients.filter(c=>c.statut==='en_cours'||c.statut==='ouverture')
+    .map(c=>`<option value="${c.id}">${c.nom}</option>`).join('');
+  const today=new Date().toISOString().split('T')[0];
+  document.getElementById('m-client-title').textContent='📅 Ajouter au planning';
+  document.getElementById('m-client-body').innerHTML=`
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Titre *</label>
+        <input id="pl-titre" type="text" value="${prefill?.titre||''}" placeholder="Ex: Vérifier volets roulants" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+      </div>
+      <div style="display:flex;gap:8px">
+        <div style="flex:1">
+          <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Date *</label>
+          <input id="pl-date" type="date" value="${prefill?.date||today}" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+        </div>
+        <div style="flex:1">
+          <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Heure</label>
+          <input id="pl-heure" type="time" value="${prefill?.heure||''}" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Type</label>
+        <select id="pl-type" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px">
+          <option value="tache" ${prefill?.type==='tache'?'selected':''}>✅ Tâche chantier</option>
+          <option value="sav" ${prefill?.type==='sav'?'selected':''}>🔧 SAV Interne</option>
+          <option value="visite" ${prefill?.type==='visite'?'selected':''}>🏡 Visite</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Client</label>
+        <select id="pl-client" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px">
+          <option value="">— Sélectionner un client —</option>
+          ${clientOptions}
+        </select>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Notes</label>
+        <textarea id="pl-notes" placeholder="Détails, observations..." style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px;min-height:60px;resize:vertical">${prefill?.notes||''}</textarea>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
+        <button class="btn btn-secondary" onclick="closeM('m-client')">Annuler</button>
+        <button class="btn btn-primary" onclick="savePlanningItem('${prefill?.sav_id||''}')">📅 Planifier</button>
+      </div>
+    </div>
+  `;
+  if(prefill?.client_id){
+    setTimeout(()=>{
+      const sel=document.getElementById('pl-client');
+      if(sel)sel.value=prefill.client_id;
+    },50);
+  }
+  openM('m-client');
+}
+
+async function savePlanningItem(savId){
+  const titre=document.getElementById('pl-titre').value.trim();
+  const date=document.getElementById('pl-date').value;
+  const heure=document.getElementById('pl-heure').value||null;
+  const type=document.getElementById('pl-type').value;
+  const clientId=document.getElementById('pl-client').value||null;
+  const notes=document.getElementById('pl-notes').value.trim()||null;
+  if(!titre||!date){toast('Titre et date obligatoires','#ef4444');return;}
+  const item={titre,date,heure,type,client_id:clientId,notes,statut:'a_faire'};
+  if(savId)item.sav_id=savId;
+  try{
+    const res=await db('POST','planning',item);
+    planningList.push(Array.isArray(res)?res[0]:res);
+    closeM('m-client');
+    toast('📅 Ajouté au planning !');
+    goView('planning');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+async function planifierSav(savId){
+  const sav=savList.find(s=>s.id===savId);
+  if(!sav)return;
+  openAddPlanningModal({
+    titre:sav.titre,
+    type:'sav',
+    client_id:sav.client_id,
+    notes:sav.notes,
+    sav_id:savId
+  });
+}
+
+async function planifierTache(titre,clientId,notes,dateHeure){
+  openAddPlanningModal({
+    titre,
+    type:'tache',
+    client_id:clientId,
+    notes,
+    date:dateHeure?.date||'',
+    heure:dateHeure?.heure||''
+  });
+}
+
 async function loadAll(){
   try{
     const [c,a,s,ca]=await Promise.all([
@@ -770,6 +981,7 @@ function goView(v){
   else if(v==='attribution')renderAttribution(c);
   else if(v==='suivi')renderSuivi(c);
   else if(v==='alertes')renderAlertes(c);
+  else if(v==='planning')renderPlanning(c);
 }
 
 // ── DASHBOARD
@@ -1286,7 +1498,10 @@ function renderOneSav(s,client){
     if(artisan.tel)html+='<a href="tel:'+artisan.tel+'" onclick="event.stopPropagation()" style="margin-left:auto;padding:3px 8px;border-radius:6px;background:#dbeafe;color:#1e40af;font-weight:700;text-decoration:none;font-size:11px">📞</a>';
     html+='</div>';
   } else {
+    html+='<div style="display:flex;align-items:center;gap:6px">';
     html+='<div style="font-size:11px;background:#f3e8ff;color:#7c3aed;padding:4px 9px;border-radius:7px;font-weight:600">🏠 SAV Interne — MA 17 SUD</div>';
+    html+='<button data-sid="'+sid+'" onclick="planifierSav(this.dataset.sid)" style="padding:4px 9px;border-radius:7px;background:#eff6ff;color:#2563eb;border:1.5px solid #bfdbfe;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit">📅 Planifier</button>';
+    html+='</div>';
   }
   if(s.statut==='nouveau'&&artisan?.email){
     html+='<a href="'+mailHref+'" class="btn btn-primary btn-sm" style="text-decoration:none" onclick="event.stopPropagation();sendMailAndUpdateStatus(this.dataset.sid,this.dataset.cid,event)" data-sid="'+sid+'" data-cid="'+cid+'">✉ Demander</a>';
@@ -3418,6 +3633,7 @@ loadAll().then(()=>startPolling());
     <button onclick="closeMoreMenu();goView('artisans')" style="display:flex;align-items:center;gap:10px;padding:13px 14px;border-radius:12px;background:#1e293b;border:none;color:#f1f5f9;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600"><span style="font-size:22px">👷</span>Artisans</button>
     <button onclick="closeMoreMenu();goView('attribution')" style="display:flex;align-items:center;gap:10px;padding:13px 14px;border-radius:12px;background:#1e293b;border:none;color:#f1f5f9;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600"><span style="font-size:22px">🔗</span>Attribution</button>
     <button onclick="closeMoreMenu();goView('alertes')" style="display:flex;align-items:center;gap:10px;padding:13px 14px;border-radius:12px;background:#1e293b;border:none;color:#f1f5f9;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600"><span style="font-size:22px">⚠️</span>Alertes</button>
+    <button onclick="closeMoreMenu();goView('planning')" style="display:flex;align-items:center;gap:10px;padding:13px 14px;border-radius:12px;background:#1e293b;border:none;color:#f1f5f9;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600"><span style="font-size:22px">📅</span>Planning</button>
   </div>
 </div>
 <div id="bottom-nav">
