@@ -128,7 +128,7 @@ input,select,textarea{font-family:inherit;}
 .chip{padding:5px 13px;border-radius:20px;border:2px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:12px;font-family:inherit;transition:all .15s;}
 .chip.on{border-color:#2563eb;background:#eff6ff;color:#2563eb;font-weight:600;}
 /* STATUS MENU */
-.statut-menu{position:absolute;top:100%;left:0;background:#fff;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);border:1.5px solid #e2e8f0;z-index:200;min-width:160px;overflow:hidden;display:none;}
+.statut-menu{position:fixed;background:#fff;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);border:1.5px solid #e2e8f0;z-index:9999;min-width:180px;overflow:hidden;display:none;}
 .statut-menu.open{display:block;}
 .statut-menu button{width:100%;padding:9px 14px;border:none;background:#fff;text-align:left;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;}
 .statut-menu button:hover{background:#f8fafc;}
@@ -249,6 +249,7 @@ input,select,textarea{font-family:inherit;}
     <button class="nav-btn" onclick="goView('sav')" data-v="sav"><span class="icon">🔧</span>Tous les SAV</button>
     <button class="nav-btn" onclick="goView('artisans')" data-v="artisans"><span class="icon">👷</span>Artisans</button>
     <button class="nav-btn" onclick="goView('attribution')" data-v="attribution"><span class="icon">🔗</span>Attribution artisans</button>
+    <button class="nav-btn" onclick="goView('planning')" data-v="planning"><span class="icon">📅</span>Planning</button>
     <button class="nav-btn" onclick="goView('suivi')" data-v="suivi"><span class="icon">📋</span>Suivi de chantier</button>
     <button class="nav-btn" onclick="goView('alertes')" data-v="alertes"><span class="icon">🔔</span>Alertes<span class="nb" id="sb-nb" style="display:none">0</span></button>
   </div>
@@ -312,9 +313,27 @@ let savTri='clients';
 
 const STATUTS={
   nouveau:{l:'Nouveau',cls:'s-nouveau'},
-  attente_intervention:{l:'Attente artisan',cls:'s-attente'},
+  planifie:{l:'Planifié 📅',cls:'s-planifie'},
+  attente_intervention:{l:'Attente retour artisan',cls:'s-attente'},
   resolu:{l:'Résolu',cls:'s-resolu'}
 };
+// Statuts disponibles selon type de SAV
+function getStatutsForSav(sav){
+  if(!sav.artisan_id){
+    return {
+      nouveau:{l:'Nouveau',cls:'s-nouveau'},
+      planifie:{l:'Planifié 📅',cls:'s-planifie'},
+      resolu:{l:'Résolu',cls:'s-resolu'}
+    };
+  }
+  // SAV artisan - inclut planifié
+  return {
+    nouveau:{l:'Nouveau',cls:'s-nouveau'},
+    planifie:{l:'Planifié 📅',cls:'s-planifie'},
+    attente_intervention:{l:'Attente retour artisan',cls:'s-attente'},
+    resolu:{l:'Résolu',cls:'s-resolu'}
+  };
+}
 const CHANTIER_STATUTS={
   ouverture:{l:'Ouverture à venir',cls:'ch-ouverture'},
   en_cours:{l:'En cours',cls:'ch-en_cours'},
@@ -691,90 +710,260 @@ function openNavArtisan(clientId){
 // ══════════════════════════════════════
 function renderPlanning(c){
   c.classList.remove('sav-view','suivi-view');
-  const today=new Date();
-  const todayStr=today.toISOString().split('T')[0];
-
-  // Grouper par date
-  const byDate={};
-  planningList.forEach(p=>{
-    if(!byDate[p.date])byDate[p.date]=[];
-    byDate[p.date].push(p);
-  });
-
-  // Générer les 14 prochains jours
-  const days=[];
-  for(let i=0;i<14;i++){
-    const d=new Date(today);
-    d.setDate(today.getDate()+i);
-    days.push(d.toISOString().split('T')[0]);
+  // Desktop = semaine par défaut, mobile = jour
+  if(!window._planningView){
+    window._planningView = window.innerWidth >= 769 ? 'week' : 'day';
   }
+  window._planningDate = window._planningDate||new Date().toISOString().split('T')[0];
+  _renderPlanningView(c);
+}
 
-  const typeIcon={sav:'🔧',tache:'✅',visite:'🏡'};
-  const typeLabel={sav:'SAV Interne',tache:'Tâche chantier',visite:'Visite'};
+function _renderPlanningView(c){
+  if(!c)c=document.getElementById('content');
+  const view=window._planningView;
+  const today=new Date().toISOString().split('T')[0];
+  const curDate=new Date(window._planningDate+'T12:00:00');
 
-  c.innerHTML=`
-    <div id="planning-header" style="background:#f1f5f9;padding-bottom:10px;border-bottom:3px solid #00B4C5;margin-bottom:0">
+  // Header navigation
+  let headerHTML=`
+    <div style="background:#f1f5f9;padding:14px 14px 10px;border-bottom:3px solid #00B4C5;position:sticky;top:0;z-index:50">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <h1 style="font-size:20px;font-weight:800">📅 Mon Planning</h1>
-        <button onclick="openAddPlanningModal()" class="btn btn-primary" style="font-size:12px;padding:6px 12px">+ Ajouter</button>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          <button onclick="_planningNav(-1)" style="flex-shrink:0;width:32px;height:32px;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;font-size:18px;font-family:inherit;display:flex;align-items:center;justify-content:center">‹</button>
+          <span style="font-weight:700;font-size:14px;color:#0f172a;min-width:220px;text-align:center;display:inline-block">${view==='day'
+            ? curDate.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})
+            : 'Semaine du '+_getWeekStart(window._planningDate).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})
+          }</span>
+          <button onclick="_planningNav(1)" style="flex-shrink:0;width:32px;height:32px;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;font-size:18px;font-family:inherit;display:flex;align-items:center;justify-content:center">›</button>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button onclick="_togglePlanningView()" style="padding:5px 10px;border-radius:8px;border:1.5px solid #2563eb;background:#eff6ff;color:#2563eb;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit">${view==='day'?'Semaine':'Jour'}</button>
+          <button onclick="openPlanningFromAgenda()" style="padding:5px 10px;border-radius:8px;background:#0f172a;color:#fff;border:none;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit">+ Ajouter</button>
+        </div>
       </div>
-      <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px" id="planning-days-nav">
-        ${days.map(d=>{
-          const dt=new Date(d+'T12:00:00');
-          const nb=(byDate[d]||[]).length;
-          const isToday=d===todayStr;
-          return `<button onclick="scrollToPlanningDay('${d}')" style="flex-shrink:0;padding:6px 10px;border-radius:10px;border:none;cursor:pointer;font-family:inherit;background:${isToday?'#0f172a':'#fff'};color:${isToday?'#fff':'#64748b'};font-size:11px;font-weight:${isToday?700:400};position:relative">
-            <div style="font-size:9px;text-transform:uppercase">${dt.toLocaleDateString('fr-FR',{weekday:'short'})}</div>
-            <div style="font-weight:700;font-size:14px">${dt.getDate()}</div>
-            ${nb>0?`<div style="position:absolute;top:4px;right:4px;background:#ef4444;color:#fff;border-radius:50%;width:14px;height:14px;font-size:8px;display:flex;align-items:center;justify-content:center;font-weight:700">${nb}</div>`:''}
-          </button>`;
-        }).join('')}
-      </div>
-    </div>
-    <div id="planning-list" style="padding-top:10px">
-      ${days.map(d=>{
-        const items=byDate[d]||[];
-        const dt=new Date(d+'T12:00:00');
-        const isToday=d===todayStr;
-        return `<div id="pday-${d}" style="margin-bottom:16px">
-          <div style="font-size:12px;font-weight:700;color:${isToday?'#0f172a':'#64748b'};text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;display:flex;align-items:center;gap:6px">
-            ${isToday?'<span style="background:#0f172a;color:#fff;padding:2px 8px;border-radius:20px;font-size:10px">Aujourd\'hui</span>':''}
-            ${dt.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}
-          </div>
-          ${items.length===0?`<div style="padding:10px 14px;border-radius:10px;border:1.5px dashed #e2e8f0;color:#94a3b8;font-size:12px;text-align:center">Aucune tâche</div>`
-          :items.sort((a,b)=>(a.heure||'23:59').localeCompare(b.heure||'23:59')).map(p=>{
-            const cl=clients.find(c=>c.id===p.client_id);
-            return `<div style="margin-bottom:8px;border-radius:11px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);border-left:4px solid ${p.statut==='fait'?'#10b981':p.type==='sav'?'#ef4444':'#f59e0b'}">
-              <div style="background:#fff;padding:10px 13px">
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-                  <div style="flex:1;min-width:0">
-                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
-                      ${p.heure?`<span style="background:#f1f5f9;color:#374151;font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px">${p.heure.slice(0,5)}</span>`:''}
-                      <span style="font-size:10px;color:#64748b">${typeIcon[p.type]||'📌'} ${typeLabel[p.type]||p.type}</span>
-                    </div>
-                    <div style="font-weight:700;font-size:13px">${p.titre}</div>
-                    ${cl?`<div style="font-size:11px;color:#2563eb;font-weight:600;margin-top:2px">${cl.nom}</div>`:''}
-                    ${cl?.adresse?`<div style="font-size:11px;color:#64748b">${cl.adresse}</div>`:''}
-                    ${p.notes?`<div style="font-size:11px;color:#94a3b8;font-style:italic;margin-top:3px">${p.notes}</div>`:''}
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
-                    ${p.statut!=='fait'?`<button onclick="markPlanningDone('${p.id}')" style="padding:4px 8px;border-radius:7px;background:#ecfdf5;color:#10b981;border:1.5px solid #a7f3d0;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit">✓ Fait</button>`:'<span style="font-size:11px;color:#10b981;font-weight:700">✅ Fait</span>'}
-                    <button onclick="deletePlanningItem('${p.id}')" style="padding:4px 8px;border-radius:7px;background:#fff5f5;color:#ef4444;border:1.5px solid #fee2e2;cursor:pointer;font-size:11px;font-family:inherit">🗑</button>
-                  </div>
-                </div>
-                ${cl?.tel||cl?.tel2?`<div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap">
-                  ${cl.tel?`<a href="tel:${cl.tel}" style="padding:3px 8px;border-radius:6px;background:#dbeafe;color:#1e40af;font-size:11px;font-weight:700;text-decoration:none">📞 ${cl.conjoint1||cl.tel}</a>`:''}
-                  ${cl.tel2?`<a href="tel:${cl.tel2}" style="padding:3px 8px;border-radius:6px;background:#e0e7ff;color:#3730a3;font-size:11px;font-weight:700;text-decoration:none">📞 ${cl.conjoint2||cl.tel2}</a>`:''}
-                  ${cl.lat&&cl.lng?`<a href="https://www.google.com/maps/dir/?api=1&destination=${cl.lat},${cl.lng}" target="_blank" style="padding:3px 8px;border-radius:6px;background:#fef3c7;color:#d97706;font-size:11px;font-weight:700;text-decoration:none">🧭</a>`:''}
-                </div>`:''}
-              </div>
-            </div>`;
-          }).join('')}
-        </div>`;
-      }).join('')}
+      ${view==='week'?_renderWeekHeader():''}
     </div>
   `;
+
+  c.innerHTML=headerHTML+'<div id="planning-body" style="padding:0"></div>';
+  document.getElementById('planning-body').innerHTML = view==='day' ? _renderDayView(window._planningDate) : _renderWeekView();
 }
+
+function _getWeekStart(dateStr){
+  const d=new Date(dateStr+'T12:00:00');
+  const day=d.getDay();
+  const diff=d.getDate()-(day===0?6:day-1);
+  return new Date(d.setDate(diff));
+}
+
+function _togglePlanningView(){
+  window._planningView=window._planningView==='day'?'week':'day';
+  _renderPlanningView();
+}
+
+function _planningNav(dir){
+  const d=new Date(window._planningDate+'T12:00:00');
+  if(window._planningView==='day') d.setDate(d.getDate()+dir);
+  else d.setDate(d.getDate()+(dir*7));
+  window._planningDate=d.toISOString().split('T')[0];
+  _renderPlanningView();
+}
+
+function _renderWeekHeader(){
+  const ws=_getWeekStart(window._planningDate);
+  const today=new Date().toISOString().split('T')[0];
+  const days=['Lu','Ma','Me','Je','Ve','Sa','Di'];
+  return '<div style="display:grid;grid-template-columns:48px repeat(7,1fr);gap:2px">'
+    +'<div></div>'
+    +days.map((d,i)=>{
+      const dt=new Date(ws);dt.setDate(ws.getDate()+i);
+      const ds=dt.toISOString().split('T')[0];
+      const isToday=ds===today;
+      const nb=planningList.filter(p=>p.date===ds).length;
+      return '<div style="text-align:center;padding:4px 2px;cursor:pointer;border-radius:8px;background:'+(isToday?'#0f172a':'transparent')+'" data-ds="'+ds+'" onclick="window._planningDate=this.dataset.ds;window._planningView=\'day\';_renderPlanningView()">'
+        +'<div style="font-size:9px;color:'+(isToday?'#94a3b8':'#64748b')+';text-transform:uppercase">'+d+'</div>'
+        +'<div style="font-size:14px;font-weight:700;color:'+(isToday?'#fff':'#0f172a')+'">'+dt.getDate()+'</div>'
+        +(nb>0?'<div style="width:6px;height:6px;border-radius:50%;background:#ef4444;margin:2px auto"></div>':'<div style="width:6px;height:6px;margin:2px auto"></div>')
+      +'</div>';
+    }).join('')
+  +'</div>';
+}
+
+const HOURS=[7,8,9,10,11,12,13,14,15,16,17,18,19,20];
+
+function _renderDayView(dateStr){
+  const items=planningList.filter(p=>p.date===dateStr);
+  let html='<div style="display:grid;grid-template-columns:48px 1fr;min-height:600px">';
+  // Time column + event column
+  html+='<div style="border-right:1px solid #e2e8f0">';
+  HOURS.forEach(h=>{
+    html+='<div style="height:64px;padding:4px 6px 0 0;text-align:right;font-size:10px;color:#94a3b8;font-weight:600">'+h+'h</div>';
+  });
+  html+='</div>';
+
+  html+='<div style="position:relative">';
+  // Grid lines
+  HOURS.forEach((h,i)=>{
+    html+='<div style="position:absolute;left:0;right:0;top:'+(i*64)+'px;border-top:1px solid '+(i===0?'#e2e8f0':'#f1f5f9')+';height:64px"></div>';
+  });
+  // Half-hour lines
+  HOURS.forEach((h,i)=>{
+    html+='<div style="position:absolute;left:0;right:0;top:'+(i*64+32)+'px;border-top:1px dashed #f1f5f9"></div>';
+  });
+
+  // Events
+  items.forEach(p=>{
+    const heure=p.heure||'09:00';
+    const [hh,mm]=heure.split(':').map(Number);
+    const topPx=(hh-HOURS[0])*64+(mm/60)*64;
+    const cl=clients.find(c=>c.id===p.client_id);
+    const color=p.statut==='fait'?'#10b981':p.type==='sav'?'#ef4444':'#2563eb';
+    const bgColor=p.statut==='fait'?'#ecfdf5':p.type==='sav'?'#fef2f2':'#eff6ff';
+    const borderColor=p.statut==='fait'?'#a7f3d0':p.type==='sav'?'#fecaca':'#bfdbfe';
+    html+='<div onclick="openEditPlanningModal(this.dataset.id)" data-id="'+p.id+'" style="position:absolute;left:6px;right:6px;top:'+(topPx+2)+'px;min-height:58px;background:'+bgColor+';border-left:4px solid '+color+';border:1px solid '+borderColor+';border-left:4px solid '+color+';border-radius:8px;padding:6px 8px;cursor:pointer;z-index:10;box-shadow:0 1px 4px rgba(0,0,0,0.08)">'
+      +'<div style="font-size:10px;color:'+color+';font-weight:700;margin-bottom:2px">'+(p.heure?p.heure.slice(0,5)+' · ':'')+{sav:'🔧 SAV',tache:'✅ Tâche',visite:'🏡 Visite'}[p.type]+'</div>'
+      +'<div style="font-size:12px;font-weight:700;color:#0f172a;line-height:1.3">'+p.titre+'</div>'
+      +(cl?'<div style="font-size:11px;color:'+color+';font-weight:600;margin-top:2px">'+cl.nom+'</div>':'')
+      +(p.notes?'<div style="font-size:10px;color:#64748b;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+p.notes+'</div>':'')
+      +(p.statut==='fait'?'<div style="font-size:9px;color:#10b981;font-weight:700;margin-top:2px">✅ Fait</div>':'')
+    +'</div>';
+  });
+
+  // "Aucune tâche" if empty
+  if(items.length===0){
+    html+='<div style="position:absolute;top:60px;left:0;right:0;text-align:center;color:#94a3b8;font-size:13px">Aucune tâche ce jour</div>';
+  }
+
+  html+='</div></div>';
+  html+='<div style="height:'+(HOURS.length*64)+'px;pointer-events:none;visibility:hidden"></div>';
+  return html;
+}
+
+function _renderWeekView(){
+  const ws=_getWeekStart(window._planningDate);
+  let html='<div style="display:grid;grid-template-columns:48px repeat(7,1fr);min-height:600px">';
+
+  // Time labels
+  html+='<div style="border-right:1px solid #e2e8f0">';
+  HOURS.forEach(h=>{html+='<div style="height:56px;padding:4px 4px 0 0;text-align:right;font-size:9px;color:#94a3b8;font-weight:600">'+h+'h</div>';});
+  html+='</div>';
+
+  // Day columns
+  for(let i=0;i<7;i++){
+    const dt=new Date(ws);dt.setDate(ws.getDate()+i);
+    const ds=dt.toISOString().split('T')[0];
+    const items=planningList.filter(p=>p.date===ds);
+    const today=new Date().toISOString().split('T')[0];
+    html+='<div style="position:relative;border-right:1px solid #f1f5f9">';
+    HOURS.forEach((h,hi)=>{
+      html+='<div style="position:absolute;left:0;right:0;top:'+(hi*56)+'px;border-top:1px solid '+(hi===0?'#e2e8f0':'#f1f5f9')+';height:56px"></div>';
+    });
+    items.forEach(p=>{
+      const heure=p.heure||'09:00';
+      const [hh,mm]=heure.split(':').map(Number);
+      const topPx=(hh-HOURS[0])*56+(mm/60)*56;
+      const color=p.statut==='fait'?'#10b981':p.type==='sav'?'#ef4444':'#2563eb';
+      const bg=p.statut==='fait'?'#ecfdf5':p.type==='sav'?'#fef2f2':'#eff6ff';
+      const cl=clients.find(c=>c.id===p.client_id);
+      html+='<div onclick="openEditPlanningModal(this.dataset.id)" data-id="'+p.id+'" style="position:absolute;left:2px;right:2px;top:'+(topPx+1)+'px;min-height:40px;background:'+bg+';border-left:3px solid '+color+';border-radius:5px;padding:3px 4px;cursor:pointer;z-index:10;overflow:hidden">'
+        +'<div style="font-size:9px;font-weight:700;color:'+color+';">'+(p.heure?p.heure.slice(0,5):'')+' '+{sav:'🔧',tache:'✅',visite:'🏡'}[p.type]+'</div>'
+        +'<div style="font-size:10px;font-weight:700;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+p.titre+'</div>'
+        +(cl?'<div style="font-size:9px;color:'+color+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+cl.nom+'</div>':'')
+      +'</div>';
+    });
+    html+='</div>';
+  }
+  html+='</div>';
+  return html;
+}
+
+function openPlanifieArtisanModal(savId, clientId){
+  const sav=savList.find(s=>s.id===savId);
+  const artisan=artisans.find(a=>a.id===sav?.artisan_id);
+  const cl=clients.find(c=>c.id===sav?.client_id);
+  document.getElementById('m-client-title').textContent='📅 Planifier intervention artisan';
+  document.getElementById('m-client-body').innerHTML=`
+    <div style="display:flex;flex-direction:column;gap:10px">
+      ${cl?`<div style="background:#f0fdf4;border:1px solid #a7f3d0;border-radius:8px;padding:8px 10px;font-size:12px">
+        <div style="font-weight:700;color:#065f46">${cl.nom}</div>
+        <div style="color:#64748b">${sav?.titre||''}</div>
+      </div>`:''}
+      ${artisan?`<div style="font-size:12px;color:#64748b">Artisan : <b>${artisan.entreprise||artisan.nom}</b></div>`:''}
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Date d'intervention prévue *</label>
+        <input id="pa-date" type="date" value="" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Notes</label>
+        <input id="pa-notes" type="text" placeholder="Ex: matin, après-midi..." style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-secondary" onclick="closeM('m-client')">Annuler</button>
+        <button class="btn btn-primary" onclick="savePlanifieArtisan('${savId}','${clientId}')">📅 Planifier</button>
+      </div>
+    </div>
+  `;
+  openM('m-client');
+}
+
+async function savePlanifieArtisan(savId, clientId){
+  const date=document.getElementById('pa-date').value;
+  const notes=document.getElementById('pa-notes').value.trim();
+  if(!date){toast('Sélectionnez une date','#ef4444');return;}
+  const sav=savList.find(s=>s.id===savId);
+  const artisan=artisans.find(a=>a.id===sav?.artisan_id);
+  try{
+    // Update SAV status to planifie
+    await db('PATCH','sav',{statut:'planifie'},`?id=eq.${savId}`);
+    savList=savList.map(s=>s.id===savId?{...s,statut:'planifie'}:s);
+    // Add to planning
+    const item={titre:sav.titre,date,heure:null,type:'sav',client_id:clientId,sav_id:savId,notes:notes||(artisan?'Artisan: '+(artisan.entreprise||artisan.nom):null),statut:'a_faire'};
+    const res=await db('POST','planning',item);
+    planningList.push(Array.isArray(res)?res[0]:res);
+    closeM('m-client');
+    toast('📅 SAV artisan planifié !');
+    goView('sav');
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+function openEditPlanningModal(id){
+  const p=planningList.find(x=>x.id===id);
+  if(!p)return;
+  const cl=clients.find(c=>c.id===p.client_id);
+  const color=p.type==='sav'?'#ef4444':'#2563eb';
+  document.getElementById('m-client-title').textContent='📅 '+p.titre;
+  document.getElementById('m-client-body').innerHTML=`
+    <div style="margin-bottom:12px">
+      ${cl?`<div style="font-size:14px;font-weight:700;color:${color};margin-bottom:4px">${cl.nom}</div>
+      <div style="font-size:12px;color:#64748b">${cl.adresse||''}</div>`:''}
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        ${p.heure?`<span style="background:#f1f5f9;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:700">🕐 ${p.heure.slice(0,5)}</span>`:''}
+        <span style="background:#f1f5f9;padding:4px 10px;border-radius:8px;font-size:12px">${new Date(p.date+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</span>
+        <span style="padding:4px 10px;border-radius:8px;font-size:12px;background:${p.statut==='fait'?'#ecfdf5':'#fef2f2'};color:${p.statut==='fait'?'#10b981':'#ef4444'};font-weight:700">${p.statut==='fait'?'✅ Fait':'À faire'}</span>
+      </div>
+      ${p.notes?`<div style="margin-top:8px;font-size:12px;color:#374151;background:#f8fafc;padding:8px;border-radius:8px">${p.notes}</div>`:''}
+    </div>
+    ${cl?.tel||cl?.tel2?`<div style="display:flex;gap:6px;margin-bottom:12px">
+      ${cl.tel?`<a href="tel:${cl.tel}" style="padding:6px 12px;border-radius:8px;background:#dbeafe;color:#1e40af;font-size:12px;font-weight:700;text-decoration:none">📞 ${cl.conjoint1||cl.tel}</a>`:''}
+      ${cl.tel2?`<a href="tel:${cl.tel2}" style="padding:6px 12px;border-radius:8px;background:#e0e7ff;color:#3730a3;font-size:12px;font-weight:700;text-decoration:none">📞 ${cl.conjoint2||cl.tel2}</a>`:''}
+      ${cl?.lat&&cl?.lng?`<a href="https://www.google.com/maps/dir/?api=1&destination=${cl.lat},${cl.lng}" target="_blank" style="padding:6px 12px;border-radius:8px;background:#fef3c7;color:#d97706;font-size:12px;font-weight:700;text-decoration:none">🧭 Y aller</a>`:''}
+    </div>`:''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${p.statut!=='fait'?`<button onclick="markPlanningDone('${id}')" style="flex:1;padding:8px;border-radius:9px;background:#ecfdf5;color:#10b981;border:1.5px solid #a7f3d0;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">✅ Marquer fait</button>`:''}
+      <button onclick="closeM('m-client');openAddPlanningModal(${JSON.stringify(p).replace(/'/g,'"')})" style="flex:1;padding:8px;border-radius:9px;background:#f1f5f9;color:#374151;border:1.5px solid #e2e8f0;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">✏ Modifier</button>
+      <button onclick="deletePlanningItem('${id}')" style="padding:8px 12px;border-radius:9px;background:#fff5f5;color:#ef4444;border:1.5px solid #fee2e2;cursor:pointer;font-size:12px;font-family:inherit">🗑</button>
+    </div>
+  `;
+  openM('m-client');
+  // Pre-select heure if prefill
+  if(prefill?.heure){
+    setTimeout(()=>{
+      const sel=document.getElementById('pl-heure');
+      if(sel)sel.value=prefill.heure.slice(0,5);
+    },50);
+  }
+}
+
 
 function scrollToPlanningDay(date){
   const el=document.getElementById('pday-'+date);
@@ -798,13 +987,67 @@ async function deletePlanningItem(id){
   toast('Tâche supprimée');
 }
 
-function openAddPlanningModal(prefill){
-  const clientOptions=clients.filter(c=>c.statut==='en_cours'||c.statut==='ouverture')
-    .map(c=>`<option value="${c.id}">${c.nom}</option>`).join('');
-  const today=new Date().toISOString().split('T')[0];
-  document.getElementById('m-client-title').textContent='📅 Ajouter au planning';
+function openPlanningFromAgenda(){
+  // Show list of SAV internes not yet planified
+  const savAplanifier=savList.filter(s=>!s.artisan_id&&s.statut!=='resolu'&&s.statut!=='planifie');
+  const savAvecArtisan=savList.filter(s=>s.artisan_id&&s.statut!=='resolu'&&s.statut!=='planifie');
+  document.getElementById('m-client-title').textContent='📅 Que voulez-vous planifier ?';
   document.getElementById('m-client-body').innerHTML=`
     <div style="display:flex;flex-direction:column;gap:10px">
+      ${savAplanifier.length>0?`
+      <div>
+        <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px">🏠 SAV Internes à planifier (${savAplanifier.length})</div>
+        ${savAplanifier.map(s=>{
+          const cl=clients.find(c=>c.id===s.client_id);
+          return `<div style="padding:8px 10px;border-radius:9px;border:1.5px solid #e2e8f0;background:#f8fafc;margin-bottom:5px;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="closeM('m-client');openAddPlanningModal({titre:'${s.titre.replace(/'/g,'\'').replace(/"/g,'\"')}',type:'sav',client_id:'${s.client_id}',notes:'${(s.notes||'').replace(/'/g,'\'').replace(/"/g,'\"')}',sav_id:'${s.id}'})">
+            <div>
+              <div style="font-size:12px;font-weight:700">${s.titre}</div>
+              <div style="font-size:11px;color:#2563eb">${cl?.nom||'—'}</div>
+            </div>
+            <span style="color:#2563eb;font-size:18px">›</span>
+          </div>`;
+        }).join('')}
+      </div>`:''}
+      <div style="border-top:1px solid #e2e8f0;padding-top:10px">
+        <button onclick="closeM('m-client');openAddPlanningModal()" style="width:100%;padding:10px;border-radius:9px;background:#0f172a;color:#fff;border:none;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit">+ Créer une tâche manuellement</button>
+      </div>
+    </div>
+  `;
+  openM('m-client');
+}
+
+function openAddPlanningModal(prefill){
+  const clientOptions=clients.filter(c=>c.statut==='en_cours'||c.statut==='ouverture')
+    .map(c=>`<option value="${c.id}" ${prefill?.client_id===c.id?'selected':''}>${c.nom}</option>`).join('');
+  const today=new Date().toISOString().split('T')[0];
+  const cl=prefill?.client_id?clients.find(c=>c.id===prefill.client_id):null;
+
+  // Mini planning preview for selected date
+  const previewDate=prefill?.date||today;
+  const dayItems=planningList.filter(p=>p.date===previewDate);
+  const previewHTML=dayItems.length>0?`
+    <div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:8px 10px;margin-bottom:2px">
+      <div style="font-size:10px;font-weight:700;color:#854d0e;margin-bottom:5px">⚠️ ${dayItems.length} tâche(s) déjà planifiée(s) ce jour</div>
+      ${dayItems.map(p=>{
+        const c=clients.find(x=>x.id===p.client_id);
+        return `<div style="font-size:11px;color:#713f12;padding:2px 0;display:flex;align-items:center;gap:5px">
+          <span>${p.heure?p.heure.slice(0,5):'?h'}</span>
+          <span style="font-weight:600">${p.titre}</span>
+          ${c?`<span style="color:#92400e">— ${c.nom}</span>`:''}
+        </div>`;
+      }).join('')}
+    </div>`:'<div style="font-size:11px;color:#10b981;font-weight:600">✅ Aucune tâche ce jour</div>';
+
+  document.getElementById('m-client-title').textContent='📅 Planifier une tâche';
+  document.getElementById('m-client-body').innerHTML=`
+    <div style="display:flex;flex-direction:column;gap:10px">
+      ${cl?`<div style="background:#f0fdf4;border:1px solid #a7f3d0;border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:8px">
+        <span style="font-size:16px">🏡</span>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:#065f46">${cl.nom}</div>
+          <div style="font-size:11px;color:#64748b">${cl.adresse||''}</div>
+        </div>
+      </div>`:''}
       <div>
         <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Titre *</label>
         <input id="pl-titre" type="text" value="${prefill?.titre||''}" placeholder="Ex: Vérifier volets roulants" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
@@ -812,28 +1055,59 @@ function openAddPlanningModal(prefill){
       <div style="display:flex;gap:8px">
         <div style="flex:1">
           <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Date *</label>
-          <input id="pl-date" type="date" value="${prefill?.date||today}" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+          <input id="pl-date" type="date" value="${prefill?.date||today}" oninput="updatePlanningPreview(this.value)" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
         </div>
         <div style="flex:1">
           <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Heure</label>
-          <input id="pl-heure" type="time" value="${prefill?.heure||''}" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+          <select id="pl-heure" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px;background:#fff">
+            <option value="">— Heure —</option>
+            <option value="07:00">07:00</option>
+            <option value="07:30">07:30</option>
+            <option value="08:00">08:00</option>
+            <option value="08:30">08:30</option>
+            <option value="09:00">09:00</option>
+            <option value="09:30">09:30</option>
+            <option value="10:00">10:00</option>
+            <option value="10:30">10:30</option>
+            <option value="11:00">11:00</option>
+            <option value="11:30">11:30</option>
+            <option value="12:00">12:00</option>
+            <option value="12:30">12:30</option>
+            <option value="13:00">13:00</option>
+            <option value="13:30">13:30</option>
+            <option value="14:00">14:00</option>
+            <option value="14:30">14:30</option>
+            <option value="15:00">15:00</option>
+            <option value="15:30">15:30</option>
+            <option value="16:00">16:00</option>
+            <option value="16:30">16:30</option>
+            <option value="17:00">17:00</option>
+            <option value="17:30">17:30</option>
+            <option value="18:00">18:00</option>
+            <option value="18:30">18:30</option>
+            <option value="19:00">19:00</option>
+            <option value="19:30">19:30</option>
+            <option value="20:00">20:00</option>
+            <option value="20:30">20:30</option>
+          </select>
         </div>
       </div>
+      <div id="pl-preview">${previewHTML}</div>
       <div>
         <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Type</label>
         <select id="pl-type" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px">
-          <option value="tache" ${prefill?.type==='tache'?'selected':''}>✅ Tâche chantier</option>
+          <option value="tache" ${prefill?.type==='tache'||!prefill?.type?'selected':''}>✅ Tâche chantier</option>
           <option value="sav" ${prefill?.type==='sav'?'selected':''}>🔧 SAV Interne</option>
           <option value="visite" ${prefill?.type==='visite'?'selected':''}>🏡 Visite</option>
         </select>
       </div>
-      <div>
+      ${!cl?`<div>
         <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Client</label>
         <select id="pl-client" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px">
           <option value="">— Sélectionner un client —</option>
           ${clientOptions}
         </select>
-      </div>
+      </div>`:`<input type="hidden" id="pl-client" value="${prefill?.client_id||''}"/>`}
       <div>
         <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Notes</label>
         <textarea id="pl-notes" placeholder="Détails, observations..." style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px;min-height:60px;resize:vertical">${prefill?.notes||''}</textarea>
@@ -844,13 +1118,24 @@ function openAddPlanningModal(prefill){
       </div>
     </div>
   `;
-  if(prefill?.client_id){
-    setTimeout(()=>{
-      const sel=document.getElementById('pl-client');
-      if(sel)sel.value=prefill.client_id;
-    },50);
-  }
   openM('m-client');
+}
+
+function updatePlanningPreview(date){
+  const el=document.getElementById('pl-preview');
+  if(!el)return;
+  const dayItems=planningList.filter(p=>p.date===date);
+  if(dayItems.length===0){
+    el.innerHTML='<div style="font-size:11px;color:#10b981;font-weight:600">✅ Aucune tâche ce jour</div>';
+    return;
+  }
+  el.innerHTML=`<div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:8px 10px">
+    <div style="font-size:10px;font-weight:700;color:#854d0e;margin-bottom:5px">⚠️ ${dayItems.length} tâche(s) déjà planifiée(s) ce jour</div>
+    ${dayItems.map(p=>{
+      const c=clients.find(x=>x.id===p.client_id);
+      return `<div style="font-size:11px;color:#713f12;padding:2px 0">${p.heure?p.heure.slice(0,5):'?h'} · <b>${p.titre}</b>${c?' — '+c.nom:''}</div>`;
+    }).join('')}
+  </div>`;
 }
 
 async function savePlanningItem(savId){
@@ -861,13 +1146,57 @@ async function savePlanningItem(savId){
   const clientId=document.getElementById('pl-client').value||null;
   const notes=document.getElementById('pl-notes').value.trim()||null;
   if(!titre||!date){toast('Titre et date obligatoires','#ef4444');return;}
-  const item={titre,date,heure,type,client_id:clientId,notes,statut:'a_faire'};
-  if(savId)item.sav_id=savId;
+
   try{
+    let newSavId=savId;
+
+    // Si SAV Interne → créer un vrai SAV dans la table sav
+    if(type==='sav'&&!savId&&clientId){
+      const newSav={
+        titre,
+        client_id:clientId,
+        notes,
+        statut:'planifie',
+        date_signalement:date
+      };
+      const savRes=await db('POST','sav',newSav);
+      const createdSav=Array.isArray(savRes)?savRes[0]:savRes;
+      newSavId=createdSav.id;
+      savList.push({...createdSav,statut:'planifie'});
+    }
+
+    // Si Visite → créer une tâche dans artisan_tasks du client (notes CT)
+    if(type==='visite'&&clientId){
+      const cl=clients.find(c=>c.id===clientId);
+      if(cl){
+        const existingTasks=cl.artisan_tasks||[];
+        const newTask={
+          artisan:'Jérôme',
+          taches:'[Visite] '+titre+(notes?' - '+notes:''),
+          date_visite:date,
+          id:Date.now().toString()
+        };
+        const updatedTasks=[...existingTasks, newTask];
+        await db('PATCH','clients',{artisan_tasks:updatedTasks},`?id=eq.${clientId}`);
+        clients=clients.map(c=>c.id===clientId?{...c,artisan_tasks:updatedTasks}:c);
+      }
+    }
+
+    // Ajouter au planning
+    const item={titre,date,heure,type,client_id:clientId,notes,statut:'a_faire'};
+    if(newSavId)item.sav_id=newSavId;
     const res=await db('POST','planning',item);
     planningList.push(Array.isArray(res)?res[0]:res);
+
+    // Mettre le SAV existant en "planifié"
+    if(savId&&savId!==newSavId){
+      await db('PATCH','sav',{statut:'planifie'},`?id=eq.${savId}`);
+      savList=savList.map(s=>s.id===savId?{...s,statut:'planifie'}:s);
+    }
+
     closeM('m-client');
-    toast('📅 Ajouté au planning !');
+    const msgs={sav:'🔧 SAV interne créé et planifié !',visite:'🏡 Visite planifiée !',tache:'📅 Tâche planifiée !'};
+    toast(msgs[type]||'📅 Planifié !');
     goView('planning');
   }catch(e){toast('Erreur: '+e.message,'#ef4444');}
 }
@@ -1368,9 +1697,10 @@ function renderSav(c){
     <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap" id="sav-statut-filters">
       <button onclick="filterSavByStatut(null)" id="sf-all" style="padding:4px 12px;border-radius:20px;border:2px solid #2563eb;background:#eff6ff;color:#2563eb;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit">Tous (${sv.length})</button>
       <button onclick="filterSavByStatut('nouveau')" id="sf-nouveau" class="status s-nouveau" style="cursor:pointer;font-family:inherit">Nouveau (${sv.filter(s=>s.statut==='nouveau').length})</button>
-      <button onclick="filterSavByStatut('attente_intervention')" id="sf-attente_intervention" class="status s-attente" style="cursor:pointer;font-family:inherit">Attente artisan (${sv.filter(s=>s.statut==='attente_intervention').length})</button>
+      <button onclick="filterSavByStatut('attente_intervention')" id="sf-attente_intervention" class="status s-attente" style="cursor:pointer;font-family:inherit">Attente retour (${sv.filter(s=>s.statut==='attente_intervention').length})</button>
       <button onclick="filterSavByStatut('resolu')" id="sf-resolu" class="status s-resolu" style="cursor:pointer;font-family:inherit">Résolu (${sv.filter(s=>s.statut==='resolu').length})</button>
       <button onclick="filterSavByStatut('interne')" id="sf-interne" style="padding:2px 10px;border-radius:20px;border:1px solid #e9d5ff;background:#f3e8ff;color:#7c3aed;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit">🏠 Interne (${sv.filter(s=>!s.artisan_id).length})</button>
+      <button onclick="filterSavByStatut('planifie')" id="sf-planifie" style="padding:2px 10px;border-radius:20px;border:1px solid #c7d2fe;background:#e0e7ff;color:#3730a3;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit">📅 Planifié (${sv.filter(s=>s.statut==='planifie').length})</button>
     </div>
     </div>
     <div id="sav-list-container"></div>
@@ -1480,15 +1810,31 @@ function renderOneSav(s,client){
   if(s.statut==='attente_intervention'&&jMail!==null){
     html+='<div style="font-size:11px;font-weight:600;margin-top:3px;color:'+(enRetard?'#ef4444':'#d97706')+'">'+(enRetard?'⚠ Relance nécessaire — ':'✉ Mail envoyé — ')+jMail+'j sans réponse</div>';
   }
+
   if(s.notes)html+='<div style="font-size:11px;color:#94a3b8;font-style:italic;margin-top:3px;background:#f8fafc;padding:5px 8px;border-radius:6px">'+s.notes+'</div>';
+  // Date de planification
+  if(s.statut==='planifie'){
+    const planItem=planningList.find(p=>p.sav_id===s.id);
+    if(planItem?.date){
+      const dpFr=new Date(planItem.date+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+      html+='<div style="font-size:11px;font-weight:700;margin-top:4px;color:#3730a3;background:#e0e7ff;padding:4px 8px;border-radius:6px;display:inline-flex;align-items:center;gap:4px">📅 Planifié le '+dpFr+(planItem.heure?' à '+planItem.heure.slice(0,5):'')+'</div>';
+    }
+  }
   html+='</div>';
   // Statut menu
   html+='<div class="statut-wrap" onclick="event.stopPropagation()">';
   html+='<span class="status '+(STATUTS[s.statut]?.cls||'s-nouveau')+'" data-menu="smenu-'+sid+'" style="cursor:pointer;white-space:nowrap" onclick="toggleSavStatutMenu(this.dataset.menu,event)">'+(STATUTS[s.statut]?.l||'Nouveau')+' ▾</span>';
-  html+='<div class="statut-menu" id="smenu-'+sid+'" style="right:0;left:auto;min-width:160px">';
-  Object.entries(STATUTS).filter(([k])=>k!==s.statut).forEach(([k,v])=>{
-    html+='<button data-sid="'+sid+'" data-k="'+k+'" data-cid="'+cid+'" onclick="chgStatut(this.dataset.sid,this.dataset.k,this.dataset.cid)"><span class="status '+v.cls+'">'+v.l+'</span></button>';
+  html+='<div class="statut-menu" id="smenu-'+sid+'" style="right:0;left:auto;min-width:180px">';
+  const statutsDispos=getStatutsForSav(s);
+  Object.entries(statutsDispos).filter(([k])=>k!==s.statut).forEach(([k,v])=>{
+    // Pour artisan + planifié → ouvre modal date
+    if(k==='planifie'&&s.artisan_id){
+      html+='<button data-sid="'+sid+'" data-cid="'+cid+'" onclick="openPlanifieArtisanModal(this.dataset.sid,this.dataset.cid)"><span class="status '+v.cls+'">'+v.l+'</span></button>';
+    } else {
+      html+='<button data-sid="'+sid+'" data-k="'+k+'" data-cid="'+cid+'" onclick="chgStatut(this.dataset.sid,this.dataset.k,this.dataset.cid)"><span class="status '+v.cls+'">'+v.l+'</span></button>';
+    }
   });
+
   html+='</div></div></div>';
   // Actions
   html+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">';
@@ -1517,8 +1863,17 @@ function renderOneSav(s,client){
 }
 function toggleSavStatutMenu(menuId,event){
   event.stopPropagation();
-  document.querySelectorAll('.statut-menu.open').forEach(m=>{if(m.id!==menuId)m.classList.remove('open');});
-  document.getElementById(menuId)?.classList.toggle('open');
+  document.querySelectorAll('.statut-menu.open').forEach(m=>m.classList.remove('open'));
+  const menu=document.getElementById(menuId);
+  if(!menu)return;
+  menu.classList.toggle('open');
+  if(menu.classList.contains('open')){
+    // Position fixed under the clicked element
+    const rect=event.target.getBoundingClientRect();
+    menu.style.top=(rect.bottom+4)+'px';
+    menu.style.right=(window.innerWidth-rect.right)+'px';
+    menu.style.left='auto';
+  }
 }
 
 async function sendMailAndUpdateStatus(savId,clientId,event){
