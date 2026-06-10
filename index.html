@@ -747,6 +747,7 @@ function _renderPlanningView(c){
 
   c.innerHTML=headerHTML+'<div id="planning-body" style="padding:0"></div>';
   document.getElementById('planning-body').innerHTML = view==='day' ? _renderDayView(window._planningDate) : _renderWeekView();
+  if(view==='day')setTimeout(_initDragPlanning,50);
 }
 
 function _getWeekStart(dateStr){
@@ -839,6 +840,92 @@ function _renderDayView(dateStr){
   return html;
 }
 
+function _timeDiffMin(h1,h2){
+  const [ah,am]=h1.split(':').map(Number);
+  const [bh,bm]=h2.split(':').map(Number);
+  return Math.max(30,(bh*60+bm)-(ah*60+am));
+}
+function _minToTime(min){
+  const h=Math.floor(min/60);
+  const m=min%60;
+  return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+}
+
+function _initDragPlanning(){
+  const SLOT=64; // px per hour
+  const HOUR_START=7;
+
+  document.querySelectorAll('.pl-evt').forEach(el=>{
+    // Drag to move
+    el.addEventListener('mousedown',function(e){
+      if(e.target.classList.contains('pl-resize'))return;
+      e.preventDefault();
+      window._dragged=false;
+      const id=this.dataset.id;
+      const startY=e.clientY;
+      const startTop=parseInt(this.style.top);
+      const onMove=(ev)=>{
+        const dy=ev.clientY-startY;
+        if(Math.abs(dy)>5)window._dragged=true;
+        const newTop=Math.max(0,startTop+dy);
+        const snapped=Math.round(newTop/32)*32;
+        this.style.top=snapped+'px';
+      };
+      const onUp=async(ev)=>{
+        document.removeEventListener('mousemove',onMove);
+        document.removeEventListener('mouseup',onUp);
+        if(!window._dragged){setTimeout(()=>{window._dragged=false;},100);return;}
+        const newTop=parseInt(this.style.top);
+        const totalMin=(newTop/SLOT)*60+HOUR_START*60;
+        const snappedMin=Math.round(totalMin/30)*30;
+        const newHeure=_minToTime(snappedMin);
+        const p=planningList.find(x=>x.id===id);
+        if(!p)return;
+        const durMin=p.heure&&p.heure_fin?_timeDiffMin(p.heure,p.heure_fin):60;
+        const newHeureFin=_minToTime(snappedMin+durMin);
+        await db('PATCH','planning',{heure:newHeure,heure_fin:newHeureFin},`?id=eq.${id}`);
+        planningList=planningList.map(x=>x.id===id?{...x,heure:newHeure,heure_fin:newHeureFin}:x);
+        setTimeout(()=>{window._dragged=false;},100);
+        _renderPlanningView();
+      };
+      document.addEventListener('mousemove',onMove);
+      document.addEventListener('mouseup',onUp);
+    });
+  });
+
+  document.querySelectorAll('.pl-resize').forEach(el=>{
+    el.addEventListener('mousedown',function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      const id=this.dataset.id;
+      const evt=this.parentElement;
+      const startY=e.clientY;
+      const startH=parseInt(evt.style.height);
+      const onMove=(ev)=>{
+        const dy=ev.clientY-startY;
+        const newH=Math.max(32,startH+dy);
+        const snapped=Math.round(newH/32)*32;
+        evt.style.height=snapped+'px';
+      };
+      const onUp=async(ev)=>{
+        document.removeEventListener('mousemove',onMove);
+        document.removeEventListener('mouseup',onUp);
+        const newH=parseInt(evt.style.height);
+        const p=planningList.find(x=>x.id===id);
+        if(!p)return;
+        const startMin=p.heure?parseInt(p.heure.split(':')[0])*60+parseInt(p.heure.split(':')[1]):HOUR_START*60;
+        const durMin=Math.round((newH/64)*60/30)*30;
+        const newHeureFin=_minToTime(startMin+Math.max(30,durMin));
+        await db('PATCH','planning',{heure_fin:newHeureFin},`?id=eq.${id}`);
+        planningList=planningList.map(x=>x.id===id?{...x,heure_fin:newHeureFin}:x);
+        _renderPlanningView();
+      };
+      document.addEventListener('mousemove',onMove);
+      document.addEventListener('mouseup',onUp);
+    });
+  });
+}
+
 function _renderWeekView(){
   const ws=_getWeekStart(window._planningDate);
   let html='<div style="display:grid;grid-template-columns:48px repeat(7,1fr);min-height:600px">';
@@ -918,12 +1005,27 @@ async function savePlanifieArtisan(savId, clientId){
     savList=savList.map(s=>s.id===savId?{...s,statut:'planifie'}:s);
     // Add to planning
     const item={titre:sav.titre,date,heure:null,type:'sav',client_id:clientId,sav_id:savId,notes:notes||(artisan?'Artisan: '+(artisan.entreprise||artisan.nom):null),statut:'a_faire'};
-    const res=await db('POST','planning',item);
-    planningList.push(Array.isArray(res)?res[0]:res);
+    // Vérifier si une entrée planning existe déjà pour ce SAV → update
+    const existingPlan=savId?planningList.find(p=>p.sav_id===savId):null;
+    let savedItem;
+    if(existingPlan){
+      savedItem=await db('PATCH','planning',item,`?id=eq.${existingPlan.id}`);
+      savedItem=Array.isArray(savedItem)?savedItem[0]:savedItem;
+      planningList=planningList.map(p=>p.id===existingPlan.id?{...p,...item}:p);
+    } else {
+      savedItem=await db('POST','planning',item);
+      planningList.push(Array.isArray(savedItem)?savedItem[0]:savedItem);
+    }
     closeM('m-client');
     toast('📅 SAV artisan planifié !');
     goView('sav');
   }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+function _editPlanningById(id){
+  const p=planningList.find(x=>x.id===id);
+  if(!p)return;
+  openAddPlanningModal({...p, sav_id:p.sav_id||''});
 }
 
 function openEditPlanningModal(id){
@@ -950,18 +1052,22 @@ function openEditPlanningModal(id){
     </div>`:''}
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       ${p.statut!=='fait'?`<button onclick="markPlanningDone('${id}')" style="flex:1;padding:8px;border-radius:9px;background:#ecfdf5;color:#10b981;border:1.5px solid #a7f3d0;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">✅ Marquer fait</button>`:''}
-      <button onclick="closeM('m-client');openAddPlanningModal(${JSON.stringify(p).replace(/'/g,'"')})" style="flex:1;padding:8px;border-radius:9px;background:#f1f5f9;color:#374151;border:1.5px solid #e2e8f0;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">✏ Modifier</button>
+      <button data-pid="${p.id}" onclick="closeM('m-client');_editPlanningById(this.dataset.pid)" style="flex:1;padding:8px;border-radius:9px;background:#f1f5f9;color:#374151;border:1.5px solid #e2e8f0;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">✏ Modifier</button>
       <button onclick="deletePlanningItem('${id}')" style="padding:8px 12px;border-radius:9px;background:#fff5f5;color:#ef4444;border:1.5px solid #fee2e2;cursor:pointer;font-size:12px;font-family:inherit">🗑</button>
     </div>
   `;
   openM('m-client');
   // Pre-select heure if prefill
-  if(prefill?.heure){
-    setTimeout(()=>{
+  setTimeout(()=>{
+    if(prefill?.heure){
       const sel=document.getElementById('pl-heure');
       if(sel)sel.value=prefill.heure.slice(0,5);
-    },50);
-  }
+    }
+    if(prefill?.heure_fin){
+      const sel=document.getElementById('pl-heure-fin');
+      if(sel)sel.value=prefill.heure_fin.slice(0,5);
+    }
+  },50);
 }
 
 
@@ -981,10 +1087,18 @@ async function markPlanningDone(id){
 
 async function deletePlanningItem(id){
   if(!confirm('Supprimer cette tâche du planning ?'))return;
+  const planItem=planningList.find(p=>p.id===id);
   await db('DELETE','planning','',`?id=eq.${id}`);
   planningList=planningList.filter(p=>p.id!==id);
-  goView('planning');
-  toast('Tâche supprimée');
+  // Si lié à un SAV → repasser en "nouveau"
+  if(planItem?.sav_id){
+    await db('PATCH','sav',{statut:'nouveau'},`?id=eq.${planItem.sav_id}`);
+    savList=savList.map(s=>s.id===planItem.sav_id?{...s,statut:'nouveau'}:s);
+    toast('Tâche supprimée — SAV repassé en Nouveau');
+  } else {
+    toast('Tâche supprimée');
+  }
+  _renderPlanningView();
 }
 
 function openPlanningFromAgenda(){
@@ -999,7 +1113,7 @@ function openPlanningFromAgenda(){
         <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px">🏠 SAV Internes à planifier (${savAplanifier.length})</div>
         ${savAplanifier.map(s=>{
           const cl=clients.find(c=>c.id===s.client_id);
-          return `<div style="padding:8px 10px;border-radius:9px;border:1.5px solid #e2e8f0;background:#f8fafc;margin-bottom:5px;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="closeM('m-client');openAddPlanningModal({titre:'${s.titre.replace(/'/g,'\'').replace(/"/g,'\"')}',type:'sav',client_id:'${s.client_id}',notes:'${(s.notes||'').replace(/'/g,'\'').replace(/"/g,'\"')}',sav_id:'${s.id}'})">
+          return `<div style="padding:8px 10px;border-radius:9px;border:1.5px solid #e2e8f0;background:#f8fafc;margin-bottom:5px;cursor:pointer;display:flex;align-items:center;justify-content:space-between" data-savid="${s.id}" onclick="closeM(\'m-client\');planifierSav(this.dataset.savid)">
             <div>
               <div style="font-size:12px;font-weight:700">${s.titre}</div>
               <div style="font-size:11px;color:#2563eb">${cl?.nom||'—'}</div>
@@ -1058,8 +1172,42 @@ function openAddPlanningModal(prefill){
           <input id="pl-date" type="date" value="${prefill?.date||today}" oninput="updatePlanningPreview(this.value)" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
         </div>
         <div style="flex:1">
-          <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Heure</label>
+          <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Début</label>
           <select id="pl-heure" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px;background:#fff">
+            <option value="">— Heure —</option>
+            <option value="07:00">07:00</option>
+            <option value="07:30">07:30</option>
+            <option value="08:00">08:00</option>
+            <option value="08:30">08:30</option>
+            <option value="09:00">09:00</option>
+            <option value="09:30">09:30</option>
+            <option value="10:00">10:00</option>
+            <option value="10:30">10:30</option>
+            <option value="11:00">11:00</option>
+            <option value="11:30">11:30</option>
+            <option value="12:00">12:00</option>
+            <option value="12:30">12:30</option>
+            <option value="13:00">13:00</option>
+            <option value="13:30">13:30</option>
+            <option value="14:00">14:00</option>
+            <option value="14:30">14:30</option>
+            <option value="15:00">15:00</option>
+            <option value="15:30">15:30</option>
+            <option value="16:00">16:00</option>
+            <option value="16:30">16:30</option>
+            <option value="17:00">17:00</option>
+            <option value="17:30">17:30</option>
+            <option value="18:00">18:00</option>
+            <option value="18:30">18:30</option>
+            <option value="19:00">19:00</option>
+            <option value="19:30">19:30</option>
+            <option value="20:00">20:00</option>
+            <option value="20:30">20:30</option>
+          </select>
+        </div>
+        <div style="flex:1">
+          <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Fin</label>
+          <select id="pl-heure-fin" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px;background:#fff">
             <option value="">— Heure —</option>
             <option value="07:00">07:00</option>
             <option value="07:30">07:30</option>
@@ -1183,13 +1331,24 @@ async function savePlanningItem(savId){
     }
 
     // Ajouter au planning
-    const item={titre,date,heure,type,client_id:clientId,notes,statut:'a_faire'};
+    const heureFin=document.getElementById('pl-heure-fin')?.value||null;
+    const item={titre,date,heure,heure_fin:heureFin,type,client_id:clientId,notes,statut:'a_faire'};
     if(newSavId)item.sav_id=newSavId;
-    const res=await db('POST','planning',item);
-    planningList.push(Array.isArray(res)?res[0]:res);
+    // Vérifier si une entrée planning existe déjà pour ce SAV → update
+    const existingPlan=newSavId?planningList.find(p=>p.sav_id===newSavId):null;
+    if(existingPlan){
+      // PATCH avec Prefer:return=representation pour récupérer la réponse
+      await db('PATCH','planning',item,`?id=eq.${existingPlan.id}`);
+      planningList=planningList.map(p=>p.id===existingPlan.id?{...p,...item}:p);
+    } else {
+      const savedItem=await db('POST','planning',item);
+      const pushed=Array.isArray(savedItem)?savedItem[0]:savedItem;
+      if(pushed&&pushed.id)planningList.push(pushed);
+      else planningList.push({...item,id:Date.now().toString()});
+    }
 
     // Mettre le SAV existant en "planifié"
-    if(savId&&savId!==newSavId){
+    if(savId){
       await db('PATCH','sav',{statut:'planifie'},`?id=eq.${savId}`);
       savList=savList.map(s=>s.id===savId?{...s,statut:'planifie'}:s);
     }
@@ -1226,14 +1385,15 @@ async function planifierTache(titre,clientId,notes,dateHeure){
 
 async function loadAll(){
   try{
-    const [c,a,s,ca]=await Promise.all([
+    const [c,a,s,ca,pl]=await Promise.all([
       db('GET','clients','','?order=nom'),
       db('GET','artisans','','?order=nom'),
       db('GET','sav','','?order=created_at.desc'),
-      db('GET','chantier_artisans','','')
+      db('GET','chantier_artisans','',''),
+      db('GET','planning','','?order=date,heure&limit=500')
     ]);
     clearTimeout(timeout);
-    clients=c||[];artisans=a||[];savList=s||[];chantierArtisans=ca||[];
+    clients=c||[];artisans=a||[];savList=s||[];chantierArtisans=ca||[];planningList=pl||[];
     updateUI();
     document.getElementById('loader').style.display='none';
     goView(currentView);
@@ -1817,7 +1977,7 @@ function renderOneSav(s,client){
     const planItem=planningList.find(p=>p.sav_id===s.id);
     if(planItem?.date){
       const dpFr=new Date(planItem.date+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
-      html+='<div style="font-size:11px;font-weight:700;margin-top:4px;color:#3730a3;background:#e0e7ff;padding:4px 8px;border-radius:6px;display:inline-flex;align-items:center;gap:4px">📅 Planifié le '+dpFr+(planItem.heure?' à '+planItem.heure.slice(0,5):'')+'</div>';
+      html+='<div data-pid="'+planItem.id+'" onclick="openEditPlanningModal(this.dataset.pid)" style="cursor:pointer;font-size:11px;font-weight:700;margin-top:4px;color:#3730a3;background:#e0e7ff;padding:4px 8px;border-radius:6px;display:inline-flex;align-items:center;gap:4px;border:1.5px solid #c7d2fe">📅 Planifié le '+dpFr+(planItem.heure?' à '+planItem.heure.slice(0,5):'')+(planItem.heure_fin?' → '+planItem.heure_fin.slice(0,5):'')+'  ✏</div>';
     }
   }
   html+='</div>';
@@ -1846,7 +2006,9 @@ function renderOneSav(s,client){
   } else {
     html+='<div style="display:flex;align-items:center;gap:6px">';
     html+='<div style="font-size:11px;background:#f3e8ff;color:#7c3aed;padding:4px 9px;border-radius:7px;font-weight:600">🏠 SAV Interne — MA 17 SUD</div>';
-    html+='<button data-sid="'+sid+'" onclick="planifierSav(this.dataset.sid)" style="padding:4px 9px;border-radius:7px;background:#eff6ff;color:#2563eb;border:1.5px solid #bfdbfe;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit">📅 Planifier</button>';
+    if(s.statut!=='planifie'){
+      html+='<button data-sid="'+sid+'" onclick="planifierSav(this.dataset.sid)" style="padding:4px 9px;border-radius:7px;background:#eff6ff;color:#2563eb;border:1.5px solid #bfdbfe;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit">📅 Planifier</button>';
+    }
     html+='</div>';
   }
   if(s.statut==='nouveau'&&artisan?.email){
@@ -3034,6 +3196,12 @@ async function chgStatut(savId,statut,clientId){
     if(statut==='attente_intervention'&&!savList.find(x=>x.id===savId)?.date_mail)upd.date_mail=today();
     await db('PATCH','sav',upd,`?id=eq.${savId}`);
     savList=savList.map(s=>s.id===savId?{...s,...upd}:s);
+    // Si on rebascule vers un statut != planifié → supprimer du planning
+    if(statut!=='planifie'){
+      const planItems=planningList.filter(p=>p.sav_id===savId);
+      for(const p of planItems){await db('DELETE','planning','',`?id=eq.${p.id}`);}
+      planningList=planningList.filter(p=>p.sav_id!==savId);
+    }
     // Si résolu, vérifier si tous les SAV sont résolus → repasser en livré
     if(statut==='resolu'){
       const clientSavs=savList.filter(s=>s.client_id===clientId);
