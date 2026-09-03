@@ -1522,15 +1522,31 @@ function openCommande(cmdId){
   const cl=clients.find(x=>x.id===cmd.client_id);
   const c=document.getElementById('content');
   const pieces=cmd.pieces||[];
+  if(!cmd.seuils)cmd.seuils=[];
   const usedRefIds=[...new Set([...(cmd.active_refs||[]),...pieces.filter(p=>p.ref_id).map(p=>p.ref_id)])];
   const piecesDispos=pieces.filter(p=>!p.ref_id);
 
+  function _assignBtn(ref,refId,piecesDispos){
+    if(ref.type==='faience'){
+      return '<button onclick="openAssignMursModal(\''+refId+'\')" style="width:100%;padding:7px;border-radius:8px;border:1.5px dashed #0891b2;background:#ecfeff;cursor:pointer;font-family:inherit;font-size:12px;color:#0891b2;margin-top:4px">+ Ajouter un mur à carreler...</button>';
+    }
+    if(piecesDispos.length>0){
+      return '<button onclick="openAssignPiecesModal(\''+refId+'\')" style="width:100%;padding:7px;border-radius:8px;border:1.5px dashed #94a3b8;background:#f8fafc;cursor:pointer;font-family:inherit;font-size:12px;color:#64748b;margin-top:4px">+ Assigner des pièces...</button>';
+    }
+    return '';
+  }
   function refBlock(refId,idx){
     const ref=carrelageRefs.find(r=>r.id===refId);
     if(!ref)return '';
     const color=PIECE_COLORS[idx%PIECE_COLORS.length];
     const piecesRef=pieces.filter(p=>p.ref_id===refId);
-    const totalM2=piecesRef.reduce((t,p)=>t+p.surface*1.1,0);
+    // Faience: use murs instead of pieces
+    const mursRef=(cmd.murs||[]).filter(m=>m.ref_id===refId);
+    const isFaience=ref.type==='faience';
+    const totalM2=isFaience
+      ? mursRef.reduce((t,m)=>t+_calcFaience(m).m2Total,0)
+      : piecesRef.reduce((t,p)=>t+p.surface*1.1,0);
+    const totalCarreaux=isFaience?mursRef.reduce((t,m)=>t+_calcFaience(m).nbCarreaux,0):0;
     const plinthesParType={};
     piecesRef.filter(p=>p.plinthe).forEach(p=>{
       if(!plinthesParType[p.plinthe])plinthesParType[p.plinthe]=0;
@@ -1542,15 +1558,24 @@ function openCommande(cmdId){
         <div style="width:20px;height:20px;border-radius:5px;background:${color};flex-shrink:0"></div>
         <div style="flex:1">
           <div style="font-weight:800;font-size:14px">${ref.reference}</div>
-          <div style="font-size:11px;color:#64748b">${ref.type==='parquet'?'🪵 Parquet':'🧱 Carrelage'} · ${ref.format||''} ${ref.coloris?'· '+ref.coloris:''}</div>
+          <div style="font-size:11px;color:#64748b">${{carrelage:'🧱 Carrelage',parquet:'🪵 Parquet',faience:'🪟 Faïence'}[ref.type]||'🧱'} · ${ref.format||''} ${ref.coloris?'· '+ref.coloris:''}</div>
         </div>
         <div style="text-align:right">
           <div style="font-size:16px;font-weight:800;color:${color}">${totalM2.toFixed(1)} m²</div>
+          ${isFaience&&totalCarreaux>0?`<div style="font-size:11px;color:#0891b2;font-weight:700">${totalCarreaux} carreaux</div>`:''}
           ${totalPlinthe>0?`<div style="font-size:11px;color:#f59e0b;font-weight:700">${totalPlinthe.toFixed(1)} ml plinthe</div>`:''}
         </div>
       </div>
       <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px">
-        ${piecesRef.map(p=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:#f8fafc;border-radius:7px;font-size:12px">
+        ${isFaience?mursRef.map(m=>{const calc=_calcFaience(m);return `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:#ecfeff;border-radius:7px;font-size:12px">
+          <div>
+            <span style="font-weight:600">${m.nom}</span>
+            <span style="color:#64748b;margin-left:6px">${String(m.largeur).includes('-')?'Segments: '+m.largeur:m.largeur+'cm'}×${m.hauteur}cm</span>
+            <span style="color:#0891b2;margin-left:6px">${calc.nbCarreaux} carreaux · ${calc.m2Total.toFixed(2)} m²</span>
+          </div>
+          <button data-mid="${m.id}" onclick="deleteMur(this.dataset.mid)" style="padding:3px 8px;border-radius:6px;background:#fff5f5;color:#ef4444;border:1px solid #fee2e2;cursor:pointer;font-size:11px;font-family:inherit">✕</button>
+        </div>`}).join('')
+        :piecesRef.map(p=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:#f8fafc;border-radius:7px;font-size:12px">
           <div>
             <span style="font-weight:600">${p.nom}</span>
             <span style="color:#64748b;margin-left:6px">${p.surface.toFixed(1)} m²</span>
@@ -1565,7 +1590,8 @@ function openCommande(cmdId){
           </div>
         </div>`).join('')}
       </div>
-      ${piecesDispos.length>0?`<button onclick="openAssignPiecesModal('${refId}')" style="width:100%;padding:7px;border-radius:8px;border:1.5px dashed #94a3b8;background:#f8fafc;cursor:pointer;font-family:inherit;font-size:12px;color:#64748b;margin-top:4px">+ Assigner des pièces...</button>`:''}\n    </div>`;
+      ${_assignBtn(ref,refId,piecesDispos)}
+    </div>`;
   }
 
   c.innerHTML=`
@@ -1581,8 +1607,25 @@ function openCommande(cmdId){
       ⚠️ ${piecesDispos.length} pièce(s) sans revêtement : ${piecesDispos.map(p=>p.nom).join(', ')}
     </div>`:''}
     <div id="refs-blocks">${usedRefIds.map((id,i)=>refBlock(id,i)).join('')}</div>
+    ${(cmd.seuils||[]).length>0?`<div class="card" style="padding:12px;border-left:5px solid #64748b;margin-bottom:10px">
+      <div style="font-weight:800;font-size:13px;margin-bottom:8px;display:flex;justify-content:space-between">
+        <span>🔲 Barres de seuil</span>
+        <span style="font-size:11px;color:#64748b;font-weight:400">${(cmd.seuils||[]).length} barre(s)</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        ${(cmd.seuils||[]).map(s=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:#f8fafc;border-radius:7px;font-size:12px">
+          <div>
+            <span style="font-weight:600">${s.finition}</span>
+            <span style="color:#64748b;margin-left:6px">${s.longueur} cm</span>
+            ${s.emplacement?`<span style="color:#94a3b8;margin-left:6px">${s.emplacement}</span>`:''}
+          </div>
+          <button data-sid="${s.id}" onclick="deleteSeuil(this.dataset.sid)" style="padding:3px 8px;border-radius:6px;background:#fff5f5;color:#ef4444;border:1px solid #fee2e2;cursor:pointer;font-size:11px;font-family:inherit">✕</button>
+        </div>`).join('')}
+      </div>
+    </div>`:''}
     <div style="display:flex;gap:8px;margin-bottom:8px">
       <button onclick="openAddRefAndAssignModal()" class="btn btn-primary" style="flex:1">+ Nouveau revêtement</button>
+      <button onclick="openAddSeuilModal()" class="btn btn-secondary" style="flex:1">🔲 Barre de seuil</button>
       <button onclick="openAssignExistingRef()" class="btn btn-secondary" style="flex:1">+ Référence existante</button>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
@@ -1648,6 +1691,212 @@ async function validerAssignPieces(refId){
   openCommande(cmd.id);
 }
 
+// ── FAIENCE HELPERS ──
+function _parseLargeurs(largeurStr){
+  // Parse "180" or "180-120-90" into array of numbers
+  return String(largeurStr).split('-').map(s=>parseFloat(s.trim())).filter(n=>n>0);
+}
+
+function _calcFaience(m){
+  const ref=carrelageRefs.find(r=>r.id===m.ref_id);
+  const fmt=(ref?.format||'30x60').toLowerCase().replace(' ','');
+  const parts=fmt.split('x');
+  const cL=parseFloat(parts[0])||30;
+  const cH=parseFloat(parts[1])||60;
+  const [fw,fh]=m.orientation==='vertical'?[cH,cL]:[cL,cH];
+  const hauteur=parseFloat(m.hauteur)||0;
+  // Handle multiple segments
+  const largeurs=_parseLargeurs(m.largeur);
+  let totalCarreaux=0;
+  let totalM2=0;
+  largeurs.forEach(larg=>{
+    const nbCol=Math.ceil(larg/fw);
+    const nbLig=Math.ceil(hauteur/fh);
+    totalCarreaux+=nbCol*nbLig;
+    totalM2+=(larg/100)*(hauteur/100);
+  });
+  const nbCarreaux=Math.ceil(totalCarreaux*1.1);
+  const m2Total=totalM2*1.1;
+  const totalLargeur=largeurs.reduce((t,l)=>t+l,0);
+  return {nbCarreaux,fw,fh,m2Total,totalLargeur,nbSegments:largeurs.length};
+}
+
+function openAssignMursModal(refId){
+  const ref=carrelageRefs.find(r=>r.id===refId);
+  document.getElementById('m-client-title').textContent='🪟 Ajouter un mur — '+( ref?.reference||'');
+  document.getElementById('m-client-body').innerHTML=`
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Nom du mur / zone *</label>
+        <input id="mur-nom" type="text" placeholder="Ex: Douche face, Crédence cuisine..." style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+      </div>
+      <div style="display:flex;gap:8px">
+        <div style="flex:2">
+          <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Largeur(s) (cm) *</label>
+          <input id="mur-largeur" type="text" placeholder="Ex: 180 ou 180-120-90" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px" oninput="updateMurCalc()"/>
+          <div style="font-size:10px;color:#94a3b8;margin-top:3px">Plusieurs segments : 180-120-90</div>
+        </div>
+        <div style="flex:1">
+          <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Hauteur (cm) *</label>
+          <input id="mur-hauteur" type="number" placeholder="Ex: 250" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px" oninput="updateMurCalc()"/>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Orientation de pose</label>
+        <div style="display:flex;gap:8px">
+          <button id="orient-h" onclick="selectOrientation('horizontal')" style="flex:1;padding:7px;border-radius:8px;border:2px solid #0891b2;background:#ecfeff;color:#0891b2;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700">↔ Horizontal</button>
+          <button id="orient-v" onclick="selectOrientation('vertical')" style="flex:1;padding:7px;border-radius:8px;border:2px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;font-family:inherit;font-size:12px">↕ Vertical</button>
+        </div>
+        <input type="hidden" id="mur-orientation" value="horizontal"/>
+      </div>
+      <div id="mur-calc-result" style="background:#ecfeff;border:1px solid #a5f3fc;border-radius:8px;padding:10px;font-size:12px;display:none">
+        <div style="font-weight:700;color:#0891b2;margin-bottom:3px">Calcul :</div>
+        <div id="mur-calc-detail" style="color:#164e63"></div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-secondary" onclick="closeM('m-client')">Annuler</button>
+        <button class="btn btn-primary" style="background:#0891b2" data-rid="${refId}" onclick="validerMur(this.dataset.rid)">+ Ajouter ce mur</button>
+      </div>
+    </div>
+  `;
+  openM('m-client');
+}
+
+function selectOrientation(o){
+  document.getElementById('mur-orientation').value=o;
+  const bH=document.getElementById('orient-h');
+  const bV=document.getElementById('orient-v');
+  if(o==='horizontal'){
+    bH.style.border='2px solid #0891b2';bH.style.background='#ecfeff';bH.style.color='#0891b2';bH.style.fontWeight='700';
+    bV.style.border='2px solid #e2e8f0';bV.style.background='#fff';bV.style.color='#64748b';bV.style.fontWeight='400';
+  }else{
+    bV.style.border='2px solid #0891b2';bV.style.background='#ecfeff';bV.style.color='#0891b2';bV.style.fontWeight='700';
+    bH.style.border='2px solid #e2e8f0';bH.style.background='#fff';bH.style.color='#64748b';bH.style.fontWeight='400';
+  }
+  updateMurCalc();
+}
+
+function updateMurCalc(){
+  const largeurStr=document.getElementById('mur-largeur')?.value||'';
+  const hauteur=parseFloat(document.getElementById('mur-hauteur')?.value)||0;
+  const orientation=document.getElementById('mur-orientation')?.value||'horizontal';
+  const refId=document.querySelector('[data-rid]')?.dataset?.rid;
+  const ref=carrelageRefs.find(r=>r.id===refId);
+  const el=document.getElementById('mur-calc-result');
+  const det=document.getElementById('mur-calc-detail');
+  const largeurs=_parseLargeurs(largeurStr);
+  if(!largeurs.length||!hauteur||!el||!det)return;
+  const fmt=(ref?.format||'30x60').toLowerCase().replace(' ','');
+  const parts=fmt.split('x');
+  const cL=parseFloat(parts[0])||30;const cH=parseFloat(parts[1])||60;
+  const [fw,fh]=orientation==='vertical'?[cH,cL]:[cL,cH];
+  let html=`Format carreau : ${fw}×${fh} cm (${orientation})<br>`;
+  let totalC=0;let totalM2=0;
+  largeurs.forEach((larg,i)=>{
+    const nbCol=Math.ceil(larg/fw);
+    const nbLig=Math.ceil(hauteur/fh);
+    const c=nbCol*nbLig;
+    totalC+=c;
+    totalM2+=(larg/100)*(hauteur/100);
+    if(largeurs.length>1) html+=`Segment ${i+1} : ${larg}cm — ${nbCol}×${nbLig} = ${c} carreaux<br>`;
+  });
+  const nbCarreaux=Math.ceil(totalC*1.1);
+  if(largeurs.length>1) html+=`<b>Total : ${totalC} + 10% = <span style="color:#0891b2;font-size:13px">${nbCarreaux} carreaux</span></b><br>`;
+  else{
+    const nbCol=Math.ceil(largeurs[0]/fw);const nbLig=Math.ceil(hauteur/fh);
+    html+=`<b>${nbCol}×${nbLig} = ${totalC} + 10% = <span style="color:#0891b2;font-size:13px">${nbCarreaux} carreaux</span></b><br>`;
+  }
+  html+=`Surface totale : ${(totalM2*1.1).toFixed(2)} m²`;
+  el.style.display='block';
+  det.innerHTML=html;
+}
+
+async function validerMur(refId){
+  const nom=document.getElementById('mur-nom').value.trim();
+  const largeurStr=document.getElementById('mur-largeur').value.trim();
+  const largeurs=_parseLargeurs(largeurStr);
+  const hauteur=parseFloat(document.getElementById('mur-hauteur').value)||0;
+  const orientation=document.getElementById('mur-orientation').value||'horizontal';
+  if(!nom||!largeurs.length||!hauteur){toast('Remplissez tous les champs','#ef4444');return;}
+  const largeur=largeurStr; // store as string to preserve segments
+  const cmd=commandesList.find(x=>x.id===window._cmdCourante);
+  if(!cmd)return;
+  if(!cmd.murs)cmd.murs=[];
+  cmd.murs.push({id:'m'+Date.now(),nom,largeur,hauteur,orientation,ref_id:refId});
+  // Also add refId to active_refs
+  if(!cmd.active_refs)cmd.active_refs=[];
+  if(!cmd.active_refs.includes(refId))cmd.active_refs.push(refId);
+  await db('PATCH','commandes_carrelage',{murs:cmd.murs,active_refs:cmd.active_refs,updated_at:new Date().toISOString()},`?id=eq.${cmd.id}`);
+  closeM('m-client');
+  toast('🪟 Mur ajouté !');
+  openCommande(cmd.id);
+}
+
+async function deleteMur(murId){
+  const cmd=commandesList.find(x=>x.id===window._cmdCourante);
+  if(!cmd)return;
+  cmd.murs=(cmd.murs||[]).filter(m=>m.id!==murId);
+  await db('PATCH','commandes_carrelage',{murs:cmd.murs,updated_at:new Date().toISOString()},`?id=eq.${cmd.id}`);
+  openCommande(cmd.id);
+}
+
+function openAddSeuilModal(){
+  document.getElementById('m-client-title').textContent='🔲 Ajouter une barre de seuil';
+  document.getElementById('m-client-body').innerHTML=`
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Finition *</label>
+        <input id="seuil-finition" type="text" placeholder="Ex: Inox brossé, Alu doré, Laiton..." style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+      </div>
+      <div style="display:flex;gap:8px">
+        <div style="flex:1">
+          <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Longueur (cm) *</label>
+          <input id="seuil-longueur" type="number" placeholder="Ex: 83" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+        </div>
+        <div style="flex:1">
+          <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Quantité</label>
+          <input id="seuil-qte" type="number" value="1" min="1" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Emplacement</label>
+        <input id="seuil-emplacement" type="text" placeholder="Ex: Entrée salon, Cuisine..." style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-secondary" onclick="closeM('m-client')">Annuler</button>
+        <button class="btn btn-primary" onclick="validerSeuil()">+ Ajouter</button>
+      </div>
+    </div>
+  `;
+  openM('m-client');
+}
+
+async function validerSeuil(){
+  const finition=document.getElementById('seuil-finition').value.trim();
+  const longueur=parseFloat(document.getElementById('seuil-longueur').value)||0;
+  const qte=parseInt(document.getElementById('seuil-qte').value)||1;
+  const emplacement=document.getElementById('seuil-emplacement').value.trim();
+  if(!finition||!longueur){toast('Finition et longueur obligatoires','#ef4444');return;}
+  const cmd=commandesList.find(x=>x.id===window._cmdCourante);
+  if(!cmd)return;
+  if(!cmd.seuils)cmd.seuils=[];
+  for(let i=0;i<qte;i++){
+    cmd.seuils.push({id:'s'+Date.now()+'_'+i,finition,longueur,emplacement});
+  }
+  await db('PATCH','commandes_carrelage',{seuils:cmd.seuils,updated_at:new Date().toISOString()},`?id=eq.${cmd.id}`);
+  closeM('m-client');
+  toast('🔲 Barre de seuil ajoutée !');
+  openCommande(cmd.id);
+}
+
+async function deleteSeuil(seuilId){
+  const cmd=commandesList.find(x=>x.id===window._cmdCourante);
+  if(!cmd)return;
+  cmd.seuils=(cmd.seuils||[]).filter(s=>s.id!==seuilId);
+  await db('PATCH','commandes_carrelage',{seuils:cmd.seuils,updated_at:new Date().toISOString()},`?id=eq.${cmd.id}`);
+  openCommande(cmd.id);
+}
+
 function openAssignExistingRef(){
   const cmd=commandesList.find(x=>x.id===window._cmdCourante);
   if(!cmd)return;
@@ -1681,7 +1930,7 @@ async function addRefToCommande(refId){
 
 
 async function _saveCmdPieces(cmd){
-  await db('PATCH','commandes_carrelage',{pieces:cmd.pieces,updated_at:new Date().toISOString()},`?id=eq.${cmd.id}`);
+  await db('PATCH','commandes_carrelage',{pieces:cmd.pieces,murs:cmd.murs||[],seuils:cmd.seuils||[],updated_at:new Date().toISOString()},`?id=eq.${cmd.id}`);
 }
 
 async function setPieceRef(pieceId,refId){
@@ -1710,6 +1959,7 @@ function openAddRefModal(){
         <div style="display:flex;gap:8px">
           <button id="type-carrelage" onclick="selectRefType('carrelage')" style="flex:1;padding:8px;border-radius:8px;border:2px solid #2563eb;background:#eff6ff;color:#2563eb;cursor:pointer;font-family:inherit;font-weight:700;font-size:13px">🧱 Carrelage</button>
           <button id="type-parquet" onclick="selectRefType('parquet')" style="flex:1;padding:8px;border-radius:8px;border:2px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;font-family:inherit;font-size:13px">🪵 Parquet</button>
+          <button id="type-faience" onclick="selectRefType('faience')" style="flex:1;padding:8px;border-radius:8px;border:2px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;font-family:inherit;font-size:13px">🪟 Faïence</button>
         </div>
         <input type="hidden" id="ref-type" value="carrelage"/>
       </div>
@@ -1738,15 +1988,17 @@ function openAddRefModal(){
 
 function selectRefType(type){
   document.getElementById('ref-type').value=type;
-  const btCar=document.getElementById('type-carrelage');
-  const btPar=document.getElementById('type-parquet');
-  if(type==='carrelage'){
-    btCar.style.border='2px solid #2563eb';btCar.style.background='#eff6ff';btCar.style.color='#2563eb';btCar.style.fontWeight='700';
-    btPar.style.border='2px solid #e2e8f0';btPar.style.background='#fff';btPar.style.color='#64748b';btPar.style.fontWeight='400';
-  }else{
-    btPar.style.border='2px solid #8b5cf6';btPar.style.background='#f5f3ff';btPar.style.color='#7c3aed';btPar.style.fontWeight='700';
-    btCar.style.border='2px solid #e2e8f0';btCar.style.background='#fff';btCar.style.color='#64748b';btCar.style.fontWeight='400';
-  }
+  const btns={carrelage:document.getElementById('type-carrelage'),parquet:document.getElementById('type-parquet'),faience:document.getElementById('type-faience')};
+  const colors={carrelage:'#2563eb',parquet:'#8b5cf6',faience:'#0891b2'};
+  const bgs={carrelage:'#eff6ff',parquet:'#f5f3ff',faience:'#ecfeff'};
+  Object.keys(btns).forEach(k=>{
+    if(!btns[k])return;
+    if(k===type){
+      btns[k].style.border='2px solid '+colors[k];btns[k].style.background=bgs[k];btns[k].style.color=colors[k];btns[k].style.fontWeight='700';
+    }else{
+      btns[k].style.border='2px solid #e2e8f0';btns[k].style.background='#fff';btns[k].style.color='#64748b';btns[k].style.fontWeight='400';
+    }
+  });
 }
 
 async function saveRef(){
@@ -1765,20 +2017,30 @@ async function saveRef(){
 }
 
 function _cmdRecap(cmd){
-  // Regrouper par référence
   const parRef={};
   const plinthes={};
   (cmd.pieces||[]).forEach(p=>{
     if(p.ref_id){
-      if(!parRef[p.ref_id])parRef[p.ref_id]={m2:0,pieces:[]};
+      const refType=carrelageRefs.find(r=>r.id===p.ref_id)?.type||'carrelage';
+      if(!parRef[p.ref_id])parRef[p.ref_id]={m2:0,carreaux:0,items:[],type:refType};
       parRef[p.ref_id].m2+=p.surface*1.1;
-      parRef[p.ref_id].pieces.push(p.nom);
+      parRef[p.ref_id].items.push(p.nom);
     }
     if(p.plinthe){
       const key=p.plinthe==='assortie'?'assortie_'+(p.ref_id||'?'):p.plinthe;
       if(!plinthes[key])plinthes[key]={ml:0,pieces:[],type:p.plinthe,ref_id:p.plinthe==='assortie'?p.ref_id:null};
       plinthes[key].ml+=Math.max(0,(p.perimetre-p.ouvertures))*1.1;
       plinthes[key].pieces.push(p.nom);
+    }
+  });
+  (cmd.murs||[]).forEach(m=>{
+    if(m.ref_id){
+      if(!parRef[m.ref_id])parRef[m.ref_id]={m2:0,carreaux:0,items:[],type:'faience'};
+      const calc=_calcFaience(m);
+      parRef[m.ref_id].m2+=calc.m2Total;
+      parRef[m.ref_id].carreaux+=calc.nbCarreaux;
+      parRef[m.ref_id].items.push(m.nom+' ('+m.largeur+'×'+m.hauteur+'cm)');
+      parRef[m.ref_id].type='faience';
     }
   });
   return {parRef,plinthes};
@@ -1796,64 +2058,134 @@ function exportBonCommande(){
   const date=new Date().toLocaleDateString('fr-FR');
   const pageW=doc.internal.pageSize.getWidth();
 
-  // Header bar
+  // Header
   doc.setFillColor(15,23,42);
   doc.rect(0,0,pageW,22,'F');
   doc.setTextColor(255,255,255);
   doc.setFontSize(14);doc.setFont('helvetica','bold');
-  doc.text('BON DE COMMANDE — CARRELAGE & PLINTHES',14,10);
+  doc.text('BON DE COMMANDE',14,10);
   doc.setFontSize(8);doc.setFont('helvetica','normal');
-  doc.text('MA 17 SUD — Maisons Alysia Charente-Maritime · Fournisseur : Arène Carrelage',14,17);
-
-  // Gradient bar simulation
+  doc.text('MA 17 SUD - Maisons Alysia Charente-Maritime - Fournisseur : Arene Carrelage',14,17);
   doc.setFillColor(0,180,197);doc.rect(0,22,pageW/2,2,'F');
   doc.setFillColor(245,166,35);doc.rect(pageW/2,22,pageW/2,2,'F');
 
   // Client info
-  doc.setTextColor(15,23,42);doc.setFontSize(10);doc.setFont('helvetica','bold');
-  doc.text('Chantier :',14,32);
-  doc.setFont('helvetica','normal');
-  doc.text((cl?.nom||'')+' — '+(cl?.adresse||''),38,32);
-  doc.setFont('helvetica','bold');doc.text('Date :',14,38);
-  doc.setFont('helvetica','normal');doc.text(date,38,38);
+  doc.setTextColor(15,23,42);
+  doc.setFontSize(10);doc.setFont('helvetica','bold');doc.text('Chantier :',14,32);
+  doc.setFont('helvetica','normal');doc.text((cl?.nom||''),42,32);
+  doc.setFont('helvetica','bold');doc.text('Adresse :',14,38);
+  doc.setFont('helvetica','normal');doc.text((cl?.adresse||'-'),42,38);
+  doc.setFont('helvetica','bold');doc.text('Date :',14,44);
+  doc.setFont('helvetica','normal');doc.text(date,42,44);
 
-  // Table
-  const tableRows=[];
-  Object.entries(parRef).forEach(([refId,d])=>{
-    const ref=carrelageRefs.find(r=>r.id===refId);
-    tableRows.push([
-      ref?.reference||'?',
-      (ref?.format||'')+(ref?.coloris?' · '+ref.coloris:''),
-      d.pieces.join(', '),
-      d.m2.toFixed(1)+' m²'
-    ]);
-  });
-  Object.values(plinthes).forEach(d=>{
-    const label=d.type==='assortie'?('Plinthe assortie '+(carrelageRefs.find(r=>r.id===d.ref_id)?.reference||'')):('Plinthe '+PLINTHE_TYPES[d.type]);
-    tableRows.push([label,'—',d.pieces.join(', '),d.ml.toFixed(1)+' ml']);
-  });
+  let curY=52;
 
-  doc.autoTable({
-    startY:44,
-    head:[['Référence','Format / Coloris','Pièces','Quantité']],
-    body:tableRows,
-    theme:'striped',
-    headStyles:{fillColor:[15,23,42],textColor:255,fontStyle:'bold',fontSize:9},
-    bodyStyles:{fontSize:9,textColor:[15,23,42]},
-    columnStyles:{3:{halign:'right',fontStyle:'bold'}},
-    alternateRowStyles:{fillColor:[248,250,252]},
-    margin:{left:14,right:14}
-  });
+  // Helper: draw section header - dark background, consistent
+  function sectionHeader(label){
+    doc.setFillColor(30,41,59);
+    doc.rect(14,curY,pageW-28,7,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(9);doc.setFont('helvetica','bold');
+    doc.text(label,16,curY+5);
+    curY+=9;
+  }
+
+  // CARRELAGE SOL
+  const refsCarrelage=Object.entries(parRef).filter(([,d])=>d.type==='carrelage');
+  if(refsCarrelage.length>0){
+    sectionHeader('CARRELAGE SOL');
+    const rows=refsCarrelage.map(([refId,d])=>{
+      const ref=carrelageRefs.find(r=>r.id===refId);
+      const label=[ref?.reference,ref?.format,ref?.coloris].filter(Boolean).join(' - ');
+      return [label,d.m2.toFixed(1)+' m2'];
+    });
+    doc.autoTable({startY:curY,head:[[{content:'Reference',styles:{halign:'left',fontStyle:'bold'}},{content:'Quantite',styles:{halign:'right',fontStyle:'bold'}}]],body:rows,theme:'striped',
+      headStyles:{fillColor:[241,245,249],textColor:[15,23,42],fontStyle:'bold',fontSize:8},
+      bodyStyles:{fontSize:9,textColor:[15,23,42]},
+      columnStyles:{0:{cellWidth:146},1:{halign:'right',fontStyle:'bold',cellWidth:36}},
+      alternateRowStyles:{fillColor:[248,250,252]},margin:{left:14,right:14}});
+    curY=doc.lastAutoTable.finalY+6;
+  }
+
+  // PARQUET
+  const refsParquet=Object.entries(parRef).filter(([,d])=>d.type==='parquet');
+  if(refsParquet.length>0){
+    sectionHeader('PARQUET');
+    const rows=refsParquet.map(([refId,d])=>{
+      const ref=carrelageRefs.find(r=>r.id===refId);
+      const label=[ref?.reference,ref?.format,ref?.coloris].filter(Boolean).join(' - ');
+      return [label,d.m2.toFixed(1)+' m2'];
+    });
+    doc.autoTable({startY:curY,head:[[{content:'Reference',styles:{halign:'left',fontStyle:'bold'}},{content:'Quantite',styles:{halign:'right',fontStyle:'bold'}}]],body:rows,theme:'striped',
+      headStyles:{fillColor:[241,245,249],textColor:[15,23,42],fontStyle:'bold',fontSize:8},
+      bodyStyles:{fontSize:9,textColor:[15,23,42]},
+      columnStyles:{0:{cellWidth:146},1:{halign:'right',fontStyle:'bold',cellWidth:36}},
+      alternateRowStyles:{fillColor:[248,250,252]},margin:{left:14,right:14}});
+    curY=doc.lastAutoTable.finalY+6;
+  }
+
+  // FAIENCE
+  const refsFaience=Object.entries(parRef).filter(([,d])=>d.type==='faience');
+  if(refsFaience.length>0){
+    sectionHeader('FAIENCE MURALE');
+    const rows=refsFaience.map(([refId,d])=>{
+      const ref=carrelageRefs.find(r=>r.id===refId);
+      const label=[ref?.reference,ref?.format,ref?.coloris].filter(Boolean).join(' - ');
+      return [label,d.m2.toFixed(1)+' m2'];
+    });
+    doc.autoTable({startY:curY,head:[[{content:'Reference',styles:{halign:'left',fontStyle:'bold'}},{content:'Quantite',styles:{halign:'right',fontStyle:'bold'}}]],body:rows,theme:'striped',
+      headStyles:{fillColor:[241,245,249],textColor:[15,23,42],fontStyle:'bold',fontSize:8},
+      bodyStyles:{fontSize:9,textColor:[15,23,42]},
+      columnStyles:{0:{cellWidth:146},1:{halign:'right',fontStyle:'bold',cellWidth:36}},
+      alternateRowStyles:{fillColor:[248,250,252]},margin:{left:14,right:14}});
+    curY=doc.lastAutoTable.finalY+6;
+  }
+
+  // PLINTHES
+  const plinthesArr=Object.values(plinthes);
+  if(plinthesArr.length>0){
+    sectionHeader('PLINTHES');
+    const pRows=plinthesArr.map(d=>{
+      const label=d.type==='assortie'?('Assortie - '+(carrelageRefs.find(r=>r.id===d.ref_id)?.reference||'')):PLINTHE_TYPES[d.type];
+      return [label,d.ml.toFixed(1)+' ml'];
+    });
+    doc.autoTable({startY:curY,head:[[{content:'Type de plinthe',styles:{halign:'left',fontStyle:'bold'}},{content:'Quantite',styles:{halign:'right',fontStyle:'bold'}}]],body:pRows,theme:'striped',
+      headStyles:{fillColor:[241,245,249],textColor:[15,23,42],fontStyle:'bold',fontSize:8},
+      bodyStyles:{fontSize:9,textColor:[15,23,42]},
+      columnStyles:{1:{halign:'right',fontStyle:'bold',cellWidth:38}},
+      alternateRowStyles:{fillColor:[248,250,252]},margin:{left:14,right:14}});
+    curY=doc.lastAutoTable.finalY+6;
+  }
+
+  // BARRES DE SEUIL
+  const seuilsArr=cmd.seuils||[];
+  if(seuilsArr.length>0){
+    sectionHeader('BARRES DE SEUIL');
+    // Regrouper par finition + longueur
+    const seuilsGrouped={};
+    seuilsArr.forEach(s=>{
+      const key=s.finition+'|'+s.longueur;
+      if(!seuilsGrouped[key])seuilsGrouped[key]={finition:s.finition,longueur:s.longueur,qte:0};
+      seuilsGrouped[key].qte++;
+    });
+    const sRows=Object.values(seuilsGrouped).map(s=>[s.finition,s.longueur+' cm',s.qte+' u.']);
+    doc.autoTable({startY:curY,head:[[{content:'Finition',styles:{halign:'left',fontStyle:'bold'}},{content:'Longueur',styles:{halign:'center',fontStyle:'bold'}},{content:'Qte',styles:{halign:'right',fontStyle:'bold'}}]],body:sRows,theme:'striped',
+      headStyles:{fillColor:[241,245,249],textColor:[15,23,42],fontStyle:'bold',fontSize:8},
+      bodyStyles:{fontSize:9,textColor:[15,23,42]},
+      columnStyles:{1:{halign:'center',cellWidth:32},2:{halign:'right',fontStyle:'bold',cellWidth:24}},
+      alternateRowStyles:{fillColor:[248,250,252]},margin:{left:14,right:14}});
+    curY=doc.lastAutoTable.finalY+6;
+  }
 
   // Footer
-  const finalY=doc.lastAutoTable.finalY+8;
-  doc.setFontSize(8);doc.setTextColor(100,116,139);
-  doc.text('Quantités incluant 10% de chute · Livraison chantier : '+(cl?.adresse||''),14,finalY);
-  doc.text('Contact : Jérôme QUETIER — MA 17 SUD',14,finalY+5);
+  curY+=4;
+  doc.setDrawColor(226,232,240);doc.line(14,curY,pageW-14,curY);curY+=5;
+  doc.setFontSize(8);doc.setTextColor(100,116,139);doc.setFont('helvetica','normal');
+  doc.text('Contact : Florent HERPIN - MA 17 SUD',14,curY);
 
   const fileName='BonCommande_'+(cl?.nom||'commande').replace(/[^a-zA-Z0-9]/g,'_')+'_'+date.replace(/\//g,'-')+'.pdf';
   doc.save(fileName);
-  toast('📄 PDF téléchargé !');
+  toast('PDF telecharge !');
 }
 
 function exportFichePosteur(){
@@ -1916,15 +2248,12 @@ function exportFichePosteur(){
   <div class="sub"><b>Adresse :</b> ${cl?.adresse||''}</div>
   <div class="sub"><b>Date :</b> ${new Date().toLocaleDateString('fr-FR')}</div>
   <div class="bar"></div>
-  <div class="section">Légende — Code couleur par revêtement</div>
-  <div class="note">⚠️ Reportez ce code couleur sur le plan RDC fourni séparément. Coloriez chaque pièce avec la couleur de son revêtement.</div>
-  <div class="legende" style="margin-top:12px">${legendeHTML}</div>
   <div class="section" style="margin-top:24px">Détail par revêtement</div>
   <table>
     <thead><tr><th>Référence</th><th>Pièces</th><th style="text-align:right">Quantité</th></tr></thead>
     <tbody>${detailHTML}</tbody>
   </table>
-  <div class="note" style="margin-top:20px">📏 Quantités calculées avec 10% de chute inclus · Livraison chantier : ${cl?.adresse||''}</div>
+  <div style="margin-top:20px;font-size:11px;color:#64748b">📏 Quantités calculées avec 10% de chute inclus · Livraison chantier : ${cl?.adresse||''}</div>
   <button onclick="window.print()" style="margin-top:20px;padding:12px 24px;background:#8b5cf6;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">🖨 Imprimer / PDF</button>
   </body></html>`);
   w.document.close();
