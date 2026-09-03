@@ -1589,17 +1589,26 @@ async function setPiecePlinthe(pieceId,plinthe){
   openCommande(cmd.id);
 }
 
+function openAddRefAndAssignModal(){openAddRefModal();}
 function openAddRefModal(){
-  document.getElementById('m-client-title').textContent='+ Référence carrelage';
+  document.getElementById('m-client-title').textContent='+ Nouveau revêtement';
   document.getElementById('m-client-body').innerHTML=`
     <div style="display:flex;flex-direction:column;gap:10px">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Type *</label>
+        <div style="display:flex;gap:8px">
+          <button id="type-carrelage" onclick="selectRefType('carrelage')" style="flex:1;padding:8px;border-radius:8px;border:2px solid #2563eb;background:#eff6ff;color:#2563eb;cursor:pointer;font-family:inherit;font-weight:700;font-size:13px">🧱 Carrelage</button>
+          <button id="type-parquet" onclick="selectRefType('parquet')" style="flex:1;padding:8px;border-radius:8px;border:2px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;font-family:inherit;font-size:13px">🪵 Parquet</button>
+        </div>
+        <input type="hidden" id="ref-type" value="carrelage"/>
+      </div>
       <div>
         <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Référence *</label>
         <input id="ref-nom" type="text" placeholder="Ex: STONELINE Grey" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
       </div>
       <div style="display:flex;gap:8px">
         <div style="flex:1">
-          <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Format (cm) *</label>
+          <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Format (cm)</label>
           <input id="ref-format" type="text" placeholder="Ex: 60x60" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
         </div>
         <div style="flex:1">
@@ -1616,17 +1625,31 @@ function openAddRefModal(){
   openM('m-client');
 }
 
+function selectRefType(type){
+  document.getElementById('ref-type').value=type;
+  const btCar=document.getElementById('type-carrelage');
+  const btPar=document.getElementById('type-parquet');
+  if(type==='carrelage'){
+    btCar.style.border='2px solid #2563eb';btCar.style.background='#eff6ff';btCar.style.color='#2563eb';btCar.style.fontWeight='700';
+    btPar.style.border='2px solid #e2e8f0';btPar.style.background='#fff';btPar.style.color='#64748b';btPar.style.fontWeight='400';
+  }else{
+    btPar.style.border='2px solid #8b5cf6';btPar.style.background='#f5f3ff';btPar.style.color='#7c3aed';btPar.style.fontWeight='700';
+    btCar.style.border='2px solid #e2e8f0';btCar.style.background='#fff';btCar.style.color='#64748b';btCar.style.fontWeight='400';
+  }
+}
+
 async function saveRef(){
   const reference=document.getElementById('ref-nom').value.trim();
-  const format=document.getElementById('ref-format').value.trim();
+  const format=document.getElementById('ref-format').value.trim()||null;
   const coloris=document.getElementById('ref-coloris').value.trim()||null;
-  if(!reference||!format){toast('Référence et format obligatoires','#ef4444');return;}
-  const res=await db('POST','carrelage_refs',{reference,format,coloris});
+  const type=document.getElementById('ref-type')?.value||'carrelage';
+  if(!reference){toast('Référence obligatoire','#ef4444');return;}
+  const res=await db('POST','carrelage_refs',{reference,format,coloris,type});
   const ref=Array.isArray(res)?res[0]:res;
   carrelageRefs.push(ref);
   carrelageRefs.sort((a,b)=>a.reference.localeCompare(b.reference));
   closeM('m-client');
-  toast('🧱 Référence ajoutée !');
+  toast((type==='parquet'?'🪵':'🧱')+' Référence ajoutée !');
   if(window._cmdCourante)openCommande(window._cmdCourante);
 }
 
@@ -1692,42 +1715,75 @@ function exportBonCommande(){
   w.document.close();
 }
 
-function exportVisuelCarreleur(){
+function exportFichePosteur(){
   const cmd=commandesList.find(x=>x.id===window._cmdCourante);
   if(!cmd)return;
   const cl=clients.find(x=>x.id===cmd.client_id);
-  const pieces=(cmd.pieces||[]).filter(p=>p.ref_id||p.plinthe);
-  if(pieces.length===0){toast('Aucune pièce avec référence','#ef4444');return;}
+  const usedRefIds=[...new Set((cmd.pieces||[]).filter(p=>p.ref_id).map(p=>p.ref_id))];
+  if(usedRefIds.length===0){toast('Aucune référence assignée','#ef4444');return;}
 
-  let blocks='';
-  pieces.forEach((p,i)=>{
-    const ref=carrelageRefs.find(r=>r.id===p.ref_id);
-    const color=PIECE_COLORS[(cmd.pieces.indexOf(p))%PIECE_COLORS.length];
-    const linPlinthe=Math.max(0,(p.perimetre-p.ouvertures))*1.1;
-    blocks+=`<div style="border:3px solid ${color};border-radius:12px;padding:14px;background:${color}11">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <div style="width:22px;height:22px;border-radius:6px;background:${color}"></div>
-        <div style="font-weight:800;font-size:16px">${p.nom}</div>
-        <div style="margin-left:auto;font-size:13px;color:#64748b">${p.surface.toFixed(1)} m²</div>
+  // Légende : une couleur par revêtement
+  let legendeHTML='';
+  let detailHTML='';
+  usedRefIds.forEach((refId,i)=>{
+    const ref=carrelageRefs.find(r=>r.id===refId);
+    const color=PIECE_COLORS[i%PIECE_COLORS.length];
+    const piecesRef=(cmd.pieces||[]).filter(p=>p.ref_id===refId);
+    const totalM2=piecesRef.reduce((t,p)=>t+p.surface*1.1,0);
+    const plinthePieces=piecesRef.filter(p=>p.plinthe);
+    const plinthesParType={};
+    plinthePieces.forEach(p=>{
+      if(!plinthesParType[p.plinthe])plinthesParType[p.plinthe]=0;
+      plinthesParType[p.plinthe]+=Math.max(0,(p.perimetre-p.ouvertures))*1.1;
+    });
+
+    legendeHTML+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;background:${color}15;border:2px solid ${color}">
+      <div style="width:32px;height:32px;border-radius:6px;background:${color};flex-shrink:0"></div>
+      <div>
+        <div style="font-weight:800;font-size:14px">${ref?.reference||'?'}</div>
+        <div style="font-size:12px;color:#64748b">${ref?.type==='parquet'?'🪵 Parquet':'🧱 Carrelage'} · ${ref?.format||''} ${ref?.coloris?'· '+ref.coloris:''}</div>
       </div>
-      ${ref?`<div style="font-size:14px;margin-bottom:3px">🧱 <b>${ref.reference}</b> — ${ref.format||''} ${ref.coloris?'· '+ref.coloris:''}</div>`:'<div style="font-size:13px;color:#94a3b8">Pas de carrelage</div>'}
-      ${p.plinthe?`<div style="font-size:13px;color:#374151">📏 Plinthe : <b>${p.plinthe==='assortie'?'Assortie au carrelage':PLINTHE_TYPES[p.plinthe]}</b> — ${linPlinthe.toFixed(1)} ml</div>`:''}
+      <div style="margin-left:auto;text-align:right">
+        <div style="font-weight:800;font-size:16px;color:${color}">${totalM2.toFixed(1)} m²</div>
+        <div style="font-size:11px;color:#64748b">Pièces : ${piecesRef.map(p=>p.nom).join(', ')}</div>
+      </div>
     </div>`;
+
+    detailHTML+=`<tr style="background:${color}10"><td style="border-left:4px solid ${color}">${ref?.reference||'?'}</td><td>${piecesRef.map(p=>p.nom+' ('+p.surface.toFixed(1)+'m²)').join('<br>')}</td><td style="text-align:right;font-weight:700">${totalM2.toFixed(1)} m²</td></tr>`;
+    Object.entries(plinthesParType).forEach(([type,ml])=>{
+      detailHTML+=`<tr style="background:#fef3c710"><td style="padding-left:20px;color:#f59e0b">↳ Plinthe ${PLINTHE_TYPES[type]}</td><td>${plinthePieces.filter(p=>p.plinthe===type).map(p=>p.nom).join(', ')}</td><td style="text-align:right;font-weight:700;color:#f59e0b">${ml.toFixed(1)} ml</td></tr>`;
+    });
   });
 
   const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Plan de pose — ${cl?.nom||''}</title>
-  <style>body{font-family:-apple-system,sans-serif;padding:30px;color:#0f172a}
-  h1{font-size:20px;margin-bottom:2px}
-  .sub{color:#64748b;font-size:13px;margin-bottom:4px}
-  .bar{height:4px;background:linear-gradient(90deg,#00B4C5,#F5A623);border-radius:4px;margin:12px 0 20px}
-  .grid{display:flex;flex-direction:column;gap:12px}
-  @media print{button{display:none}}</style></head><body>
-  <h1>🎨 PLAN DE POSE CARRELAGE</h1>
-  <div class="sub"><b>Chantier :</b> ${cl?.nom||''} — ${cl?.adresse||''}</div>
-  <div class="sub">Référez-vous au plan RDC : chaque couleur correspond à une pièce</div>
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Fiche poseur — ${cl?.nom||''}</title>
+  <style>
+    body{font-family:-apple-system,sans-serif;padding:30px;color:#0f172a;max-width:800px;margin:0 auto}
+    h1{font-size:22px;margin-bottom:4px}
+    .sub{color:#64748b;font-size:13px;margin-bottom:4px}
+    .bar{height:4px;background:linear-gradient(90deg,#00B4C5,#F5A623);border-radius:4px;margin:14px 0 20px}
+    .section{font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.05em;margin:20px 0 8px}
+    .legende{display:flex;flex-direction:column;gap:8px}
+    table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+    th{background:#0f172a;color:#fff;padding:9px;text-align:left;font-size:12px}
+    td{padding:8px 10px;border-bottom:1px solid #e2e8f0;vertical-align:top}
+    .note{background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:12px;font-size:12px;color:#854d0e;margin-top:16px}
+    @media print{button{display:none}.note{break-inside:avoid}}
+  </style></head><body>
+  <h1>🎨 FICHE POSEUR — CARRELAGE & REVÊTEMENTS</h1>
+  <div class="sub"><b>Chantier :</b> ${cl?.nom||''}</div>
+  <div class="sub"><b>Adresse :</b> ${cl?.adresse||''}</div>
+  <div class="sub"><b>Date :</b> ${new Date().toLocaleDateString('fr-FR')}</div>
   <div class="bar"></div>
-  <div class="grid">${blocks}</div>
+  <div class="section">Légende — Code couleur par revêtement</div>
+  <div class="note">⚠️ Reportez ce code couleur sur le plan RDC fourni séparément. Coloriez chaque pièce avec la couleur de son revêtement.</div>
+  <div class="legende" style="margin-top:12px">${legendeHTML}</div>
+  <div class="section" style="margin-top:24px">Détail par revêtement</div>
+  <table>
+    <thead><tr><th>Référence</th><th>Pièces</th><th style="text-align:right">Quantité</th></tr></thead>
+    <tbody>${detailHTML}</tbody>
+  </table>
+  <div class="note" style="margin-top:20px">📏 Quantités calculées avec 10% de chute inclus · Livraison chantier : ${cl?.adresse||''}</div>
   <button onclick="window.print()" style="margin-top:20px;padding:12px 24px;background:#8b5cf6;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">🖨 Imprimer / PDF</button>
   </body></html>`);
   w.document.close();
