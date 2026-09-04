@@ -2458,9 +2458,9 @@ async function envoyerCommande(){
     const label=d.type==='assortie'?('Plinthe assortie '+(carrelageRefs.find(r=>r.id===d.ref_id)?.reference||'')):('Plinthe '+PLINTHE_TYPES[d.type]);
     corps+='- '+label+' : '+d.ml.toFixed(1)+' ml%0D%0A';
   });
-  corps+='%0D%0AQuantités avec 10%25 de chute incluse.%0D%0ALivraison sur chantier.%0D%0A%0D%0ACordialement,%0D%0AJérôme QUETIER — MA 17 SUD';
+  corps+='%0D%0ALivraison sur chantier.';
 
-  window.open('mailto:?subject='+encodeURIComponent('Commande carrelage — '+(cl?.nom||''))+'&body='+corps);
+  window.open('mailto:wilfried.arenecarrelages@gmail.com?subject='+encodeURIComponent('MA17SUD / COMMANDE '+(cl?.nom||''))+'&body='+corps);
 
   // Marquer envoyée
   const dateEnvoi=new Date().toISOString();
