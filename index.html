@@ -1406,8 +1406,11 @@ function renderCommandes(c){
   const cmds=commandesList;
   c.innerHTML=`
     <h1 style="font-size:20px;font-weight:800;margin-bottom:5px">🧱 Commandes</h1>
-    <p style="color:#64748b;font-size:12px;margin-bottom:12px">Commandes carrelage & plinthes — Arène Carrelage</p>
-    <button onclick="openNewCommande()" class="btn btn-primary" style="width:100%;margin-bottom:14px">+ Nouvelle commande carrelage</button>
+    <p style="color:#64748b;font-size:12px;margin-bottom:6px">Commandes carrelage & plinthes — Arène Carrelage</p>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button onclick="openNewCommande()" class="btn btn-primary" style="flex:1">+ Nouvelle commande</button>
+      <button onclick="openGestionRefs()" class="btn btn-secondary" style="flex:1">⚙️ Mes références</button>
+    </div>
     <div style="display:flex;flex-direction:column;gap:10px">
       ${cmds.length===0?'<div class="empty"><div class="big">🧱</div><p style="color:#64748b">Aucune commande</p></div>':
       cmds.map(cmd=>{
@@ -1430,6 +1433,96 @@ function renderCommandes(c){
       }).join('')}
     </div>
   `;
+}
+
+function openGestionRefs(){
+  document.getElementById('m-client-title').textContent='⚙️ Mes références';
+  function refsHTML(){
+    if(carrelageRefs.length===0) return '<div style="color:#94a3b8;text-align:center;padding:20px">Aucune référence enregistrée</div>';
+    const types=[{key:'carrelage',label:'🧱 Carrelage'},{key:'faience',label:'🪟 Faïence'},{key:'parquet',label:'🪵 Parquet'}];
+    let html='';
+    types.forEach(({key,label})=>{
+      const refs=carrelageRefs.filter(r=>(r.type||'carrelage')===key);
+      if(!refs.length)return;
+      html+=`<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin:10px 0 5px">${label}</div>`;
+      refs.forEach(r=>{
+        html+=`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:5px">
+          <div>
+            <div style="font-weight:700;font-size:13px">${r.reference}</div>
+            <div style="font-size:11px;color:#64748b">${r.format||''} ${r.coloris?'· '+r.coloris:''}</div>
+          </div>
+          <div style="display:flex;gap:5px">
+            <button data-rid="${r.id}" onclick="openEditRef(this.dataset.rid)" style="padding:4px 10px;border-radius:6px;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;cursor:pointer;font-size:12px;font-family:inherit">✏️</button>
+            <button data-rid="${r.id}" onclick="confirmDeleteRef(this.dataset.rid)" style="padding:4px 10px;border-radius:6px;background:#fff5f5;color:#ef4444;border:1px solid #fee2e2;cursor:pointer;font-size:12px;font-family:inherit">🗑️</button>
+          </div>
+        </div>`;
+      });
+    });
+    return html;
+  }
+  document.getElementById('m-client-body').innerHTML=`
+    <div id="refs-list">${refsHTML()}</div>
+    <button onclick="closeM('m-client');openAddRefModal()" class="btn btn-primary" style="width:100%;margin-top:10px">+ Nouvelle référence</button>
+  `;
+  openM('m-client');
+}
+
+function openEditRef(refId){
+  const ref=carrelageRefs.find(r=>r.id===refId);
+  if(!ref)return;
+  document.getElementById('m-client-title').textContent='✏ Modifier la référence';
+  document.getElementById('m-client-body').innerHTML=`
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Type</label>
+        <div style="display:flex;gap:8px">
+          <button id="type-carrelage" onclick="selectRefType('carrelage')" style="flex:1;padding:8px;border-radius:8px;border:2px solid ${ref.type==='carrelage'?'#2563eb':'#e2e8f0'};background:${ref.type==='carrelage'?'#eff6ff':'#fff'};color:${ref.type==='carrelage'?'#2563eb':'#64748b'};cursor:pointer;font-family:inherit;font-weight:${ref.type==='carrelage'?700:400};font-size:13px">🧱 Carrelage</button>
+          <button id="type-parquet" onclick="selectRefType('parquet')" style="flex:1;padding:8px;border-radius:8px;border:2px solid ${ref.type==='parquet'?'#8b5cf6':'#e2e8f0'};background:${ref.type==='parquet'?'#f5f3ff':'#fff'};color:${ref.type==='parquet'?'#7c3aed':'#64748b'};cursor:pointer;font-family:inherit;font-weight:${ref.type==='parquet'?700:400};font-size:13px">🪵 Parquet</button>
+          <button id="type-faience" onclick="selectRefType('faience')" style="flex:1;padding:8px;border-radius:8px;border:2px solid ${ref.type==='faience'?'#0891b2':'#e2e8f0'};background:${ref.type==='faience'?'#ecfeff':'#fff'};color:${ref.type==='faience'?'#0891b2':'#64748b'};cursor:pointer;font-family:inherit;font-weight:${ref.type==='faience'?700:400};font-size:13px">🪟 Faïence</button>
+        </div>
+        <input type="hidden" id="ref-type" value="${ref.type||'carrelage'}"/>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Référence *</label>
+        <input id="ref-nom" type="text" value="${ref.reference}" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+      </div>
+      <div style="display:flex;gap:8px">
+        <div style="flex:1">
+          <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Format</label>
+          <input id="ref-format" type="text" value="${ref.format||''}" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+        </div>
+        <div style="flex:1">
+          <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Coloris</label>
+          <input id="ref-coloris" type="text" value="${ref.coloris||''}" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-secondary" onclick="openGestionRefs()">Annuler</button>
+        <button class="btn btn-primary" data-rid="${refId}" onclick="saveEditRef(this.dataset.rid)">💾 Enregistrer</button>
+      </div>
+    </div>
+  `;
+}
+
+async function saveEditRef(refId){
+  const reference=document.getElementById('ref-nom').value.trim();
+  const format=document.getElementById('ref-format').value.trim()||null;
+  const coloris=document.getElementById('ref-coloris').value.trim()||null;
+  const type=document.getElementById('ref-type').value||'carrelage';
+  if(!reference){toast('Référence obligatoire','#ef4444');return;}
+  await db('PATCH','carrelage_refs',{reference,format,coloris,type},`?id=eq.${refId}`);
+  carrelageRefs=carrelageRefs.map(r=>r.id===refId?{...r,reference,format,coloris,type}:r);
+  toast('✅ Référence modifiée !');
+  openGestionRefs();
+}
+
+async function confirmDeleteRef(refId){
+  const ref=carrelageRefs.find(r=>r.id===refId);
+  if(!confirm('Supprimer la référence "'+ref?.reference+'" ?'))return;
+  await db('DELETE','carrelage_refs','',`?id=eq.${refId}`);
+  carrelageRefs=carrelageRefs.filter(r=>r.id!==refId);
+  toast('Référence supprimée');
+  openGestionRefs();
 }
 
 function openNewCommande(){
@@ -1560,6 +1653,7 @@ function openCommande(cmdId){
           <div style="font-weight:800;font-size:14px">${ref.reference}</div>
           <div style="font-size:11px;color:#64748b">${{carrelage:'🧱 Carrelage',parquet:'🪵 Parquet',faience:'🪟 Faïence'}[ref.type]||'🧱'} · ${ref.format||''} ${ref.coloris?'· '+ref.coloris:''}</div>
         </div>
+        <button data-rid="${refId}" onclick="removeRefFromCommande(this.dataset.rid)" style="padding:5px 9px;border-radius:7px;background:#fff5f5;color:#ef4444;border:1.5px solid #fee2e2;cursor:pointer;font-size:13px;font-family:inherit;margin:0 8px;flex-shrink:0">🗑</button>
         <div style="text-align:right">
           <div style="font-size:16px;font-weight:800;color:${color}">${totalM2.toFixed(1)} m²</div>
           ${isFaience&&totalCarreaux>0?`<div style="font-size:11px;color:#0891b2;font-weight:700">${totalCarreaux} carreaux</div>`:''}
@@ -1573,6 +1667,7 @@ function openCommande(cmdId){
             <span style="color:#64748b;margin-left:6px">${String(m.largeur).includes('-')?'Segments: '+m.largeur:m.largeur+'cm'}×${m.hauteur}cm</span>
             <span style="color:#0891b2;margin-left:6px">${calc.nbCarreaux} carreaux · ${calc.m2Total.toFixed(2)} m²</span>
           </div>
+          <button data-mid="${m.id}" onclick="openEditMurModal(this.dataset.mid)" style="padding:3px 8px;border-radius:6px;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;cursor:pointer;font-size:12px;font-family:inherit">✏️</button>
           <button data-mid="${m.id}" onclick="deleteMur(this.dataset.mid)" style="padding:3px 8px;border-radius:6px;background:#fff5f5;color:#ef4444;border:1px solid #fee2e2;cursor:pointer;font-size:11px;font-family:inherit">✕</button>
         </div>`}).join('')
         :piecesRef.map(p=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:#f8fafc;border-radius:7px;font-size:12px">
@@ -1586,6 +1681,7 @@ function openCommande(cmdId){
               <option value="">Pas de plinthe</option>
               ${Object.entries(PLINTHE_TYPES).map(([k,v])=>`<option value="${k}" ${p.plinthe===k?'selected':''}>${v}</option>`).join('')}
             </select>
+            <button data-pid="${p.id}" onclick="openEditPieceModal(this.dataset.pid)" style="padding:3px 8px;border-radius:6px;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;cursor:pointer;font-size:12px;font-family:inherit">✏️</button>
             <button data-pid="${p.id}" onclick="setPieceRef(this.dataset.pid,'')" style="padding:3px 8px;border-radius:6px;background:#fff5f5;color:#ef4444;border:1px solid #fee2e2;cursor:pointer;font-size:11px;font-family:inherit">✕</button>
           </div>
         </div>`).join('')}
@@ -1832,6 +1928,21 @@ async function validerMur(refId){
   openCommande(cmd.id);
 }
 
+async function removeRefFromCommande(refId){
+  if(!confirm('Retirer ce revêtement de la commande ? Les pièces assignées seront désassignées.'))return;
+  const cmd=commandesList.find(x=>x.id===window._cmdCourante);
+  if(!cmd)return;
+  // Unassign all pieces with this ref
+  cmd.pieces=(cmd.pieces||[]).map(p=>p.ref_id===refId?{...p,ref_id:null,plinthe:null}:p);
+  // Remove from murs
+  cmd.murs=(cmd.murs||[]).filter(m=>m.ref_id!==refId);
+  // Remove from active_refs
+  cmd.active_refs=(cmd.active_refs||[]).filter(id=>id!==refId);
+  await db('PATCH','commandes_carrelage',{pieces:cmd.pieces,murs:cmd.murs,active_refs:cmd.active_refs,updated_at:new Date().toISOString()},`?id=eq.${cmd.id}`);
+  toast('Revêtement retiré');
+  openCommande(cmd.id);
+}
+
 async function deleteMur(murId){
   const cmd=commandesList.find(x=>x.id===window._cmdCourante);
   if(!cmd)return;
@@ -1904,17 +2015,23 @@ function openAssignExistingRef(){
   const available=carrelageRefs.filter(r=>!usedIds.has(r.id));
   if(available.length===0){toast('Toutes les références sont utilisées — ajoutez-en une nouvelle','#f59e0b');return;}
   document.getElementById('m-client-title').textContent='Référence existante';
-  document.getElementById('m-client-body').innerHTML=`
-    <div style="display:flex;flex-direction:column;gap:8px">
-      ${available.map(r=>`<div data-rid="${r.id}" onclick="addRefToCommande(this.dataset.rid)" style="padding:10px 12px;border-radius:9px;border:1.5px solid #e2e8f0;cursor:pointer;display:flex;align-items:center;justify-content:space-between">
+  const typeGroups=[{key:'carrelage',label:'🧱 Carrelage'},{key:'faience',label:'🪟 Faïence'},{key:'parquet',label:'🪵 Parquet'}];
+  let availHTML='';
+  typeGroups.forEach(({key,label})=>{
+    const refs=available.filter(r=>(r.type||'carrelage')===key);
+    if(!refs.length)return;
+    availHTML+=`<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin:8px 0 4px">${label}</div>`;
+    refs.forEach(r=>{
+      availHTML+=`<div data-rid="${r.id}" onclick="addRefToCommande(this.dataset.rid)" style="padding:10px 12px;border-radius:9px;border:1.5px solid #e2e8f0;cursor:pointer;display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
         <div>
           <div style="font-weight:700;font-size:13px">${r.reference}</div>
-          <div style="font-size:11px;color:#64748b">${r.type==='parquet'?'🪵':'🧱'} ${r.format||''} ${r.coloris?'· '+r.coloris:''}</div>
+          <div style="font-size:11px;color:#64748b">${r.format||''} ${r.coloris?'· '+r.coloris:''}</div>
         </div>
         <span style="color:#2563eb;font-size:18px">›</span>
-      </div>`).join('')}
-    </div>
-  `;
+      </div>`;
+    });
+  });
+  document.getElementById('m-client-body').innerHTML=`<div>${availHTML}</div>`;
   openM('m-client');
 }
 
@@ -1928,6 +2045,48 @@ async function addRefToCommande(refId){
   openCommande(cmd.id);
 }
 
+
+function openEditPieceModal(pieceId){
+  const cmd=commandesList.find(x=>x.id===window._cmdCourante);
+  if(!cmd)return;
+  const p=(cmd.pieces||[]).find(x=>x.id===pieceId);
+  if(!p)return;
+  document.getElementById('m-client-title').textContent='✏ Modifier — '+p.nom;
+  document.getElementById('m-client-body').innerHTML=`
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Surface (m²)</label>
+        <input id="ep-surface" type="number" step="0.1" value="${p.surface}" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Périmètre (ml)</label>
+        <input id="ep-perimetre" type="number" step="0.1" value="${p.perimetre}" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Ouvertures (ml)</label>
+        <input id="ep-ouvertures" type="number" step="0.1" value="${p.ouvertures||0}" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-secondary" onclick="closeM('m-client')">Annuler</button>
+        <button class="btn btn-primary" data-pid="${pieceId}" onclick="saveEditPiece(this.dataset.pid)">💾 Enregistrer</button>
+      </div>
+    </div>
+  `;
+  openM('m-client');
+}
+
+async function saveEditPiece(pieceId){
+  const surface=parseFloat(document.getElementById('ep-surface').value)||0;
+  const perimetre=parseFloat(document.getElementById('ep-perimetre').value)||0;
+  const ouvertures=parseFloat(document.getElementById('ep-ouvertures').value)||0;
+  const cmd=commandesList.find(x=>x.id===window._cmdCourante);
+  if(!cmd)return;
+  cmd.pieces=cmd.pieces.map(p=>p.id===pieceId?{...p,surface,perimetre,ouvertures}:p);
+  await _saveCmdPieces(cmd);
+  closeM('m-client');
+  toast('✅ Modifié !');
+  openCommande(cmd.id);
+}
 
 async function _saveCmdPieces(cmd){
   await db('PATCH','commandes_carrelage',{pieces:cmd.pieces,murs:cmd.murs||[],seuils:cmd.seuils||[],updated_at:new Date().toISOString()},`?id=eq.${cmd.id}`);
@@ -2121,7 +2280,11 @@ function exportBonCommande(){
       bodyStyles:{fontSize:9,textColor:[15,23,42]},
       columnStyles:{0:{cellWidth:146},1:{halign:'right',fontStyle:'bold',cellWidth:36}},
       alternateRowStyles:{fillColor:[248,250,252]},margin:{left:14,right:14}});
-    curY=doc.lastAutoTable.finalY+6;
+    curY=doc.lastAutoTable.finalY+4;
+    doc.setFontSize(8);doc.setTextColor(100,116,139);doc.setFont('helvetica','italic');
+    doc.text('* Prevoir une sous-couche acoustique adaptee au format du parquet',16,curY);
+    curY+=8;
+    doc.setFont('helvetica','normal');
   }
 
   // FAIENCE
