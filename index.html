@@ -1674,7 +1674,7 @@ function openCommande(cmdId){
           <div>
             <span style="font-weight:600">${p.nom}</span>
             <span style="color:#64748b;margin-left:6px">${p.surface.toFixed(1)} m²</span>
-            ${p.plinthe?`<span style="color:#f59e0b;margin-left:6px;font-size:11px">${PLINTHE_TYPES[p.plinthe]}</span>`:''}
+            ${p.plinthe?`<span style="color:#f59e0b;margin-left:6px;font-size:11px">${PLINTHE_TYPES[p.plinthe]} · ${Math.max(0,(p.perimetre-p.ouvertures)).toFixed(1)} ml</span>`:''}
           </div>
           <div style="display:flex;gap:5px;align-items:center">
             <select data-pid="${p.id}" onchange="setPiecePlinthe(this.dataset.pid,this.value)" style="padding:3px 6px;border-radius:6px;border:1px solid #e2e8f0;font-family:inherit;font-size:11px">
@@ -2346,7 +2346,7 @@ function exportBonCommande(){
   doc.setFontSize(8);doc.setTextColor(100,116,139);doc.setFont('helvetica','normal');
   doc.text('Contact : Florent HERPIN - MA 17 SUD',14,curY);
 
-  const fileName='BonCommande_'+(cl?.nom||'commande').replace(/[^a-zA-Z0-9]/g,'_')+'_'+date.replace(/\//g,'-')+'.pdf';
+  const fileName=(cl?.nom||'commande')+' - BON DE COMMANDE CARRELAGE FAIENCE.pdf';
   doc.save(fileName);
   toast('PDF telecharge !');
 }
@@ -2412,10 +2412,30 @@ function exportFichePosteur(){
   <div class="sub"><b>Date :</b> ${new Date().toLocaleDateString('fr-FR')}</div>
   <div class="bar"></div>
   <div class="section" style="margin-top:24px">Détail par revêtement</div>
-  <table>
-    <thead><tr><th>Référence</th><th>Pièces</th><th style="text-align:right">Quantité</th></tr></thead>
-    <tbody>${detailHTML}</tbody>
-  </table>
+  ${[{key:'carrelage',label:'🧱 CARRELAGE SOL'},{key:'faience',label:'🪟 FAÏENCE MURALE'},{key:'parquet',label:'🪵 PARQUET'}].map(({key,label})=>{
+    const refsOfType=usedRefIds.filter(refId=>{const r=carrelageRefs.find(x=>x.id===refId);return (r?.type||'carrelage')===key;});
+    if(!refsOfType.length)return '';
+    let rows='';
+    refsOfType.forEach((refId,i)=>{
+      const ref=carrelageRefs.find(r=>r.id===refId);
+      const color=PIECE_COLORS[usedRefIds.indexOf(refId)%PIECE_COLORS.length];
+      const piecesRef=(cmd.pieces||[]).filter(p=>p.ref_id===refId);
+      const mursRef=(cmd.murs||[]).filter(m=>m.ref_id===refId);
+      const totalM2=key==='faience'?mursRef.reduce((t,m)=>t+_calcFaience(m).m2Total,0):piecesRef.reduce((t,p)=>t+p.surface*1.1,0);
+      const plinthesParType={};
+      piecesRef.filter(p=>p.plinthe).forEach(p=>{
+        if(!plinthesParType[p.plinthe])plinthesParType[p.plinthe]=0;
+        plinthesParType[p.plinthe]+=Math.max(0,(p.perimetre-p.ouvertures))*1.1;
+      });
+      const items=key==='faience'?mursRef.map(m=>m.nom+' ('+m.largeur+'×'+m.hauteur+'cm)'):piecesRef.map(p=>p.nom+' ('+p.surface.toFixed(1)+'m²)');
+      rows+=`<tr style="background:${color}10"><td style="border-left:4px solid ${color}">${ref?.reference||'?'}</td><td>${items.join('<br>')}</td><td style="text-align:right;font-weight:700">${totalM2.toFixed(1)} m²</td></tr>`;
+      Object.entries(plinthesParType).forEach(([type,ml])=>{
+        rows+=`<tr style="background:#fef3c710"><td style="padding-left:20px;color:#f59e0b">↳ Plinthe ${PLINTHE_TYPES[type]}</td><td>${piecesRef.filter(p=>p.plinthe===type).map(p=>p.nom).join(', ')}</td><td style="text-align:right;font-weight:700;color:#f59e0b">${ml.toFixed(1)} ml</td></tr>`;
+      });
+    });
+    return `<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.05em;margin:14px 0 4px">${label}</div>
+    <table><thead><tr><th>Référence</th><th>Pièces / Murs</th><th style="text-align:right">Quantité</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }).join('')}
   <div style="margin-top:20px;font-size:11px;color:#64748b">📏 Quantités calculées avec 10% de chute inclus · Livraison chantier : ${cl?.adresse||''}</div>
   <button onclick="window.print()" style="margin-top:20px;padding:12px 24px;background:#8b5cf6;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">🖨 Imprimer / PDF</button>
   </body></html>`);
