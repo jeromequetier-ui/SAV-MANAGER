@@ -818,8 +818,10 @@ function _renderDayView(dateStr){
     html+='<div style="position:absolute;left:0;right:0;top:'+(i*64+32)+'px;border-top:1px dashed #f1f5f9"></div>';
   });
 
-  // Events
-  items.forEach(p=>{
+  // Events avec gestion des chevauchements
+  const sortedDay=[...items].sort((a,b)=>(a.heure||'09:00').localeCompare(b.heure||'09:00'));
+  const dayLayout=_computeOverlaps(sortedDay);
+  sortedDay.forEach(p=>{
     const heure=p.heure||'09:00';
     const [hh,mm]=heure.split(':').map(Number);
     const topPx=(hh-HOURS[0])*64+(mm/60)*64;
@@ -827,11 +829,17 @@ function _renderDayView(dateStr){
     const color=p.statut==='fait'?'#10b981':p.type==='sav'?'#ef4444':'#2563eb';
     const bgColor=p.statut==='fait'?'#ecfdf5':p.type==='sav'?'#fef2f2':'#eff6ff';
     const borderColor=p.statut==='fait'?'#a7f3d0':p.type==='sav'?'#fecaca':'#bfdbfe';
-    html+='<div onclick="openEditPlanningModal(this.dataset.id)" data-id="'+p.id+'" style="position:absolute;left:6px;right:6px;top:'+(topPx+2)+'px;min-height:58px;background:'+bgColor+';border-left:4px solid '+color+';border:1px solid '+borderColor+';border-left:4px solid '+color+';border-radius:8px;padding:6px 8px;cursor:pointer;z-index:10;box-shadow:0 1px 4px rgba(0,0,0,0.08)">'
-      +'<div style="font-size:10px;color:'+color+';font-weight:700;margin-bottom:2px">'+(p.heure?p.heure.slice(0,5)+' · ':'')+{sav:'🔧 SAV',tache:'✅ Tâche',visite:'🏡 Visite'}[p.type]+'</div>'
-      +'<div style="font-size:12px;font-weight:700;color:#0f172a;line-height:1.3">'+p.titre+'</div>'
-      +(cl?'<div style="font-size:11px;color:'+color+';font-weight:600;margin-top:2px">'+cl.nom+'</div>':'')
-      +(p.notes?'<div style="font-size:10px;color:#64748b;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+p.notes+'</div>':'')
+    const durMin=(p.heure&&p.heure_fin)?_timeDiffMin(p.heure,p.heure_fin):60;
+    const evtH=Math.max(58,Math.round(durMin/60*64)-4);
+    const lay=dayLayout[p.id]||{col:0,cols:1};
+    const wPct=100/lay.cols;
+    const lPct=wPct*lay.col;
+    const typeIco={sav:'🔧 SAV',tache:'✅ Tâche',visite:'🏡 Visite'}[p.type]||'📌';
+    const notesHtml=p.notes?p.notes.replace(/</g,'&lt;').replace(/\n/g,'<br>'):'';
+    html+='<div onclick="openEditPlanningModal(this.dataset.id)" data-id="'+p.id+'" style="position:absolute;left:calc('+lPct+'% + 6px);width:calc('+wPct+'% - 9px);top:'+(topPx+2)+'px;height:'+evtH+'px;background:'+bgColor+';border:1px solid '+borderColor+';border-left:4px solid '+color+';border-radius:8px;padding:6px 8px;cursor:pointer;z-index:10;box-shadow:0 2px 6px rgba(0,0,0,0.1);overflow:hidden;box-sizing:border-box;display:flex;flex-direction:column">'
+      +'<div style="font-size:10px;color:'+color+';font-weight:700;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(p.heure?p.heure.slice(0,5):'')+(p.heure_fin?'–'+p.heure_fin.slice(0,5):'')+' '+typeIco+(cl?' · '+cl.nom:'')+'</div>'
+      +'<div style="font-size:11px;font-weight:700;color:#0f172a;line-height:1.3;overflow:hidden">'+p.titre+'</div>'
+      +(p.notes&&evtH>70?'<div style="font-size:10px;color:#64748b;margin-top:3px;line-height:1.4;overflow:hidden;flex:1">'+notesHtml+'</div>':'')
       +(p.statut==='fait'?'<div style="font-size:9px;color:#10b981;font-weight:700;margin-top:2px">✅ Fait</div>':'')
     +'</div>';
   });
@@ -842,7 +850,8 @@ function _renderDayView(dateStr){
   }
 
   html+='</div></div>';
-  html+='<div style="height:'+(HOURS.length*64)+'px;pointer-events:none;visibility:hidden"></div>';
+  // Spacer at bottom to ensure scroll
+  html+='<div style="height:20px"></div>';
   return html;
 }
 
@@ -932,6 +941,44 @@ function _initDragPlanning(){
   });
 }
 
+function _computeOverlaps(items){
+  // Assigne à chaque item une colonne pour éviter les chevauchements
+  const layout={};
+  const active=[]; // {end, col}
+  items.forEach(p=>{
+    const start=_timeToMin(p.heure||'09:00');
+    const end=p.heure_fin?_timeToMin(p.heure_fin):start+60;
+    // Libérer les colonnes terminées
+    for(let i=active.length-1;i>=0;i--){if(active[i].end<=start)active.splice(i,1);}
+    // Trouver une colonne libre
+    let col=0;
+    const usedCols=active.map(a=>a.col);
+    while(usedCols.includes(col))col++;
+    active.push({end,col});
+    const maxCols=Math.max(...active.map(a=>a.col))+1;
+    layout[p.id]={col,cols:maxCols};
+  });
+  // Recalculer le nombre max de colonnes pour les groupes qui se chevauchent
+  items.forEach(p=>{
+    const start=_timeToMin(p.heure||'09:00');
+    const end=p.heure_fin?_timeToMin(p.heure_fin):start+60;
+    let maxCols=layout[p.id].cols;
+    items.forEach(q=>{
+      if(q.id===p.id)return;
+      const qs=_timeToMin(q.heure||'09:00');
+      const qe=q.heure_fin?_timeToMin(q.heure_fin):qs+60;
+      if(qs<end&&qe>start){maxCols=Math.max(maxCols,layout[q.id].cols);}
+    });
+    layout[p.id].cols=maxCols;
+  });
+  return layout;
+}
+
+function _timeToMin(t){
+  const [h,m]=t.split(':').map(Number);
+  return h*60+m;
+}
+
 function _renderWeekView(){
   const ws=_getWeekStart(window._planningDate);
   let html='<div style="display:grid;grid-template-columns:48px repeat(7,1fr);min-height:600px">';
@@ -951,17 +998,25 @@ function _renderWeekView(){
     HOURS.forEach((h,hi)=>{
       html+='<div style="position:absolute;left:0;right:0;top:'+(hi*56)+'px;border-top:1px solid '+(hi===0?'#e2e8f0':'#f1f5f9')+';height:56px"></div>';
     });
-    items.forEach(p=>{
+    // Calcul des chevauchements pour affichage côte à côte
+    const sorted=[...items].sort((a,b)=>(a.heure||'09:00').localeCompare(b.heure||'09:00'));
+    const layout=_computeOverlaps(sorted);
+    sorted.forEach(p=>{
       const heure=p.heure||'09:00';
       const [hh,mm]=heure.split(':').map(Number);
       const topPx=(hh-HOURS[0])*56+(mm/60)*56;
+      const durMin=(p.heure&&p.heure_fin)?_timeDiffMin(p.heure,p.heure_fin):60;
+      const evtH=Math.max(38,Math.round(durMin/60*56)-2);
       const color=p.statut==='fait'?'#10b981':p.type==='sav'?'#ef4444':'#2563eb';
       const bg=p.statut==='fait'?'#ecfdf5':p.type==='sav'?'#fef2f2':'#eff6ff';
       const cl=clients.find(c=>c.id===p.client_id);
-      html+='<div onclick="openEditPlanningModal(this.dataset.id)" data-id="'+p.id+'" style="position:absolute;left:2px;right:2px;top:'+(topPx+1)+'px;min-height:40px;background:'+bg+';border-left:3px solid '+color+';border-radius:5px;padding:3px 4px;cursor:pointer;z-index:10;overflow:hidden">'
-        +'<div style="font-size:9px;font-weight:700;color:'+color+';">'+(p.heure?p.heure.slice(0,5):'')+' '+{sav:'🔧',tache:'✅',visite:'🏡'}[p.type]+'</div>'
-        +'<div style="font-size:10px;font-weight:700;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+p.titre+'</div>'
-        +(cl?'<div style="font-size:9px;color:'+color+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+cl.nom+'</div>':'')
+      const lay=layout[p.id]||{col:0,cols:1};
+      const widthPct=100/lay.cols;
+      const leftPct=widthPct*lay.col;
+      html+='<div onclick="openEditPlanningModal(this.dataset.id)" data-id="'+p.id+'" style="position:absolute;left:calc('+leftPct+'% + 2px);width:calc('+widthPct+'% - 3px);top:'+(topPx+1)+'px;height:'+evtH+'px;background:'+bg+';border:1px solid '+(color)+'44;border-left:3px solid '+color+';border-radius:5px;padding:3px 4px;cursor:pointer;z-index:10;overflow:hidden;box-sizing:border-box;display:flex;flex-direction:column">'
+        +'<div style="font-size:9px;font-weight:700;color:'+color+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(p.heure?p.heure.slice(0,5):'')+' '+{sav:'🔧',tache:'✅',visite:'🏡'}[p.type]+(cl?' · '+cl.nom:'')+'</div>'
+        +'<div style="font-size:10px;font-weight:700;color:#0f172a;overflow:hidden;line-height:1.2">'+p.titre+'</div>'
+        +(p.notes&&evtH>55?'<div style="font-size:9px;color:#64748b;line-height:1.3;margin-top:2px;overflow:hidden;flex:1">'+(p.notes.replace(/</g,'&lt;').replace(/\n/g,'<br>'))+'</div>':'')
       +'</div>';
     });
     html+='</div>';
@@ -1031,7 +1086,45 @@ async function savePlanifieArtisan(savId, clientId){
 function _editPlanningById(id){
   const p=planningList.find(x=>x.id===id);
   if(!p)return;
-  openAddPlanningModal({...p, sav_id:p.sav_id||''});
+  // Pass full item with id so savePlanningItem knows to update
+  openAddPlanningModal({
+    id:p.id,
+    titre:p.titre,
+    date:p.date,
+    heure:p.heure||'',
+    heure_fin:p.heure_fin||'',
+    type:p.type,
+    client_id:p.client_id||'',
+    notes:p.notes||'',
+    sav_id:p.sav_id||''
+  });
+}
+
+function _renderNotesChecklist(p){
+  const lines=(p.notes||'').split('\n').filter(l=>l.trim());
+  const done=p.notes_done||[];
+  return lines.map((line,i)=>{
+    const isDone=done.includes(i);
+    return `<div data-pid="${p.id}" data-line="${i}" onclick="toggleNoteLine(this.dataset.pid,parseInt(this.dataset.line))" style="display:flex;align-items:flex-start;gap:8px;padding:5px 6px;border-radius:6px;cursor:pointer;font-size:12px;line-height:1.4">
+      <span style="flex-shrink:0;width:16px;height:16px;border-radius:4px;border:1.5px solid ${isDone?'#10b981':'#cbd5e1'};background:${isDone?'#10b981':'#fff'};display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;margin-top:1px">${isDone?'✓':''}</span>
+      <span style="color:${isDone?'#94a3b8':'#374151'};text-decoration:${isDone?'line-through':'none'};flex:1">${line.replace(/</g,'&lt;')}</span>
+    </div>`;
+  }).join('');
+}
+
+async function toggleNoteLine(planningId,lineIdx){
+  const p=planningList.find(x=>x.id===planningId);
+  if(!p)return;
+  let done=(p.notes_done||[]).slice();
+  const pos=done.indexOf(lineIdx);
+  if(pos>=0)done.splice(pos,1);
+  else done.push(lineIdx);
+  p.notes_done=done;
+  planningList=planningList.map(x=>x.id===planningId?{...x,notes_done:done}:x);
+  // Re-render immediately
+  openEditPlanningModal(planningId);
+  // Save to DB
+  try{await db('PATCH','planning',{notes_done:done},`?id=eq.${planningId}`);}catch(e){}
 }
 
 function openEditPlanningModal(id){
@@ -1039,6 +1132,8 @@ function openEditPlanningModal(id){
   if(!p)return;
   const cl=clients.find(c=>c.id===p.client_id);
   const color=p.type==='sav'?'#ef4444':'#2563eb';
+  // Store editing state
+  window._editingPlanningId=id;
   document.getElementById('m-client-title').textContent='📅 '+p.titre;
   document.getElementById('m-client-body').innerHTML=`
     <div style="margin-bottom:12px">
@@ -1049,7 +1144,7 @@ function openEditPlanningModal(id){
         <span style="background:#f1f5f9;padding:4px 10px;border-radius:8px;font-size:12px">${new Date(p.date+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</span>
         <span style="padding:4px 10px;border-radius:8px;font-size:12px;background:${p.statut==='fait'?'#ecfdf5':'#fef2f2'};color:${p.statut==='fait'?'#10b981':'#ef4444'};font-weight:700">${p.statut==='fait'?'✅ Fait':'À faire'}</span>
       </div>
-      ${p.notes?`<div style="margin-top:8px;font-size:12px;color:#374151;background:#f8fafc;padding:8px;border-radius:8px">${p.notes}</div>`:''}
+      ${p.notes?`<div style="margin-top:8px;background:#f8fafc;padding:6px;border-radius:8px">${_renderNotesChecklist(p)}</div>`:''}
     </div>
     ${cl?.tel||cl?.tel2?`<div style="display:flex;gap:6px;margin-bottom:12px">
       ${cl.tel?`<a href="tel:${cl.tel}" style="padding:6px 12px;border-radius:8px;background:#dbeafe;color:#1e40af;font-size:12px;font-weight:700;text-decoration:none">📞 ${cl.conjoint1||cl.tel}</a>`:''}
@@ -1058,22 +1153,13 @@ function openEditPlanningModal(id){
     </div>`:''}
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       ${p.statut!=='fait'?`<button onclick="markPlanningDone('${id}')" style="flex:1;padding:8px;border-radius:9px;background:#ecfdf5;color:#10b981;border:1.5px solid #a7f3d0;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">✅ Résolu / Fait</button>`:''}
-      <button data-pid="${p.id}" onclick="closeM('m-client');_editPlanningById(this.dataset.pid)" style="flex:1;padding:8px;border-radius:9px;background:#f1f5f9;color:#374151;border:1.5px solid #e2e8f0;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">✏ Modifier</button>
+      <button data-pid="${p.id}" onclick="closeM('m-client');_editPlanningById(this.dataset.pid)" style="flex:1;padding:8px;border-radius:9px;background:#f1f5f9;color:#374151;border:1.5px solid #e2e8f0;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">✏️ Modifier horaire/titre</button>
       <button onclick="deletePlanningItem('${id}')" style="padding:8px 12px;border-radius:9px;background:#fff5f5;color:#ef4444;border:1.5px solid #fee2e2;cursor:pointer;font-size:12px;font-family:inherit">🗑</button>
     </div>
   `;
   openM('m-client');
   // Pre-select heure if prefill
-  setTimeout(()=>{
-    if(prefill?.heure){
-      const sel=document.getElementById('pl-heure');
-      if(sel)sel.value=prefill.heure.slice(0,5);
-    }
-    if(prefill?.heure_fin){
-      const sel=document.getElementById('pl-heure-fin');
-      if(sel)sel.value=prefill.heure_fin.slice(0,5);
-    }
-  },50);
+  // hours pre-selected inline in template
 }
 
 
@@ -1145,7 +1231,7 @@ function openPlanningFromAgenda(){
 }
 
 function openAddPlanningModal(prefill){
-  const clientOptions=clients.filter(c=>c.statut==='en_cours'||c.statut==='ouverture')
+  const clientOptions=[...clients].sort((a,b)=>a.nom.localeCompare(b.nom))
     .map(c=>`<option value="${c.id}" ${prefill?.client_id===c.id?'selected':''}>${c.nom}</option>`).join('');
   const today=new Date().toISOString().split('T')[0];
   const cl=prefill?.client_id?clients.find(c=>c.id===prefill.client_id):null;
@@ -1169,13 +1255,21 @@ function openAddPlanningModal(prefill){
   document.getElementById('m-client-title').textContent='📅 Planifier une tâche';
   document.getElementById('m-client-body').innerHTML=`
     <div style="display:flex;flex-direction:column;gap:10px">
-      ${cl?`<div style="background:#f0fdf4;border:1px solid #a7f3d0;border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:8px">
+      ${!cl?`<div>
+        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Client</label>
+        <select id="pl-client-top" onchange="document.getElementById('pl-client').value=this.value" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #2563eb;font-family:inherit;font-size:13px">
+          <option value="">— Sélectionner un client —</option>
+          ${clientOptions}
+        </select>
+      </div>`:`<div style="background:#f0fdf4;border:1px solid #a7f3d0;border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:8px">
         <span style="font-size:16px">🏡</span>
         <div>
           <div style="font-size:12px;font-weight:700;color:#065f46">${cl.nom}</div>
           <div style="font-size:11px;color:#64748b">${cl.adresse||''}</div>
         </div>
-      </div>`:''}
+      </div>`}
+      <input type="hidden" id="pl-id" value="${prefill?.id||''}"/>
+      <input type="hidden" id="pl-sav-id" value="${prefill?.sav_id||''}"/>
       <div>
         <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Titre *</label>
         <input id="pl-titre" type="text" value="${prefill?.titre||''}" placeholder="Ex: Vérifier volets roulants" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
@@ -1188,69 +1282,69 @@ function openAddPlanningModal(prefill){
         <div style="flex:1">
           <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Début</label>
           <select id="pl-heure" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px;background:#fff">
-            <option value="">— Heure —</option>
-            <option value="07:00">07:00</option>
-            <option value="07:30">07:30</option>
-            <option value="08:00">08:00</option>
-            <option value="08:30">08:30</option>
-            <option value="09:00">09:00</option>
-            <option value="09:30">09:30</option>
-            <option value="10:00">10:00</option>
-            <option value="10:30">10:30</option>
-            <option value="11:00">11:00</option>
-            <option value="11:30">11:30</option>
-            <option value="12:00">12:00</option>
-            <option value="12:30">12:30</option>
-            <option value="13:00">13:00</option>
-            <option value="13:30">13:30</option>
-            <option value="14:00">14:00</option>
-            <option value="14:30">14:30</option>
-            <option value="15:00">15:00</option>
-            <option value="15:30">15:30</option>
-            <option value="16:00">16:00</option>
-            <option value="16:30">16:30</option>
-            <option value="17:00">17:00</option>
-            <option value="17:30">17:30</option>
-            <option value="18:00">18:00</option>
-            <option value="18:30">18:30</option>
-            <option value="19:00">19:00</option>
-            <option value="19:30">19:30</option>
-            <option value="20:00">20:00</option>
-            <option value="20:30">20:30</option>
+            <option value="">— Début —</option>
+            <option value="07:00" ${(prefill?.heure||"").slice(0,5)==="07:00"?"selected":"" }>07:00</option>
+            <option value="07:30" ${(prefill?.heure||"").slice(0,5)==="07:30"?"selected":"" }>07:30</option>
+            <option value="08:00" ${(prefill?.heure||"").slice(0,5)==="08:00"?"selected":"" }>08:00</option>
+            <option value="08:30" ${(prefill?.heure||"").slice(0,5)==="08:30"?"selected":"" }>08:30</option>
+            <option value="09:00" ${(prefill?.heure||"").slice(0,5)==="09:00"?"selected":"" }>09:00</option>
+            <option value="09:30" ${(prefill?.heure||"").slice(0,5)==="09:30"?"selected":"" }>09:30</option>
+            <option value="10:00" ${(prefill?.heure||"").slice(0,5)==="10:00"?"selected":"" }>10:00</option>
+            <option value="10:30" ${(prefill?.heure||"").slice(0,5)==="10:30"?"selected":"" }>10:30</option>
+            <option value="11:00" ${(prefill?.heure||"").slice(0,5)==="11:00"?"selected":"" }>11:00</option>
+            <option value="11:30" ${(prefill?.heure||"").slice(0,5)==="11:30"?"selected":"" }>11:30</option>
+            <option value="12:00" ${(prefill?.heure||"").slice(0,5)==="12:00"?"selected":"" }>12:00</option>
+            <option value="12:30" ${(prefill?.heure||"").slice(0,5)==="12:30"?"selected":"" }>12:30</option>
+            <option value="13:00" ${(prefill?.heure||"").slice(0,5)==="13:00"?"selected":"" }>13:00</option>
+            <option value="13:30" ${(prefill?.heure||"").slice(0,5)==="13:30"?"selected":"" }>13:30</option>
+            <option value="14:00" ${(prefill?.heure||"").slice(0,5)==="14:00"?"selected":"" }>14:00</option>
+            <option value="14:30" ${(prefill?.heure||"").slice(0,5)==="14:30"?"selected":"" }>14:30</option>
+            <option value="15:00" ${(prefill?.heure||"").slice(0,5)==="15:00"?"selected":"" }>15:00</option>
+            <option value="15:30" ${(prefill?.heure||"").slice(0,5)==="15:30"?"selected":"" }>15:30</option>
+            <option value="16:00" ${(prefill?.heure||"").slice(0,5)==="16:00"?"selected":"" }>16:00</option>
+            <option value="16:30" ${(prefill?.heure||"").slice(0,5)==="16:30"?"selected":"" }>16:30</option>
+            <option value="17:00" ${(prefill?.heure||"").slice(0,5)==="17:00"?"selected":"" }>17:00</option>
+            <option value="17:30" ${(prefill?.heure||"").slice(0,5)==="17:30"?"selected":"" }>17:30</option>
+            <option value="18:00" ${(prefill?.heure||"").slice(0,5)==="18:00"?"selected":"" }>18:00</option>
+            <option value="18:30" ${(prefill?.heure||"").slice(0,5)==="18:30"?"selected":"" }>18:30</option>
+            <option value="19:00" ${(prefill?.heure||"").slice(0,5)==="19:00"?"selected":"" }>19:00</option>
+            <option value="19:30" ${(prefill?.heure||"").slice(0,5)==="19:30"?"selected":"" }>19:30</option>
+            <option value="20:00" ${(prefill?.heure||"").slice(0,5)==="20:00"?"selected":"" }>20:00</option>
+            <option value="20:30" ${(prefill?.heure||"").slice(0,5)==="20:30"?"selected":"" }>20:30</option>
           </select>
         </div>
         <div style="flex:1">
           <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Fin</label>
           <select id="pl-heure-fin" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px;background:#fff">
-            <option value="">— Heure —</option>
-            <option value="07:00">07:00</option>
-            <option value="07:30">07:30</option>
-            <option value="08:00">08:00</option>
-            <option value="08:30">08:30</option>
-            <option value="09:00">09:00</option>
-            <option value="09:30">09:30</option>
-            <option value="10:00">10:00</option>
-            <option value="10:30">10:30</option>
-            <option value="11:00">11:00</option>
-            <option value="11:30">11:30</option>
-            <option value="12:00">12:00</option>
-            <option value="12:30">12:30</option>
-            <option value="13:00">13:00</option>
-            <option value="13:30">13:30</option>
-            <option value="14:00">14:00</option>
-            <option value="14:30">14:30</option>
-            <option value="15:00">15:00</option>
-            <option value="15:30">15:30</option>
-            <option value="16:00">16:00</option>
-            <option value="16:30">16:30</option>
-            <option value="17:00">17:00</option>
-            <option value="17:30">17:30</option>
-            <option value="18:00">18:00</option>
-            <option value="18:30">18:30</option>
-            <option value="19:00">19:00</option>
-            <option value="19:30">19:30</option>
-            <option value="20:00">20:00</option>
-            <option value="20:30">20:30</option>
+            <option value="">— Fin —</option>
+            <option value="07:00" ${(prefill?.heure_fin||"").slice(0,5)==="07:00"?"selected":"" }>07:00</option>
+            <option value="07:30" ${(prefill?.heure_fin||"").slice(0,5)==="07:30"?"selected":"" }>07:30</option>
+            <option value="08:00" ${(prefill?.heure_fin||"").slice(0,5)==="08:00"?"selected":"" }>08:00</option>
+            <option value="08:30" ${(prefill?.heure_fin||"").slice(0,5)==="08:30"?"selected":"" }>08:30</option>
+            <option value="09:00" ${(prefill?.heure_fin||"").slice(0,5)==="09:00"?"selected":"" }>09:00</option>
+            <option value="09:30" ${(prefill?.heure_fin||"").slice(0,5)==="09:30"?"selected":"" }>09:30</option>
+            <option value="10:00" ${(prefill?.heure_fin||"").slice(0,5)==="10:00"?"selected":"" }>10:00</option>
+            <option value="10:30" ${(prefill?.heure_fin||"").slice(0,5)==="10:30"?"selected":"" }>10:30</option>
+            <option value="11:00" ${(prefill?.heure_fin||"").slice(0,5)==="11:00"?"selected":"" }>11:00</option>
+            <option value="11:30" ${(prefill?.heure_fin||"").slice(0,5)==="11:30"?"selected":"" }>11:30</option>
+            <option value="12:00" ${(prefill?.heure_fin||"").slice(0,5)==="12:00"?"selected":"" }>12:00</option>
+            <option value="12:30" ${(prefill?.heure_fin||"").slice(0,5)==="12:30"?"selected":"" }>12:30</option>
+            <option value="13:00" ${(prefill?.heure_fin||"").slice(0,5)==="13:00"?"selected":"" }>13:00</option>
+            <option value="13:30" ${(prefill?.heure_fin||"").slice(0,5)==="13:30"?"selected":"" }>13:30</option>
+            <option value="14:00" ${(prefill?.heure_fin||"").slice(0,5)==="14:00"?"selected":"" }>14:00</option>
+            <option value="14:30" ${(prefill?.heure_fin||"").slice(0,5)==="14:30"?"selected":"" }>14:30</option>
+            <option value="15:00" ${(prefill?.heure_fin||"").slice(0,5)==="15:00"?"selected":"" }>15:00</option>
+            <option value="15:30" ${(prefill?.heure_fin||"").slice(0,5)==="15:30"?"selected":"" }>15:30</option>
+            <option value="16:00" ${(prefill?.heure_fin||"").slice(0,5)==="16:00"?"selected":"" }>16:00</option>
+            <option value="16:30" ${(prefill?.heure_fin||"").slice(0,5)==="16:30"?"selected":"" }>16:30</option>
+            <option value="17:00" ${(prefill?.heure_fin||"").slice(0,5)==="17:00"?"selected":"" }>17:00</option>
+            <option value="17:30" ${(prefill?.heure_fin||"").slice(0,5)==="17:30"?"selected":"" }>17:30</option>
+            <option value="18:00" ${(prefill?.heure_fin||"").slice(0,5)==="18:00"?"selected":"" }>18:00</option>
+            <option value="18:30" ${(prefill?.heure_fin||"").slice(0,5)==="18:30"?"selected":"" }>18:30</option>
+            <option value="19:00" ${(prefill?.heure_fin||"").slice(0,5)==="19:00"?"selected":"" }>19:00</option>
+            <option value="19:30" ${(prefill?.heure_fin||"").slice(0,5)==="19:30"?"selected":"" }>19:30</option>
+            <option value="20:00" ${(prefill?.heure_fin||"").slice(0,5)==="20:00"?"selected":"" }>20:00</option>
+            <option value="20:30" ${(prefill?.heure_fin||"").slice(0,5)==="20:30"?"selected":"" }>20:30</option>
           </select>
         </div>
       </div>
@@ -1263,20 +1357,14 @@ function openAddPlanningModal(prefill){
           <option value="visite" ${prefill?.type==='visite'?'selected':''}>🏡 Visite</option>
         </select>
       </div>
-      ${!cl?`<div>
-        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Client</label>
-        <select id="pl-client" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px">
-          <option value="">— Sélectionner un client —</option>
-          ${clientOptions}
-        </select>
-      </div>`:`<input type="hidden" id="pl-client" value="${prefill?.client_id||''}"/>`}
+      <input type="hidden" id="pl-client" value="${prefill?.client_id||''}"/>
       <div>
         <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Notes</label>
         <textarea id="pl-notes" placeholder="Détails, observations..." style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px;min-height:60px;resize:vertical">${prefill?.notes||''}</textarea>
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
         <button class="btn btn-secondary" onclick="closeM('m-client')">Annuler</button>
-        <button class="btn btn-primary" onclick="savePlanningItem('${prefill?.sav_id||''}')">📅 Planifier</button>
+        <button class="btn btn-primary" onclick="savePlanningItem(document.getElementById('pl-sav-id').value,document.getElementById('pl-id').value)">💾 ${prefill?.id?'Mettre à jour':'Sauvegarder'}</button>
       </div>
     </div>
   `;
@@ -1300,12 +1388,19 @@ function updatePlanningPreview(date){
   </div>`;
 }
 
-async function savePlanningItem(savId){
+async function savePlanningItem(savId,existingPlanningId){
+  // Lire depuis les inputs cachés
+  const plId=document.getElementById('pl-id')?.value||'';
+  const plSavId=document.getElementById('pl-sav-id')?.value||'';
+  existingPlanningId=plId&&plId!==''?plId:(existingPlanningId||'');
+  savId=plSavId&&plSavId!==''?plSavId:(savId||'');
   const titre=document.getElementById('pl-titre').value.trim();
   const date=document.getElementById('pl-date').value;
   const heure=document.getElementById('pl-heure').value||null;
   const type=document.getElementById('pl-type').value;
-  const clientId=document.getElementById('pl-client').value||null;
+  const topC=document.getElementById('pl-client-top');
+  const hidC=document.getElementById('pl-client');
+  const clientId=(topC&&topC.value)?topC.value:((hidC&&hidC.value)?hidC.value:null);
   const notes=document.getElementById('pl-notes').value.trim()||null;
   if(!titre||!date){toast('Titre et date obligatoires','#ef4444');return;}
 
@@ -1348,12 +1443,17 @@ async function savePlanningItem(savId){
     const heureFin=document.getElementById('pl-heure-fin')?.value||null;
     const item={titre,date,heure,heure_fin:heureFin,type,client_id:clientId,notes,statut:'a_faire'};
     if(newSavId)item.sav_id=newSavId;
-    // Vérifier si une entrée planning existe déjà pour ce SAV → update
-    const existingPlan=newSavId?planningList.find(p=>p.sav_id===newSavId):null;
-    if(existingPlan){
-      // PATCH avec Prefer:return=representation pour récupérer la réponse
-      await db('PATCH','planning',item,`?id=eq.${existingPlan.id}`);
-      planningList=planningList.map(p=>p.id===existingPlan.id?{...p,...item}:p);
+    // PRIORITÉ: si on édite (existingPlanningId fourni) → UPDATE cette entrée
+    let updateId=null;
+    if(existingPlanningId&&existingPlanningId!==''&&existingPlanningId!=='undefined'){
+      updateId=existingPlanningId;
+    } else if(newSavId){
+      // Sinon chercher une entrée liée à ce SAV
+      updateId=planningList.find(p=>p.sav_id===newSavId)?.id||null;
+    }
+    if(updateId){
+      await db('PATCH','planning',item,`?id=eq.${updateId}`);
+      planningList=planningList.map(p=>p.id===updateId?{...p,...item,id:updateId}:p);
     } else {
       const savedItem=await db('POST','planning',item);
       const pushed=Array.isArray(savedItem)?savedItem[0]:savedItem;
@@ -2255,7 +2355,7 @@ function exportBonCommande(){
     sectionHeader('CARRELAGE SOL');
     const rows=refsCarrelage.map(([refId,d])=>{
       const ref=carrelageRefs.find(r=>r.id===refId);
-      const label=[ref?.reference,ref?.format,ref?.coloris].filter(Boolean).join(' - ');
+      const label=[ref?.reference,ref?.coloris,ref?.format].filter(Boolean).join(' - ');
       return [label,d.m2.toFixed(1)+' m2'];
     });
     doc.autoTable({startY:curY,head:[[{content:'Reference',styles:{halign:'left',fontStyle:'bold'}},{content:'Quantite',styles:{halign:'right',fontStyle:'bold'}}]],body:rows,theme:'striped',
@@ -2272,7 +2372,7 @@ function exportBonCommande(){
     sectionHeader('PARQUET');
     const rows=refsParquet.map(([refId,d])=>{
       const ref=carrelageRefs.find(r=>r.id===refId);
-      const label=[ref?.reference,ref?.format,ref?.coloris].filter(Boolean).join(' - ');
+      const label=[ref?.reference,ref?.coloris,ref?.format].filter(Boolean).join(' - ');
       return [label,d.m2.toFixed(1)+' m2'];
     });
     doc.autoTable({startY:curY,head:[[{content:'Reference',styles:{halign:'left',fontStyle:'bold'}},{content:'Quantite',styles:{halign:'right',fontStyle:'bold'}}]],body:rows,theme:'striped',
@@ -2293,7 +2393,7 @@ function exportBonCommande(){
     sectionHeader('FAIENCE MURALE');
     const rows=refsFaience.map(([refId,d])=>{
       const ref=carrelageRefs.find(r=>r.id===refId);
-      const label=[ref?.reference,ref?.format,ref?.coloris].filter(Boolean).join(' - ');
+      const label=[ref?.reference,ref?.coloris,ref?.format].filter(Boolean).join(' - ');
       return [label,d.m2.toFixed(1)+' m2'];
     });
     doc.autoTable({startY:curY,head:[[{content:'Reference',styles:{halign:'left',fontStyle:'bold'}},{content:'Quantite',styles:{halign:'right',fontStyle:'bold'}}]],body:rows,theme:'striped',
@@ -2309,7 +2409,13 @@ function exportBonCommande(){
   if(plinthesArr.length>0){
     sectionHeader('PLINTHES');
     const pRows=plinthesArr.map(d=>{
-      const label=d.type==='assortie'?('Assortie - '+(carrelageRefs.find(r=>r.id===d.ref_id)?.reference||'')):PLINTHE_TYPES[d.type];
+      let label;
+      if(d.type==='assortie'){
+        const assRef=carrelageRefs.find(r=>r.id===d.ref_id);
+        label='Plinthe assortie - '+[assRef?.reference,assRef?.coloris].filter(Boolean).join(' - ');
+      } else {
+        label=PLINTHE_TYPES[d.type];
+      }
       return [label,d.ml.toFixed(1)+' ml'];
     });
     doc.autoTable({startY:curY,head:[[{content:'Type de plinthe',styles:{halign:'left',fontStyle:'bold'}},{content:'Quantite',styles:{halign:'right',fontStyle:'bold'}}]],body:pRows,theme:'striped',
@@ -2452,10 +2558,18 @@ async function envoyerCommande(){
   let corps='Bonjour,%0D%0A%0D%0AMerci de préparer la commande suivante :%0D%0A%0D%0AChantier : '+(cl?.nom||'')+'%0D%0AAdresse : '+(cl?.adresse||'')+'%0D%0A%0D%0A';
   Object.entries(parRef).forEach(([refId,d])=>{
     const ref=carrelageRefs.find(r=>r.id===refId);
-    corps+='- '+(ref?.reference||'?')+' ('+(ref?.format||'')+(ref?.coloris?' '+ref.coloris:'')+') : '+d.m2.toFixed(1)+' m2%0D%0A';
+    const label=[ref?.reference,ref?.coloris,ref?.format].filter(Boolean).join(' - ');
+    const qte=d.type==='faience'?d.m2.toFixed(1)+' m2 ('+d.carreaux+' carreaux)':d.m2.toFixed(1)+' m2';
+    corps+='- '+label+' : '+qte+'%0D%0A';
   });
   Object.values(plinthes).forEach(d=>{
-    const label=d.type==='assortie'?('Plinthe assortie '+(carrelageRefs.find(r=>r.id===d.ref_id)?.reference||'')):('Plinthe '+PLINTHE_TYPES[d.type]);
+    let label;
+    if(d.type==='assortie'){
+      const assRef=carrelageRefs.find(r=>r.id===d.ref_id);
+      label='Plinthe assortie - '+[assRef?.reference,assRef?.coloris].filter(Boolean).join(' - ');
+    } else {
+      label='Plinthe '+PLINTHE_TYPES[d.type];
+    }
     corps+='- '+label+' : '+d.ml.toFixed(1)+' ml%0D%0A';
   });
   corps+='%0D%0ALivraison sur chantier.';
