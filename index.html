@@ -1526,7 +1526,7 @@ async function confirmDeleteRef(refId){
 }
 
 function openNewCommande(){
-  const clientOptions=clients.filter(x=>x.statut==='en_cours'||x.statut==='ouverture')
+  const clientOptions=[...clients].sort((a,b)=>a.nom.localeCompare(b.nom))
     .map(x=>`<option value="${x.id}">${x.nom}</option>`).join('');
   document.getElementById('m-client-title').textContent='🧱 Nouvelle commande carrelage';
   document.getElementById('m-client-body').innerHTML=`
