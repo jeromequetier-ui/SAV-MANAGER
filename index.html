@@ -2652,7 +2652,7 @@ function exportFichePosteur(){
     const plinthesParType={};
     plinthePieces.forEach(p=>{
       if(!plinthesParType[p.plinthe])plinthesParType[p.plinthe]=0;
-      plinthesParType[p.plinthe]+=Math.max(0,(p.perimetre-p.ouvertures))*1.1;
+      plinthesParType[p.plinthe]+=p.from_xls?(p.plinthe_ml||0):Math.max(0,(p.perimetre-p.ouvertures))*1.1;
     });
 
     legendeHTML+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;background:${color}15;border:2px solid ${color}">
@@ -2707,7 +2707,7 @@ function exportFichePosteur(){
       const plinthesParType={};
       piecesRef.filter(p=>p.plinthe).forEach(p=>{
         if(!plinthesParType[p.plinthe])plinthesParType[p.plinthe]=0;
-        plinthesParType[p.plinthe]+=Math.max(0,(p.perimetre-p.ouvertures))*1.1;
+        plinthesParType[p.plinthe]+=p.from_xls?(p.plinthe_ml||0):Math.max(0,(p.perimetre-p.ouvertures))*1.1;
       });
       const items=key==='faience'?mursRef.map(m=>m.nom+' ('+m.largeur+'×'+m.hauteur+'cm)'):piecesRef.map(p=>p.nom+' ('+p.surface.toFixed(1)+'m²)');
       rows+=`<tr style="background:${color}10"><td style="border-left:4px solid ${color}">${ref?.reference||'?'}</td><td>${items.join('<br>')}</td><td style="text-align:right;font-weight:700">${totalM2.toFixed(1)} m²</td></tr>`;
