@@ -189,6 +189,7 @@ input,select,textarea{font-family:inherit;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 <div id="login-screen" style="position:fixed;inset:0;background:#0f172a;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;">
@@ -1562,7 +1563,7 @@ function openGestionRefs(){
   }
   document.getElementById('m-client-body').innerHTML=`
     <div id="refs-list">${refsHTML()}</div>
-    <button onclick="closeM('m-client');openAddRefModal()" class="btn btn-primary" style="width:100%;margin-top:10px">+ Nouvelle référence</button>
+    <button onclick="window._fromGestionRefs=true;closeM('m-client');openAddRefModal()" class="btn btn-primary" style="width:100%;margin-top:10px">+ Nouvelle référence</button>
   `;
   openM('m-client');
 }
@@ -1638,7 +1639,16 @@ function openNewCommande(){
           ${clientOptions}
         </select>
       </div>
-      <div>
+      <div style="display:flex;gap:8px;margin-bottom:4px">
+        <button onclick="_cmdMode='xls';_refreshCmdMode()" id="mode-xls" class="btn" style="flex:1;padding:8px;border:2px solid #10b981;background:#f0fdf4;color:#059669;font-weight:700;font-size:12px">📊 Import métré Excel</button>
+        <button onclick="_cmdMode='pdf';_refreshCmdMode()" id="mode-pdf" class="btn" style="flex:1;padding:8px;border:2px solid #e2e8f0;background:#fff;color:#64748b;font-size:12px">📄 Analyse plan PDF (IA)</button>
+      </div>
+      <div id="cmd-xls-zone">
+        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Métré Excel (.xls / .xlsx) *</label>
+        <input id="cmd-xls" type="file" accept=".xls,.xlsx" style="width:100%;padding:8px;border-radius:8px;border:1.5px dashed #10b981;font-family:inherit;font-size:12px"/>
+        <div style="font-size:10px;color:#94a3b8;margin-top:3px">Récupère automatiquement les m² et plinthes par pièce (m² recalculés -15%+10%, plinthes +5%)</div>
+      </div>
+      <div id="cmd-pdf-zone" style="display:none">
         <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Plan RDC (PDF) *</label>
         <input id="cmd-plan" type="file" accept="application/pdf" style="width:100%;padding:8px;border-radius:8px;border:1.5px dashed #94a3b8;font-family:inherit;font-size:12px"/>
         <div style="font-size:10px;color:#94a3b8;margin-top:3px">L'IA analysera les pièces, surfaces et ouvertures</div>
@@ -1646,11 +1656,99 @@ function openNewCommande(){
       <div id="cmd-analyse-status"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button class="btn btn-secondary" onclick="closeM('m-client')">Annuler</button>
-        <button class="btn btn-primary" id="cmd-analyse-btn" onclick="analyserPlan()">✨ Analyser le plan</button>
+        <button class="btn btn-primary" id="cmd-import-btn" onclick="importerMetre()" style="background:#10b981">📊 Importer le métré</button>
+        <button class="btn btn-primary" id="cmd-analyse-btn" onclick="analyserPlan()" style="display:none">✨ Analyser le plan</button>
       </div>
     </div>
   `;
   openM('m-client');
+}
+
+let _cmdMode='xls';
+function _refreshCmdMode(){
+  const xlsZone=document.getElementById('cmd-xls-zone');
+  const pdfZone=document.getElementById('cmd-pdf-zone');
+  const importBtn=document.getElementById('cmd-import-btn');
+  const analyseBtn=document.getElementById('cmd-analyse-btn');
+  const mXls=document.getElementById('mode-xls');
+  const mPdf=document.getElementById('mode-pdf');
+  if(_cmdMode==='xls'){
+    xlsZone.style.display='block';pdfZone.style.display='none';
+    importBtn.style.display='inline-block';analyseBtn.style.display='none';
+    mXls.style.border='2px solid #10b981';mXls.style.background='#f0fdf4';mXls.style.color='#059669';mXls.style.fontWeight='700';
+    mPdf.style.border='2px solid #e2e8f0';mPdf.style.background='#fff';mPdf.style.color='#64748b';mPdf.style.fontWeight='400';
+  }else{
+    xlsZone.style.display='none';pdfZone.style.display='block';
+    importBtn.style.display='none';analyseBtn.style.display='inline-block';
+    mPdf.style.border='2px solid #2563eb';mPdf.style.background='#eff6ff';mPdf.style.color='#2563eb';mPdf.style.fontWeight='700';
+    mXls.style.border='2px solid #e2e8f0';mXls.style.background='#fff';mXls.style.color='#64748b';mXls.style.fontWeight='400';
+  }
+}
+
+async function importerMetre(){
+  const clientId=document.getElementById('cmd-client').value;
+  const fileInput=document.getElementById('cmd-xls');
+  if(!clientId){toast('Sélectionnez un client','#ef4444');return;}
+  if(!fileInput.files[0]){toast('Importez le fichier Excel','#ef4444');return;}
+  const st=document.getElementById('cmd-analyse-status');
+  const btn=document.getElementById('cmd-import-btn');
+  btn.disabled=true;btn.textContent='⏳ Lecture...';
+  st.innerHTML='<div style="font-size:12px;color:#10b981;font-weight:600">📊 Lecture du métré...</div>';
+  try{
+    const file=fileInput.files[0];
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array'});
+    const sheet=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
+
+    // Extraire les lignes "Four." avec un nom de pièce (après " - ")
+    // Colonnes: [8]=libellé, [27]=quantité, [31]=unité
+    const piecesMap={};
+    rows.forEach(row=>{
+      const libelle=String(row[8]||'');
+      if(!libelle.startsWith('Four.'))return;
+      if(!libelle.includes(' - '))return; // doit avoir un nom de pièce
+      const piece=libelle.split(' - ').pop().trim();
+      if(!piece||piece==='?')return;
+      let qt=String(row[27]||'0').replace(',','.');
+      qt=parseFloat(qt)||0;
+      const unite=String(row[31]||'').trim().toUpperCase();
+      if(!piecesMap[piece])piecesMap[piece]={nom:piece,surface:0,plinthe_ml:0};
+      if(unite==='M²'||unite==='M2'){
+        // Retirer 15% chute, ajouter 10% → surface finale
+        const nette=qt/1.15;
+        piecesMap[piece].surface+=nette*1.10;
+      } else if(unite==='ML'){
+        // Ajouter 5%
+        piecesMap[piece].plinthe_ml+=qt*1.05;
+      }
+    });
+
+    const pieces=Object.values(piecesMap).map((p,i)=>({
+      id:'p'+Date.now()+'_'+i,
+      nom:p.nom,
+      surface:Math.round(p.surface*100)/100,
+      plinthe_ml:Math.round(p.plinthe_ml*100)/100,
+      perimetre:0,ouvertures:0,
+      ref_id:null,plinthe:null,
+      from_xls:true
+    }));
+
+    if(pieces.length===0){
+      st.innerHTML='<div style="font-size:12px;color:#ef4444;font-weight:600">❌ Aucune pièce trouvée dans ce fichier</div>';
+      btn.disabled=false;btn.textContent='📊 Importer le métré';return;
+    }
+
+    const res=await db('POST','commandes_carrelage',{client_id:clientId,pieces,statut:'brouillon'});
+    const cmd=Array.isArray(res)?res[0]:res;
+    commandesList.unshift(cmd);
+    closeM('m-client');
+    toast('✅ Métré importé — '+pieces.length+' pièces !');
+    openCommande(cmd.id);
+  }catch(e){
+    st.innerHTML='<div style="font-size:12px;color:#ef4444;font-weight:600">❌ Erreur: '+e.message+'</div>';
+    btn.disabled=false;btn.textContent='📊 Importer le métré';
+  }
 }
 
 async function analyserPlan(){
@@ -1706,12 +1804,42 @@ async function analyserPlan(){
 }
 
 const PLINTHE_TYPES={mdf:'MDF prépeint',polymere:'Polymère',assortie:'Assortie au carrelage'};
+window._joints=window._joints||{};
+let _jointSaveTimer=null;
+let _cmdNoteSaveTimer=null;
+function _setCmdNote(val){
+  window._cmdNote=val;
+  const cmd=commandesList.find(x=>x.id===window._cmdCourante);
+  if(cmd){
+    cmd.note_globale=val;
+    clearTimeout(_cmdNoteSaveTimer);
+    _cmdNoteSaveTimer=setTimeout(async()=>{
+      try{await db('PATCH','commandes_carrelage',{note_globale:val||null},`?id=eq.${cmd.id}`);}catch(e){}
+    },800);
+  }
+}
+
+function _setJoint(refId,val){
+  window._joints[refId]=val;
+  const cmd=commandesList.find(x=>x.id===window._cmdCourante);
+  if(cmd){
+    cmd.joints=cmd.joints||{};
+    cmd.joints[refId]=val;
+    // Debounce save
+    clearTimeout(_jointSaveTimer);
+    _jointSaveTimer=setTimeout(async()=>{
+      try{await db('PATCH','commandes_carrelage',{joints:cmd.joints},`?id=eq.${cmd.id}`);}catch(e){}
+    },800);
+  }
+}
 const PIECE_COLORS=['#3b82f6','#ef4444','#10b981','#f59e0b','#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316','#6366f1'];
 
 function openCommande(cmdId){
   const cmd=commandesList.find(x=>x.id===cmdId);
   if(!cmd)return;
   window._cmdCourante=cmdId;
+  window._cmdNote=cmd.note_globale||'';
+  window._joints=cmd.joints||{};
   const cl=clients.find(x=>x.id===cmd.client_id);
   const c=document.getElementById('content');
   const pieces=cmd.pieces||[];
@@ -1738,12 +1866,13 @@ function openCommande(cmdId){
     const isFaience=ref.type==='faience';
     const totalM2=isFaience
       ? mursRef.reduce((t,m)=>t+_calcFaience(m).m2Total,0)
-      : piecesRef.reduce((t,p)=>t+p.surface*1.1,0);
+      : piecesRef.reduce((t,p)=>t+(p.from_xls?p.surface:p.surface*1.1),0);
     const totalCarreaux=isFaience?mursRef.reduce((t,m)=>t+_calcFaience(m).nbCarreaux,0):0;
     const plinthesParType={};
     piecesRef.filter(p=>p.plinthe).forEach(p=>{
       if(!plinthesParType[p.plinthe])plinthesParType[p.plinthe]=0;
-      plinthesParType[p.plinthe]+=Math.max(0,(p.perimetre-p.ouvertures))*1.1;
+      const ml=p.from_xls?(p.plinthe_ml||0):Math.max(0,(p.perimetre-p.ouvertures))*1.1;
+      plinthesParType[p.plinthe]+=ml;
     });
     const totalPlinthe=Object.values(plinthesParType).reduce((t,v)=>t+v,0);
     return `<div class="card" style="padding:12px;border-left:5px solid ${color};margin-bottom:10px">
@@ -1760,6 +1889,9 @@ function openCommande(cmdId){
           ${totalPlinthe>0?`<div style="font-size:11px;color:#f59e0b;font-weight:700">${totalPlinthe.toFixed(1)} ml plinthe</div>`:''}
         </div>
       </div>
+      <div style="margin-bottom:8px">
+        <input type="text" placeholder="🎨 Référence joint (optionnel)" value="${(window._joints&&window._joints[refId])||''}" oninput="_setJoint('${refId}',this.value)" style="width:100%;padding:5px 8px;border-radius:7px;border:1px solid #e2e8f0;font-family:inherit;font-size:11px;background:#fafafa"/>
+      </div>
       <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px">
         ${isFaience?mursRef.map(m=>{const calc=_calcFaience(m);return `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:#ecfeff;border-radius:7px;font-size:12px">
           <div>
@@ -1774,7 +1906,7 @@ function openCommande(cmdId){
           <div>
             <span style="font-weight:600">${p.nom}</span>
             <span style="color:#64748b;margin-left:6px">${p.surface.toFixed(1)} m²</span>
-            ${p.plinthe?`<span style="color:#f59e0b;margin-left:6px;font-size:11px">${PLINTHE_TYPES[p.plinthe]} · ${Math.max(0,(p.perimetre-p.ouvertures)).toFixed(1)} ml</span>`:''}
+            ${p.plinthe?`<span style="color:#f59e0b;margin-left:6px;font-size:11px">${PLINTHE_TYPES[p.plinthe]} · ${(p.from_xls?(p.plinthe_ml||0):Math.max(0,(p.perimetre-p.ouvertures))).toFixed(1)} ml</span>`:''}
           </div>
           <div style="display:flex;gap:5px;align-items:center">
             <select data-pid="${p.id}" onchange="setPiecePlinthe(this.dataset.pid,this.value)" style="padding:3px 6px;border-radius:6px;border:1px solid #e2e8f0;font-family:inherit;font-size:11px">
@@ -1798,7 +1930,10 @@ function openCommande(cmdId){
         <div style="font-size:11px;color:#64748b">${cl?.adresse||''}</div>
       </div>
     </div>
-    ${cmd.statut==='envoyee'?`<div style="background:#d1fae5;color:#065f46;padding:8px 12px;border-radius:9px;font-size:12px;font-weight:700;margin-bottom:10px">✉ Envoyée le ${new Date(cmd.date_envoi).toLocaleDateString('fr-FR')}</div>`:''}
+    ${cmd.statut==='envoyee'?`<div style="background:#d1fae5;color:#065f46;padding:8px 12px;border-radius:9px;font-size:12px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
+      <span>✉ Envoyée le ${new Date(cmd.date_envoi).toLocaleDateString('fr-FR')}</span>
+      <button onclick="repasserBrouillon()" style="padding:4px 10px;border-radius:7px;background:#fff;color:#059669;border:1.5px solid #a7f3d0;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit">↩ Repasser en brouillon</button>
+    </div>`:''}
     ${piecesDispos.length>0?`<div style="background:#fef9c3;border:1px solid #fde047;border-radius:9px;padding:8px 12px;font-size:12px;font-weight:600;color:#854d0e;margin-bottom:10px">
       ⚠️ ${piecesDispos.length} pièce(s) sans revêtement : ${piecesDispos.map(p=>p.nom).join(', ')}
     </div>`:''}
@@ -1823,6 +1958,10 @@ function openCommande(cmdId){
       <button onclick="openAddRefAndAssignModal()" class="btn btn-primary" style="flex:1">+ Nouveau revêtement</button>
       <button onclick="openAddSeuilModal()" class="btn btn-secondary" style="flex:1">🔲 Barre de seuil</button>
       <button onclick="openAssignExistingRef()" class="btn btn-secondary" style="flex:1">+ Référence existante</button>
+    </div>
+    <div style="margin-bottom:8px">
+      <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">📝 Note pour le fournisseur (optionnel)</label>
+      <textarea id="cmd-note-globale" oninput="_setCmdNote(this.value)" placeholder="Ex: Livraison avant le 15, prévoir palette..." style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:12px;min-height:50px;resize:vertical">${cmd.note_globale||''}</textarea>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
       <button onclick="exportBonCommande()" class="btn btn-primary" style="flex:1">📄 Bon de commande</button>
@@ -1944,6 +2083,7 @@ function openAssignMursModal(refId){
           <button id="orient-v" onclick="selectOrientation('vertical')" style="flex:1;padding:7px;border-radius:8px;border:2px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;font-family:inherit;font-size:12px">↕ Vertical</button>
         </div>
         <input type="hidden" id="mur-orientation" value="horizontal"/>
+        <input type="hidden" id="mur-refid" value="${refId}"/>
       </div>
       <div id="mur-calc-result" style="background:#ecfeff;border:1px solid #a5f3fc;border-radius:8px;padding:10px;font-size:12px;display:none">
         <div style="font-weight:700;color:#0891b2;margin-bottom:3px">Calcul :</div>
@@ -1951,7 +2091,7 @@ function openAssignMursModal(refId){
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button class="btn btn-secondary" onclick="closeM('m-client')">Annuler</button>
-        <button class="btn btn-primary" style="background:#0891b2" data-rid="${refId}" onclick="validerMur(this.dataset.rid)">+ Ajouter ce mur</button>
+        <button class="btn btn-primary" style="background:#0891b2" onclick="validerMur(document.getElementById('mur-refid').value)">+ Ajouter ce mur</button>
       </div>
     </div>
   `;
@@ -1976,7 +2116,7 @@ function updateMurCalc(){
   const largeurStr=document.getElementById('mur-largeur')?.value||'';
   const hauteur=parseFloat(document.getElementById('mur-hauteur')?.value)||0;
   const orientation=document.getElementById('mur-orientation')?.value||'horizontal';
-  const refId=document.querySelector('[data-rid]')?.dataset?.rid;
+  const refId=document.getElementById('mur-refid')?.value;
   const ref=carrelageRefs.find(r=>r.id===refId);
   const el=document.getElementById('mur-calc-result');
   const det=document.getElementById('mur-calc-detail');
@@ -2155,17 +2295,24 @@ function openEditPieceModal(pieceId){
   document.getElementById('m-client-body').innerHTML=`
     <div style="display:flex;flex-direction:column;gap:10px">
       <div>
-        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Surface (m²)</label>
-        <input id="ep-surface" type="number" step="0.1" value="${p.surface}" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Nom de la pièce</label>
+        <input id="ep-nom" type="text" value="${p.nom}" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
       </div>
       <div>
+        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Surface à commander (m²)</label>
+        <input id="ep-surface" type="number" step="0.01" value="${p.surface}" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+      </div>
+      ${p.from_xls?`<div>
+        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Plinthe (ml)</label>
+        <input id="ep-plinthe-ml" type="number" step="0.01" value="${p.plinthe_ml||0}" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+      </div>`:`<div>
         <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Périmètre (ml)</label>
         <input id="ep-perimetre" type="number" step="0.1" value="${p.perimetre}" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
       </div>
       <div>
         <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Ouvertures (ml)</label>
         <input id="ep-ouvertures" type="number" step="0.1" value="${p.ouvertures||0}" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
-      </div>
+      </div>`}
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button class="btn btn-secondary" onclick="closeM('m-client')">Annuler</button>
         <button class="btn btn-primary" data-pid="${pieceId}" onclick="saveEditPiece(this.dataset.pid)">💾 Enregistrer</button>
@@ -2176,12 +2323,19 @@ function openEditPieceModal(pieceId){
 }
 
 async function saveEditPiece(pieceId){
-  const surface=parseFloat(document.getElementById('ep-surface').value)||0;
-  const perimetre=parseFloat(document.getElementById('ep-perimetre').value)||0;
-  const ouvertures=parseFloat(document.getElementById('ep-ouvertures').value)||0;
   const cmd=commandesList.find(x=>x.id===window._cmdCourante);
   if(!cmd)return;
-  cmd.pieces=cmd.pieces.map(p=>p.id===pieceId?{...p,surface,perimetre,ouvertures}:p);
+  const p=cmd.pieces.find(x=>x.id===pieceId);
+  const nom=document.getElementById('ep-nom')?.value.trim()||p.nom;
+  const surface=parseFloat(document.getElementById('ep-surface').value)||0;
+  let upd={nom,surface};
+  if(p.from_xls){
+    upd.plinthe_ml=parseFloat(document.getElementById('ep-plinthe-ml')?.value)||0;
+  } else {
+    upd.perimetre=parseFloat(document.getElementById('ep-perimetre')?.value)||0;
+    upd.ouvertures=parseFloat(document.getElementById('ep-ouvertures')?.value)||0;
+  }
+  cmd.pieces=cmd.pieces.map(x=>x.id===pieceId?{...x,...upd}:x);
   await _saveCmdPieces(cmd);
   closeM('m-client');
   toast('✅ Modifié !');
@@ -2272,7 +2426,15 @@ async function saveRef(){
   carrelageRefs.sort((a,b)=>a.reference.localeCompare(b.reference));
   closeM('m-client');
   toast((type==='parquet'?'🪵':'🧱')+' Référence ajoutée !');
-  if(window._cmdCourante)openCommande(window._cmdCourante);
+  // Si on vient de la gestion des refs → y retourner, sinon si dans une commande → refresh
+  if(window._fromGestionRefs){
+    window._fromGestionRefs=false;
+    openGestionRefs();
+  } else if(window._cmdCourante&&currentView==='commandes'){
+    // Only reopen commande if we're actually viewing one (not the list)
+    const cmd=commandesList.find(x=>x.id===window._cmdCourante);
+    if(cmd&&document.getElementById('content').innerHTML.includes('refs-blocks'))openCommande(window._cmdCourante);
+  }
 }
 
 function _cmdRecap(cmd){
@@ -2282,13 +2444,13 @@ function _cmdRecap(cmd){
     if(p.ref_id){
       const refType=carrelageRefs.find(r=>r.id===p.ref_id)?.type||'carrelage';
       if(!parRef[p.ref_id])parRef[p.ref_id]={m2:0,carreaux:0,items:[],type:refType};
-      parRef[p.ref_id].m2+=p.surface*1.1;
+      parRef[p.ref_id].m2+=p.from_xls?p.surface:p.surface*1.1;
       parRef[p.ref_id].items.push(p.nom);
     }
     if(p.plinthe){
       const key=p.plinthe==='assortie'?'assortie_'+(p.ref_id||'?'):p.plinthe;
       if(!plinthes[key])plinthes[key]={ml:0,pieces:[],type:p.plinthe,ref_id:p.plinthe==='assortie'?p.ref_id:null};
-      plinthes[key].ml+=Math.max(0,(p.perimetre-p.ouvertures))*1.1;
+      plinthes[key].ml+=p.from_xls?(p.plinthe_ml||0):Math.max(0,(p.perimetre-p.ouvertures))*1.1;
       plinthes[key].pieces.push(p.nom);
     }
   });
@@ -2355,7 +2517,9 @@ function exportBonCommande(){
     sectionHeader('CARRELAGE SOL');
     const rows=refsCarrelage.map(([refId,d])=>{
       const ref=carrelageRefs.find(r=>r.id===refId);
-      const label=[ref?.reference,ref?.coloris,ref?.format].filter(Boolean).join(' - ');
+      let label=[ref?.reference,ref?.coloris,ref?.format].filter(Boolean).join(' - ');
+      const joint=(window._joints||{})[refId];
+      if(joint)label+='\n   Joint : '+joint;
       return [label,d.m2.toFixed(1)+' m2'];
     });
     doc.autoTable({startY:curY,head:[[{content:'Reference',styles:{halign:'left',fontStyle:'bold'}},{content:'Quantite',styles:{halign:'right',fontStyle:'bold'}}]],body:rows,theme:'striped',
@@ -2393,7 +2557,9 @@ function exportBonCommande(){
     sectionHeader('FAIENCE MURALE');
     const rows=refsFaience.map(([refId,d])=>{
       const ref=carrelageRefs.find(r=>r.id===refId);
-      const label=[ref?.reference,ref?.coloris,ref?.format].filter(Boolean).join(' - ');
+      let label=[ref?.reference,ref?.coloris,ref?.format].filter(Boolean).join(' - ');
+      const joint=(window._joints||{})[refId];
+      if(joint)label+='\n   Joint : '+joint;
       return [label,d.m2.toFixed(1)+' m2'];
     });
     doc.autoTable({startY:curY,head:[[{content:'Reference',styles:{halign:'left',fontStyle:'bold'}},{content:'Quantite',styles:{halign:'right',fontStyle:'bold'}}]],body:rows,theme:'striped',
@@ -2444,6 +2610,16 @@ function exportBonCommande(){
       columnStyles:{1:{halign:'center',cellWidth:32},2:{halign:'right',fontStyle:'bold',cellWidth:24}},
       alternateRowStyles:{fillColor:[248,250,252]},margin:{left:14,right:14}});
     curY=doc.lastAutoTable.finalY+6;
+  }
+
+  // Note globale
+  const noteGlobale=window._cmdNote||cmd.note_globale||'';
+  if(noteGlobale.trim()){
+    sectionHeader('NOTE');
+    doc.setFontSize(9);doc.setTextColor(15,23,42);doc.setFont('helvetica','normal');
+    const noteLines=doc.splitTextToSize(noteGlobale,pageW-32);
+    doc.text(noteLines,16,curY+2);
+    curY+=noteLines.length*5+6;
   }
 
   // Footer
@@ -2559,8 +2735,10 @@ async function envoyerCommande(){
   Object.entries(parRef).forEach(([refId,d])=>{
     const ref=carrelageRefs.find(r=>r.id===refId);
     const label=[ref?.reference,ref?.coloris,ref?.format].filter(Boolean).join(' - ');
-    const qte=d.type==='faience'?d.m2.toFixed(1)+' m2 ('+d.carreaux+' carreaux)':d.m2.toFixed(1)+' m2';
+    const qte=d.type==='faience'?d.m2.toFixed(1)+' m2':d.m2.toFixed(1)+' m2';
     corps+='- '+label+' : '+qte+'%0D%0A';
+    const joint=(window._joints||{})[refId];
+    if(joint)corps+='   Joint : '+joint+'%0D%0A';
   });
   Object.values(plinthes).forEach(d=>{
     let label;
@@ -2572,15 +2750,27 @@ async function envoyerCommande(){
     }
     corps+='- '+label+' : '+d.ml.toFixed(1)+' ml%0D%0A';
   });
+  const noteG=window._cmdNote||cmd.note_globale||'';
+  if(noteG.trim())corps+='%0D%0ANote : '+encodeURIComponent(noteG)+'%0D%0A';
   corps+='%0D%0ALivraison sur chantier.';
 
   window.open('mailto:wilfried.arenecarrelages@gmail.com?subject='+encodeURIComponent('MA17SUD / COMMANDE '+(cl?.nom||''))+'&body='+corps);
 
-  // Marquer envoyée
+  // Marquer envoyée + sauver note
   const dateEnvoi=new Date().toISOString();
-  await db('PATCH','commandes_carrelage',{statut:'envoyee',date_envoi:dateEnvoi},`?id=eq.${cmd.id}`);
-  cmd.statut='envoyee';cmd.date_envoi=dateEnvoi;
+  const noteToSave=window._cmdNote||cmd.note_globale||null;
+  await db('PATCH','commandes_carrelage',{statut:'envoyee',date_envoi:dateEnvoi,note_globale:noteToSave},`?id=eq.${cmd.id}`);
+  cmd.statut='envoyee';cmd.date_envoi=dateEnvoi;cmd.note_globale=noteToSave;
   toast('✉ Commande marquée envoyée !');
+  openCommande(cmd.id);
+}
+
+async function repasserBrouillon(){
+  const cmd=commandesList.find(x=>x.id===window._cmdCourante);
+  if(!cmd)return;
+  await db('PATCH','commandes_carrelage',{statut:'brouillon',date_envoi:null},`?id=eq.${cmd.id}`);
+  cmd.statut='brouillon';cmd.date_envoi=null;
+  toast('↩ Commande repassée en brouillon');
   openCommande(cmd.id);
 }
 
@@ -2618,12 +2808,19 @@ async function loadAll(){
 function startPolling(){
   setInterval(async()=>{
     try{
-      const [c,s]=await Promise.all([db('GET','clients','','?order=nom'),db('GET','sav','','?order=created_at.desc')]);
-      clients=c||clients;savList=s||savList;
+      const [c,s,pl,cmds]=await Promise.all([
+        db('GET','clients','','?order=nom'),
+        db('GET','sav','','?order=created_at.desc'),
+        db('GET','planning','','?order=date,heure&limit=500'),
+        db('GET','commandes_carrelage','','?order=created_at.desc')
+      ]);
+      clients=c||clients;savList=s||savList;planningList=pl||planningList;commandesList=cmds||commandesList;
       updateUI();
+      // Rafraîchir la vue courante si elle affiche des données live
       if(currentView==='dashboard')renderDashSav();
+      else if(currentView==='planning'&&!document.getElementById('m-client').classList.contains('open'))_renderPlanningView();
     }catch{}
-  },15000);
+  },10000);
 }
 
 function showSync(msg){
