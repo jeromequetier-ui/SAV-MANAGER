@@ -1702,27 +1702,45 @@ async function importerMetre(){
     const rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
 
     // Extraire les lignes "Four." avec un nom de pièce (après " - ")
-    // Colonnes: [8]=libellé, [27]=quantité, [31]=unité
+    // Recherche robuste : trouve le libellé, l'unité (M²/ML) et la quantité dans la ligne
     const piecesMap={};
+    let debugInfo=[];
     rows.forEach(row=>{
-      const libelle=String(row[8]||'');
-      if(!libelle.startsWith('Four.'))return;
-      if(!libelle.includes(' - '))return; // doit avoir un nom de pièce
+      // Trouver la cellule libellé (commence par "Four.")
+      let libelle='';
+      for(let c=0;c<row.length;c++){
+        const v=String(row[c]||'');
+        if(v.startsWith('Four.')){libelle=v;break;}
+      }
+      if(!libelle||!libelle.includes(' - '))return;
       const piece=libelle.split(' - ').pop().trim();
       if(!piece||piece==='?')return;
-      let qt=String(row[27]||'0').replace(',','.');
-      qt=parseFloat(qt)||0;
-      const unite=String(row[31]||'').trim().toUpperCase();
+      // Trouver l'unité (M² ou ML) dans la ligne
+      let unite='';
+      let uniteCol=-1;
+      for(let c=0;c<row.length;c++){
+        const v=String(row[c]||'').trim().toUpperCase();
+        if(v==='M²'||v==='M2'||v==='ML'){unite=v;uniteCol=c;break;}
+      }
+      if(!unite)return;
+      // La quantité est la valeur numérique juste AVANT l'unité
+      let qt=0;
+      for(let c=uniteCol-1;c>=0;c--){
+        const raw=String(row[c]||'').replace(',','.').trim();
+        const num=parseFloat(raw);
+        if(!isNaN(num)&&raw!==''&&raw!=='0'&&raw!=='0.0'){qt=num;break;}
+      }
+      if(qt===0)return;
       if(!piecesMap[piece])piecesMap[piece]={nom:piece,surface:0,plinthe_ml:0};
       if(unite==='M²'||unite==='M2'){
-        // Retirer 15% chute, ajouter 10% → surface finale
         const nette=qt/1.15;
         piecesMap[piece].surface+=nette*1.10;
       } else if(unite==='ML'){
-        // Ajouter 5%
         piecesMap[piece].plinthe_ml+=qt*1.05;
       }
+      debugInfo.push(piece+': '+qt+' '+unite);
     });
+    console.log('Import métré:',debugInfo);
 
     const pieces=Object.values(piecesMap).map((p,i)=>({
       id:'p'+Date.now()+'_'+i,
