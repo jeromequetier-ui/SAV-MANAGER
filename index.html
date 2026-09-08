@@ -1696,10 +1696,16 @@ async function importerMetre(){
   st.innerHTML='<div style="font-size:12px;color:#10b981;font-weight:600">📊 Lecture du métré...</div>';
   try{
     const file=fileInput.files[0];
-    const buf=await file.arrayBuffer();
-    const wb=XLSX.read(buf,{type:'array'});
+    const data=await new Promise((res,rej)=>{
+      const r=new FileReader();
+      r.onload=e=>res(e.target.result);
+      r.onerror=rej;
+      r.readAsBinaryString(file);
+    });
+    const wb=XLSX.read(data,{type:'binary'});
     const sheet=wb.Sheets[wb.SheetNames[0]];
     const rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
+    console.log('Lignes lues:',rows.length);
 
     // Extraire les lignes "Four." avec un nom de pièce (après " - ")
     // Recherche robuste : trouve le libellé, l'unité (M²/ML) et la quantité dans la ligne
@@ -1761,7 +1767,8 @@ async function importerMetre(){
     const cmd=Array.isArray(res)?res[0]:res;
     commandesList.unshift(cmd);
     closeM('m-client');
-    toast('✅ Métré importé — '+pieces.length+' pièces !');
+    const totalMl=pieces.reduce((t,p)=>t+(p.plinthe_ml||0),0);
+    toast('✅ '+pieces.length+' pièces · '+totalMl.toFixed(1)+' ml plinthe importés !');
     openCommande(cmd.id);
   }catch(e){
     st.innerHTML='<div style="font-size:12px;color:#ef4444;font-weight:600">❌ Erreur: '+e.message+'</div>';
