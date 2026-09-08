@@ -1924,7 +1924,9 @@ function openCommande(cmdId){
           <div>
             <span style="font-weight:600">${p.nom}</span>
             <span style="color:#64748b;margin-left:6px">${p.surface.toFixed(1)} m²</span>
-            ${p.plinthe?`<span style="color:#f59e0b;margin-left:6px;font-size:11px">${PLINTHE_TYPES[p.plinthe]} · ${(p.from_xls?(p.plinthe_ml||0):Math.max(0,(p.perimetre-p.ouvertures))).toFixed(1)} ml</span>`:''}
+            ${p.from_xls&&p.plinthe_ml>0?`<span style="color:#f59e0b;margin-left:6px;font-size:11px">📏 ${p.plinthe_ml.toFixed(1)} ml plinthe</span>`:''}
+            ${p.plinthe&&!p.from_xls?`<span style="color:#f59e0b;margin-left:6px;font-size:11px">${PLINTHE_TYPES[p.plinthe]} · ${Math.max(0,(p.perimetre-p.ouvertures)).toFixed(1)} ml</span>`:''}
+            ${p.plinthe&&p.from_xls?`<span style="color:#d97706;margin-left:6px;font-size:11px">(${PLINTHE_TYPES[p.plinthe]})</span>`:''}
           </div>
           <div style="display:flex;gap:5px;align-items:center">
             <select data-pid="${p.id}" onchange="setPiecePlinthe(this.dataset.pid,this.value)" style="padding:3px 6px;border-radius:6px;border:1px solid #e2e8f0;font-family:inherit;font-size:11px">
