@@ -1504,7 +1504,16 @@ async function planifierTache(titre,clientId,notes,dateHeure){
 // ══════════════════════════════════════
 function renderCommandes(c){
   c.classList.remove('sav-view','suivi-view');
-  const cmds=commandesList;
+  // Tri : brouillons d'abord, puis envoyées, chaque groupe par ordre alpha client
+  const cmds=[...commandesList].sort((a,b)=>{
+    const statutOrder={brouillon:0,envoyee:1};
+    const sa=statutOrder[a.statut]??0;
+    const sb=statutOrder[b.statut]??0;
+    if(sa!==sb)return sa-sb;
+    const na=(clients.find(x=>x.id===a.client_id)?.nom||'').toLowerCase();
+    const nb=(clients.find(x=>x.id===b.client_id)?.nom||'').toLowerCase();
+    return na.localeCompare(nb);
+  });
   c.innerHTML=`
     <h1 style="font-size:20px;font-weight:800;margin-bottom:5px">🧱 Commandes</h1>
     <p style="color:#64748b;font-size:12px;margin-bottom:6px">Commandes carrelage & plinthes — Arène Carrelage</p>
@@ -1518,16 +1527,17 @@ function renderCommandes(c){
         const cl=clients.find(x=>x.id===cmd.client_id);
         const pieces=(cmd.pieces||[]).filter(p=>p.ref_id);
         const totalM2=pieces.reduce((t,p)=>t+(p.surface||0)*1.1,0);
-        return `<div class="card" style="padding:12px;cursor:pointer" data-cmdid="${cmd.id}" onclick="openCommande(this.dataset.cmdid)">
+        return `<div class="card" style="padding:12px">
           <div style="display:flex;justify-content:space-between;align-items:center">
-            <div>
+            <div style="flex:1;cursor:pointer" data-cmdid="${cmd.id}" onclick="openCommande(this.dataset.cmdid)">
               <div style="font-weight:800;font-size:14px">${cl?.nom||'Client inconnu'}</div>
               <div style="font-size:11px;color:#64748b">${cl?.adresse||''}</div>
-              <div style="font-size:11px;color:#2563eb;font-weight:600;margin-top:3px">${pieces.length} pièce(s) · ${totalM2.toFixed(1)} m² (avec chute)</div>
+              <div style="font-size:11px;color:#2563eb;font-weight:600;margin-top:3px">${pieces.length} pièce(s)</div>
             </div>
             <div style="text-align:right">
-              <span class="status ${cmd.statut==='envoyee'?'s-resolu':'s-nouveau'}">${cmd.statut==='envoyee'?'✉ Envoyée':'Brouillon'}</span>
+              <span class="status ${cmd.statut==='envoyee'?'s-resolu':'s-nouveau'}">${cmd.statut==='envoyee'?'✉ Envoyée':'📝 Brouillon'}</span>
               ${cmd.date_envoi?`<div style="font-size:10px;color:#64748b;margin-top:3px">${new Date(cmd.date_envoi).toLocaleDateString('fr-FR')}</div>`:''}
+              ${cmd.statut==='envoyee'?`<button data-cmdid="${cmd.id}" onclick="event.stopPropagation();repasserBrouillonListe(this.dataset.cmdid)" style="margin-top:5px;padding:3px 8px;border-radius:6px;background:#fff7ed;color:#d97706;border:1px solid #fed7aa;cursor:pointer;font-size:10px;font-weight:700;font-family:inherit">↩ Brouillon</button>`:''}
             </div>
           </div>
         </div>`;
@@ -3006,8 +3016,17 @@ async function envoyerCommande(){
   const noteToSave=window._cmdNote||cmd.note_globale||null;
   await db('PATCH','commandes_carrelage',{statut:'envoyee',date_envoi:dateEnvoi,note_globale:noteToSave},`?id=eq.${cmd.id}`);
   cmd.statut='envoyee';cmd.date_envoi=dateEnvoi;cmd.note_globale=noteToSave;
-  toast('✉ Commande marquée envoyée !');
-  openCommande(cmd.id);
+  toast('✉ Commande envoyée !');
+  goView('commandes');
+}
+
+async function repasserBrouillonListe(cmdId){
+  const cmd=commandesList.find(x=>x.id===cmdId);
+  if(!cmd)return;
+  await db('PATCH','commandes_carrelage',{statut:'brouillon',date_envoi:null},`?id=eq.${cmdId}`);
+  cmd.statut='brouillon';cmd.date_envoi=null;
+  toast('↩ Repassée en brouillon');
+  goView('commandes');
 }
 
 async function repasserBrouillon(){
