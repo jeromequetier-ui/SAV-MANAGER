@@ -1902,9 +1902,16 @@ function openCommande(cmdId){
     let totalCarreaux=0;
     let surfCarreauRef=0;
     if(isFaience){
-      mursRef.forEach(m=>{const calc=_calcFaience(m);totalCarreaux+=calc.nbCarreaux;surfCarreauRef=calc.surfaceCarreau;});
-      // Ajouter 5 carreaux de marge sur le TOTAL de la référence
-      if(totalCarreaux>0)totalCarreaux+=5;
+      let bruts=0;
+      mursRef.forEach(m=>{const calc=_calcFaience(m);bruts+=calc.nbCarreaux;surfCarreauRef=calc.surfaceCarreau;});
+      // Override manuel ou calcul + marge
+      const override=cmd.faience_override&&cmd.faience_override[refId];
+      const marge=cmd.faience_marges&&cmd.faience_marges[refId]!==undefined?cmd.faience_marges[refId]:5;
+      if(override&&override>0){
+        totalCarreaux=override;
+      } else if(bruts>0){
+        totalCarreaux=bruts+marge;
+      }
     }
     const totalM2=isFaience
       ? totalCarreaux*surfCarreauRef
@@ -1926,7 +1933,7 @@ function openCommande(cmdId){
         <button data-rid="${refId}" onclick="removeRefFromCommande(this.dataset.rid)" style="padding:5px 9px;border-radius:7px;background:#fff5f5;color:#ef4444;border:1.5px solid #fee2e2;cursor:pointer;font-size:13px;font-family:inherit;margin:0 8px;flex-shrink:0">🗑</button>
         <div style="text-align:right">
           <div style="font-size:16px;font-weight:800;color:${color}">${totalM2.toFixed(1)} m²</div>
-          ${isFaience&&totalCarreaux>0?`<div style="font-size:11px;color:#0891b2;font-weight:700">${totalCarreaux} carreaux</div>`:''}
+          ${isFaience&&totalCarreaux>0?`<div style="font-size:11px;color:#0891b2;font-weight:700;display:flex;align-items:center;gap:5px;justify-content:flex-end">${totalCarreaux} carreaux <button data-rid="${refId}" onclick="openEditFaienceRef(this.dataset.rid)" style="padding:2px 6px;border-radius:5px;background:#ecfeff;color:#0891b2;border:1px solid #a5f3fc;cursor:pointer;font-size:11px;font-family:inherit">✏️</button></div>`:''}
           ${totalPlinthe>0?`<div style="font-size:11px;color:#f59e0b;font-weight:700">${totalPlinthe.toFixed(1)} ml plinthe</div>`:''}
         </div>
       </div>
@@ -2331,6 +2338,82 @@ async function saveEditMur(murId){
   openCommande(cmd.id);
 }
 
+function openEditFaienceRef(refId){
+  const cmd=commandesList.find(x=>x.id===window._cmdCourante);
+  if(!cmd)return;
+  const ref=carrelageRefs.find(r=>r.id===refId);
+  const mursRef=(cmd.murs||[]).filter(m=>m.ref_id===refId);
+  // Calcul carreaux bruts (sans marge)
+  let carreauxBruts=0;
+  let surfCarreau=0;
+  mursRef.forEach(m=>{const c=_calcFaience(m);carreauxBruts+=c.nbCarreaux;surfCarreau=c.surfaceCarreau;});
+  // Marge actuelle (stockée sur la ref ou 5 par défaut)
+  const margeActuelle=cmd.faience_marges&&cmd.faience_marges[refId]!==undefined?cmd.faience_marges[refId]:5;
+  // Override total (si défini)
+  const overrideActuel=cmd.faience_override&&cmd.faience_override[refId]!==undefined?cmd.faience_override[refId]:'';
+
+  document.getElementById('m-client-title').textContent='✏️ Faïence — '+(ref?.reference||'');
+  document.getElementById('m-client-body').innerHTML=`
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="background:#ecfeff;border:1px solid #a5f3fc;border-radius:8px;padding:10px;font-size:12px">
+        <div style="color:#164e63">Carreaux calculés (murs) : <b>${carreauxBruts}</b></div>
+        <div style="color:#164e63;margin-top:2px">Surface d'1 carreau : ${surfCarreau.toFixed(3)} m²</div>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Carreaux en rab (marge)</label>
+        <input id="ef-marge" type="number" value="${margeActuelle}" oninput="_updateEfCalc(${carreauxBruts},${surfCarreau})" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+        <div style="font-size:10px;color:#94a3b8;margin-top:3px">Par défaut 5 carreaux</div>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Ou forcer le total de carreaux</label>
+        <input id="ef-override" type="number" value="${overrideActuel}" placeholder="Vide = calcul + marge" oninput="_updateEfCalc(${carreauxBruts},${surfCarreau})" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+      </div>
+      <div style="background:#0f172a;color:#fff;border-radius:8px;padding:10px;text-align:center">
+        <div id="ef-result" style="font-size:16px;font-weight:800"></div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-secondary" onclick="closeM('m-client')">Annuler</button>
+        <button class="btn btn-primary" style="background:#0891b2" data-rid="${refId}" onclick="saveEditFaienceRef(this.dataset.rid,${carreauxBruts})">💾 Enregistrer</button>
+      </div>
+    </div>
+  `;
+  openM('m-client');
+  _updateEfCalc(carreauxBruts,surfCarreau);
+}
+
+function _updateEfCalc(carreauxBruts,surfCarreau){
+  const el=document.getElementById('ef-result');
+  if(!el)return;
+  const override=parseFloat(document.getElementById('ef-override').value);
+  const marge=parseFloat(document.getElementById('ef-marge').value)||0;
+  let total;
+  if(!isNaN(override)&&override>0){
+    total=override;
+  } else {
+    total=carreauxBruts+marge;
+  }
+  el.textContent=total+' carreaux · '+(total*surfCarreau).toFixed(2)+' m²';
+}
+
+async function saveEditFaienceRef(refId,carreauxBruts){
+  const cmd=commandesList.find(x=>x.id===window._cmdCourante);
+  if(!cmd)return;
+  const override=parseFloat(document.getElementById('ef-override').value);
+  const marge=parseFloat(document.getElementById('ef-marge').value)||0;
+  if(!cmd.faience_marges)cmd.faience_marges={};
+  if(!cmd.faience_override)cmd.faience_override={};
+  cmd.faience_marges[refId]=marge;
+  if(!isNaN(override)&&override>0){
+    cmd.faience_override[refId]=override;
+  } else {
+    delete cmd.faience_override[refId];
+  }
+  await db('PATCH','commandes_carrelage',{faience_marges:cmd.faience_marges,faience_override:cmd.faience_override,updated_at:new Date().toISOString()},`?id=eq.${cmd.id}`);
+  closeM('m-client');
+  toast('✅ Faïence modifiée !');
+  openCommande(cmd.id);
+}
+
 async function deleteMur(murId){
   const cmd=commandesList.find(x=>x.id===window._cmdCourante);
   if(!cmd)return;
@@ -2613,10 +2696,16 @@ function _cmdRecap(cmd){
       faienceSurfCarreau[m.ref_id]=calc.surfaceCarreau;
     }
   });
-  // Ajouter 5 carreaux de marge par référence faïence + recalculer m²
+  // Marge personnalisée ou override par référence faïence
   Object.keys(parRef).forEach(refId=>{
     if(parRef[refId].type==='faience'&&parRef[refId].carreaux>0){
-      parRef[refId].carreaux+=5;
+      const override=cmd.faience_override&&cmd.faience_override[refId];
+      const marge=cmd.faience_marges&&cmd.faience_marges[refId]!==undefined?cmd.faience_marges[refId]:5;
+      if(override&&override>0){
+        parRef[refId].carreaux=override;
+      } else {
+        parRef[refId].carreaux+=marge;
+      }
       parRef[refId].m2=parRef[refId].carreaux*(faienceSurfCarreau[refId]||0);
     }
   });
