@@ -2064,22 +2064,30 @@ function _calcFaience(m){
   const ref=carrelageRefs.find(r=>r.id===m.ref_id);
   const fmt=(ref?.format||'30x60').toLowerCase().replace(' ','');
   const parts=fmt.split('x');
-  const cL=parseFloat(parts[0])||30;
-  const cH=parseFloat(parts[1])||60;
-  const [fw,fh]=m.orientation==='vertical'?[cH,cL]:[cL,cH];
+  const dim1=parseFloat(parts[0])||30;
+  const dim2=parseFloat(parts[1])||60;
+  // Format ex "20x120" : petit côté=20, grand côté=120
+  const petit=Math.min(dim1,dim2);
+  const grand=Math.max(dim1,dim2);
+  // Horizontal = carreau posé dans le sens de la longueur (grand côté en largeur)
+  // Vertical = carreau posé debout (grand côté en hauteur)
+  const [fw,fh]=m.orientation==='vertical'?[petit,grand]:[grand,petit];
   const hauteur=parseFloat(m.hauteur)||0;
-  // Handle multiple segments
   const largeurs=_parseLargeurs(m.largeur);
   let totalCarreaux=0;
-  let totalM2=0;
+  let totalM2brut=0;
   largeurs.forEach(larg=>{
     const nbCol=Math.ceil(larg/fw);
     const nbLig=Math.ceil(hauteur/fh);
     totalCarreaux+=nbCol*nbLig;
-    totalM2+=(larg/100)*(hauteur/100);
+    totalM2brut+=(larg/100)*(hauteur/100);
   });
-  const nbCarreaux=Math.ceil(totalCarreaux*1.1);
-  const m2Total=totalM2*1.1;
+  // Marge fixe de 5 carreaux (pas de %)
+  const nbCarreaux=totalCarreaux+5;
+  // Surface d'1 carreau en m²
+  const surfaceCarreau=(fw/100)*(fh/100);
+  // m² total = nb carreaux (avec marge) × surface d'un carreau
+  const m2Total=nbCarreaux*surfaceCarreau;
   const totalLargeur=largeurs.reduce((t,l)=>t+l,0);
   return {nbCarreaux,fw,fh,m2Total,totalLargeur,nbSegments:largeurs.length};
 }
@@ -2152,25 +2160,27 @@ function updateMurCalc(){
   if(!largeurs.length||!hauteur||!el||!det)return;
   const fmt=(ref?.format||'30x60').toLowerCase().replace(' ','');
   const parts=fmt.split('x');
-  const cL=parseFloat(parts[0])||30;const cH=parseFloat(parts[1])||60;
-  const [fw,fh]=orientation==='vertical'?[cH,cL]:[cL,cH];
+  const dim1=parseFloat(parts[0])||30;const dim2=parseFloat(parts[1])||60;
+  const petit=Math.min(dim1,dim2);const grand=Math.max(dim1,dim2);
+  const [fw,fh]=orientation==='vertical'?[petit,grand]:[grand,petit];
   let html=`Format carreau : ${fw}×${fh} cm (${orientation})<br>`;
-  let totalC=0;let totalM2=0;
+  let totalC=0;
   largeurs.forEach((larg,i)=>{
     const nbCol=Math.ceil(larg/fw);
     const nbLig=Math.ceil(hauteur/fh);
     const c=nbCol*nbLig;
     totalC+=c;
-    totalM2+=(larg/100)*(hauteur/100);
     if(largeurs.length>1) html+=`Segment ${i+1} : ${larg}cm — ${nbCol}×${nbLig} = ${c} carreaux<br>`;
   });
-  const nbCarreaux=Math.ceil(totalC*1.1);
-  if(largeurs.length>1) html+=`<b>Total : ${totalC} + 10% = <span style="color:#0891b2;font-size:13px">${nbCarreaux} carreaux</span></b><br>`;
+  const nbCarreaux=totalC+5;
+  const surfaceCarreau=(fw/100)*(fh/100);
+  const m2Total=nbCarreaux*surfaceCarreau;
+  if(largeurs.length>1) html+=`<b>Total : ${totalC} + 5 carreaux marge = <span style="color:#0891b2;font-size:13px">${nbCarreaux} carreaux</span></b><br>`;
   else{
     const nbCol=Math.ceil(largeurs[0]/fw);const nbLig=Math.ceil(hauteur/fh);
-    html+=`<b>${nbCol}×${nbLig} = ${totalC} + 10% = <span style="color:#0891b2;font-size:13px">${nbCarreaux} carreaux</span></b><br>`;
+    html+=`<b>${nbCol}×${nbLig} = ${totalC} + 5 marge = <span style="color:#0891b2;font-size:13px">${nbCarreaux} carreaux</span></b><br>`;
   }
-  html+=`Surface totale : ${(totalM2*1.1).toFixed(2)} m²`;
+  html+=`Surface : ${m2Total.toFixed(2)} m²`;
   el.style.display='block';
   det.innerHTML=html;
 }
