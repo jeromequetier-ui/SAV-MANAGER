@@ -3140,7 +3140,12 @@ function renderClients(c){
     <div class="search-wrap"><span class="search-ic">🔍</span><input type="text" placeholder="Rechercher un chantier…" oninput="searchCli(this.value)" id="cli-search"/></div>
     <div id="cli-list"></div>
   `;
-  renderCliList(clients);
+  // Ré-appliquer le filtre actif
+  const filtered=cliFilter?clients.filter(c=>c.statut===cliFilter):clients;
+  renderCliList(filtered);
+  // Marquer le bouton filtre actif
+  const cc=document.getElementById('cli-count');
+  if(cc&&cliFilter)cc.textContent=`${filtered.length} / ${clients.length}`;
 }
 function filterCli(f){cliFilter=f;const inp=document.getElementById('cli-search');if(inp)inp.value='';searchCli('');}
 function searchCli(q){
