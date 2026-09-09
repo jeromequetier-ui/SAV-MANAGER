@@ -1841,9 +1841,16 @@ function _setCmdNote(val){
   if(cmd){
     cmd.note_globale=val;
     clearTimeout(_cmdNoteSaveTimer);
-    _cmdNoteSaveTimer=setTimeout(async()=>{
-      try{await db('PATCH','commandes_carrelage',{note_globale:val||null},`?id=eq.${cmd.id}`);}catch(e){}
-    },800);
+    _cmdNoteSaveTimer=setTimeout(_saveCmdNoteNow,800);
+  }
+}
+async function _saveCmdNoteNow(){
+  clearTimeout(_cmdNoteSaveTimer);
+  const cmd=commandesList.find(x=>x.id===window._cmdCourante);
+  if(cmd){
+    const val=document.getElementById('cmd-note-globale')?.value??cmd.note_globale;
+    cmd.note_globale=val;
+    try{await db('PATCH','commandes_carrelage',{note_globale:val||null},`?id=eq.${cmd.id}`);}catch(e){}
   }
 }
 
@@ -1892,10 +1899,16 @@ function openCommande(cmdId){
     // Faience: use murs instead of pieces
     const mursRef=(cmd.murs||[]).filter(m=>m.ref_id===refId);
     const isFaience=ref.type==='faience';
+    let totalCarreaux=0;
+    let surfCarreauRef=0;
+    if(isFaience){
+      mursRef.forEach(m=>{const calc=_calcFaience(m);totalCarreaux+=calc.nbCarreaux;surfCarreauRef=calc.surfaceCarreau;});
+      // Ajouter 5 carreaux de marge sur le TOTAL de la référence
+      if(totalCarreaux>0)totalCarreaux+=5;
+    }
     const totalM2=isFaience
-      ? mursRef.reduce((t,m)=>t+_calcFaience(m).m2Total,0)
+      ? totalCarreaux*surfCarreauRef
       : piecesRef.reduce((t,p)=>t+(p.from_xls?p.surface:p.surface*1.1),0);
-    const totalCarreaux=isFaience?mursRef.reduce((t,m)=>t+_calcFaience(m).nbCarreaux,0):0;
     const plinthesParType={};
     piecesRef.filter(p=>p.plinthe).forEach(p=>{
       if(!plinthesParType[p.plinthe])plinthesParType[p.plinthe]=0;
@@ -1952,7 +1965,7 @@ function openCommande(cmdId){
 
   c.innerHTML=`
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-      <button onclick="goView('commandes')" style="width:32px;height:32px;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;font-size:16px">‹</button>
+      <button onclick="_saveCmdNoteNow();goView('commandes')" style="width:32px;height:32px;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;font-size:16px">‹</button>
       <div style="flex:1">
         <h1 style="font-size:17px;font-weight:800">${cl?.nom||''}</h1>
         <div style="font-size:11px;color:#64748b">${cl?.adresse||''}</div>
@@ -1989,7 +2002,7 @@ function openCommande(cmdId){
     </div>
     <div style="margin-bottom:8px">
       <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">📝 Note pour le fournisseur (optionnel)</label>
-      <textarea id="cmd-note-globale" oninput="_setCmdNote(this.value)" placeholder="Ex: Livraison avant le 15, prévoir palette..." style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:12px;min-height:50px;resize:vertical">${cmd.note_globale||''}</textarea>
+      <textarea id="cmd-note-globale" oninput="_setCmdNote(this.value)" onblur="_saveCmdNoteNow()" placeholder="Ex: Livraison avant le 15, prévoir palette..." style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:12px;min-height:50px;resize:vertical">${cmd.note_globale||''}</textarea>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
       <button onclick="exportBonCommande()" class="btn btn-primary" style="flex:1">📄 Bon de commande</button>
@@ -2063,6 +2076,13 @@ function _parseLargeurs(largeurStr){
 function _calcFaience(m){
   const ref=carrelageRefs.find(r=>r.id===m.ref_id);
   const fmt=(ref?.format||'30x60').toLowerCase().replace(' ','');
+  // Si nombre de carreaux forcé manuellement
+  if(m.carreaux_force&&m.carreaux_force>0){
+    const parts0=fmt.split('x');
+    const d1=parseFloat(parts0[0])||30;const d2=parseFloat(parts0[1])||60;
+    const sc=(d1/100)*(d2/100);
+    return {nbCarreaux:m.carreaux_force,fw:d1,fh:d2,m2Total:m.carreaux_force*sc,surfaceCarreau:sc,totalLargeur:0,nbSegments:1};
+  }
   const parts=fmt.split('x');
   const dim1=parseFloat(parts[0])||30;
   const dim2=parseFloat(parts[1])||60;
@@ -2082,14 +2102,12 @@ function _calcFaience(m){
     totalCarreaux+=nbCol*nbLig;
     totalM2brut+=(larg/100)*(hauteur/100);
   });
-  // Marge fixe de 5 carreaux (pas de %)
-  const nbCarreaux=totalCarreaux+5;
-  // Surface d'1 carreau en m²
+  // PAS de marge ici - la marge de 5 carreaux est ajoutée au total de la référence
+  const nbCarreaux=totalCarreaux;
   const surfaceCarreau=(fw/100)*(fh/100);
-  // m² total = nb carreaux (avec marge) × surface d'un carreau
   const m2Total=nbCarreaux*surfaceCarreau;
   const totalLargeur=largeurs.reduce((t,l)=>t+l,0);
-  return {nbCarreaux,fw,fh,m2Total,totalLargeur,nbSegments:largeurs.length};
+  return {nbCarreaux,fw,fh,m2Total,surfaceCarreau,totalLargeur,nbSegments:largeurs.length};
 }
 
 function openAssignMursModal(refId){
@@ -2172,13 +2190,13 @@ function updateMurCalc(){
     totalC+=c;
     if(largeurs.length>1) html+=`Segment ${i+1} : ${larg}cm — ${nbCol}×${nbLig} = ${c} carreaux<br>`;
   });
-  const nbCarreaux=totalC+5;
+  const nbCarreaux=totalC;
   const surfaceCarreau=(fw/100)*(fh/100);
   const m2Total=nbCarreaux*surfaceCarreau;
-  if(largeurs.length>1) html+=`<b>Total : ${totalC} + 5 carreaux marge = <span style="color:#0891b2;font-size:13px">${nbCarreaux} carreaux</span></b><br>`;
+  if(largeurs.length>1) html+=`<b>Total : <span style="color:#0891b2;font-size:13px">${nbCarreaux} carreaux</span></b> (+5 marge sur la réf.)<br>`;
   else{
     const nbCol=Math.ceil(largeurs[0]/fw);const nbLig=Math.ceil(hauteur/fh);
-    html+=`<b>${nbCol}×${nbLig} = ${totalC} + 5 marge = <span style="color:#0891b2;font-size:13px">${nbCarreaux} carreaux</span></b><br>`;
+    html+=`<b>${nbCol}×${nbLig} = <span style="color:#0891b2;font-size:13px">${nbCarreaux} carreaux</span></b> (+5 marge sur la réf.)<br>`;
   }
   html+=`Surface : ${m2Total.toFixed(2)} m²`;
   el.style.display='block';
@@ -2218,6 +2236,98 @@ async function removeRefFromCommande(refId){
   cmd.active_refs=(cmd.active_refs||[]).filter(id=>id!==refId);
   await db('PATCH','commandes_carrelage',{pieces:cmd.pieces,murs:cmd.murs,active_refs:cmd.active_refs,updated_at:new Date().toISOString()},`?id=eq.${cmd.id}`);
   toast('Revêtement retiré');
+  openCommande(cmd.id);
+}
+
+function openEditMurModal(murId){
+  const cmd=commandesList.find(x=>x.id===window._cmdCourante);
+  if(!cmd)return;
+  const m=(cmd.murs||[]).find(x=>x.id===murId);
+  if(!m)return;
+  const calc=_calcFaience(m);
+  document.getElementById('m-client-title').textContent='✏️ Modifier mur — '+m.nom;
+  document.getElementById('m-client-body').innerHTML=`
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Nom du mur / zone</label>
+        <input id="em-nom" type="text" value="${(m.nom||'').replace(/"/g,'&quot;')}" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+      </div>
+      <div style="display:flex;gap:8px">
+        <div style="flex:2">
+          <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Largeur(s) (cm)</label>
+          <input id="em-largeur" type="text" value="${m.largeur}" oninput="_updateEmCalc()" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+        </div>
+        <div style="flex:1">
+          <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Hauteur (cm)</label>
+          <input id="em-hauteur" type="number" value="${m.hauteur}" oninput="_updateEmCalc()" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Orientation de pose</label>
+        <div style="display:flex;gap:8px">
+          <button id="orient-h" onclick="document.getElementById('mur-orientation').value='horizontal';_refreshOrientBtns();_updateEmCalc()" style="flex:1;padding:7px;border-radius:8px;border:2px solid ${m.orientation!=='vertical'?'#0891b2':'#e2e8f0'};background:${m.orientation!=='vertical'?'#ecfeff':'#fff'};color:${m.orientation!=='vertical'?'#0891b2':'#64748b'};cursor:pointer;font-family:inherit;font-size:12px;font-weight:${m.orientation!=='vertical'?700:400}">↔ Horizontal</button>
+          <button id="orient-v" onclick="document.getElementById('mur-orientation').value='vertical';_refreshOrientBtns();_updateEmCalc()" style="flex:1;padding:7px;border-radius:8px;border:2px solid ${m.orientation==='vertical'?'#0891b2':'#e2e8f0'};background:${m.orientation==='vertical'?'#ecfeff':'#fff'};color:${m.orientation==='vertical'?'#0891b2':'#64748b'};cursor:pointer;font-family:inherit;font-size:12px;font-weight:${m.orientation==='vertical'?700:400}">↕ Vertical</button>
+        </div>
+        <input type="hidden" id="mur-orientation" value="${m.orientation||'horizontal'}"/>
+        <input type="hidden" id="mur-refid" value="${m.ref_id}"/>
+      </div>
+      <div style="background:#ecfeff;border:1px solid #a5f3fc;border-radius:8px;padding:10px;font-size:12px">
+        <div style="font-weight:700;color:#0891b2;margin-bottom:3px">Calcul automatique :</div>
+        <div id="em-calc" style="color:#164e63">${calc.nbCarreaux} carreaux · ${calc.m2Total.toFixed(2)} m²</div>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Ou forcer le nombre de carreaux</label>
+        <input id="em-carreaux-force" type="number" value="${m.carreaux_force||''}" placeholder="Vide = calcul auto" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-secondary" onclick="closeM('m-client')">Annuler</button>
+        <button class="btn btn-primary" data-mid="${murId}" onclick="saveEditMur(this.dataset.mid)">💾 Enregistrer</button>
+      </div>
+    </div>
+  `;
+  openM('m-client');
+}
+
+function _refreshOrientBtns(){
+  const o=document.getElementById('mur-orientation').value;
+  const bH=document.getElementById('orient-h');
+  const bV=document.getElementById('orient-v');
+  if(!bH||!bV)return;
+  if(o==='vertical'){
+    bV.style.border='2px solid #0891b2';bV.style.background='#ecfeff';bV.style.color='#0891b2';bV.style.fontWeight='700';
+    bH.style.border='2px solid #e2e8f0';bH.style.background='#fff';bH.style.color='#64748b';bH.style.fontWeight='400';
+  }else{
+    bH.style.border='2px solid #0891b2';bH.style.background='#ecfeff';bH.style.color='#0891b2';bH.style.fontWeight='700';
+    bV.style.border='2px solid #e2e8f0';bV.style.background='#fff';bV.style.color='#64748b';bV.style.fontWeight='400';
+  }
+}
+
+function _updateEmCalc(){
+  const el=document.getElementById('em-calc');
+  if(!el)return;
+  const fakeMur={
+    largeur:document.getElementById('em-largeur').value,
+    hauteur:parseFloat(document.getElementById('em-hauteur').value)||0,
+    orientation:document.getElementById('mur-orientation').value,
+    ref_id:document.getElementById('mur-refid').value
+  };
+  const calc=_calcFaience(fakeMur);
+  el.textContent=calc.nbCarreaux+' carreaux · '+calc.m2Total.toFixed(2)+' m²';
+}
+
+async function saveEditMur(murId){
+  const nom=document.getElementById('em-nom').value.trim();
+  const largeur=document.getElementById('em-largeur').value.trim();
+  const hauteur=parseFloat(document.getElementById('em-hauteur').value)||0;
+  const orientation=document.getElementById('mur-orientation').value||'horizontal';
+  const carreauxForce=parseFloat(document.getElementById('em-carreaux-force')?.value)||null;
+  if(!nom||!largeur||!hauteur){toast('Remplissez tous les champs','#ef4444');return;}
+  const cmd=commandesList.find(x=>x.id===window._cmdCourante);
+  if(!cmd)return;
+  cmd.murs=(cmd.murs||[]).map(m=>m.id===murId?{...m,nom,largeur,hauteur,orientation,carreaux_force:carreauxForce}:m);
+  await db('PATCH','commandes_carrelage',{murs:cmd.murs,updated_at:new Date().toISOString()},`?id=eq.${cmd.id}`);
+  closeM('m-client');
+  toast('✅ Mur modifié !');
   openCommande(cmd.id);
 }
 
@@ -2492,14 +2602,22 @@ function _cmdRecap(cmd){
       plinthes[key].pieces.push(p.nom);
     }
   });
+  const faienceSurfCarreau={};
   (cmd.murs||[]).forEach(m=>{
     if(m.ref_id){
       if(!parRef[m.ref_id])parRef[m.ref_id]={m2:0,carreaux:0,items:[],type:'faience'};
       const calc=_calcFaience(m);
-      parRef[m.ref_id].m2+=calc.m2Total;
       parRef[m.ref_id].carreaux+=calc.nbCarreaux;
       parRef[m.ref_id].items.push(m.nom+' ('+m.largeur+'×'+m.hauteur+'cm)');
       parRef[m.ref_id].type='faience';
+      faienceSurfCarreau[m.ref_id]=calc.surfaceCarreau;
+    }
+  });
+  // Ajouter 5 carreaux de marge par référence faïence + recalculer m²
+  Object.keys(parRef).forEach(refId=>{
+    if(parRef[refId].type==='faience'&&parRef[refId].carreaux>0){
+      parRef[refId].carreaux+=5;
+      parRef[refId].m2=parRef[refId].carreaux*(faienceSurfCarreau[refId]||0);
     }
   });
   return {parRef,plinthes};
