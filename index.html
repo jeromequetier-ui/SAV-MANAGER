@@ -1860,7 +1860,11 @@ async function _saveCmdNoteNow(){
   if(cmd){
     const val=document.getElementById('cmd-note-globale')?.value??cmd.note_globale;
     cmd.note_globale=val;
-    try{await db('PATCH','commandes_carrelage',{note_globale:val||null},`?id=eq.${cmd.id}`);}catch(e){}
+    try{
+      await db('PATCH','commandes_carrelage',{note_globale:val||null},`?id=eq.${cmd.id}`);
+    }catch(e){
+      toast('⚠ Erreur sauvegarde note: '+e.message,'#ef4444');
+    }
   }
 }
 
@@ -3014,10 +3018,18 @@ async function envoyerCommande(){
   // Marquer envoyée + sauver note
   const dateEnvoi=new Date().toISOString();
   const noteToSave=window._cmdNote||cmd.note_globale||null;
-  await db('PATCH','commandes_carrelage',{statut:'envoyee',date_envoi:dateEnvoi,note_globale:noteToSave},`?id=eq.${cmd.id}`);
-  cmd.statut='envoyee';cmd.date_envoi=dateEnvoi;cmd.note_globale=noteToSave;
-  toast('✉ Commande envoyée !');
-  goView('commandes');
+  try{
+    await db('PATCH','commandes_carrelage',{statut:'envoyee',date_envoi:dateEnvoi},`?id=eq.${cmd.id}`);
+    cmd.statut='envoyee';cmd.date_envoi=dateEnvoi;
+    // Sauver la note séparément (au cas où la colonne pose problème)
+    if(noteToSave){
+      try{await db('PATCH','commandes_carrelage',{note_globale:noteToSave},`?id=eq.${cmd.id}`);cmd.note_globale=noteToSave;}catch(e){}
+    }
+    toast('✉ Commande envoyée !');
+    goView('commandes');
+  }catch(e){
+    toast('⚠ Erreur: '+e.message,'#ef4444');
+  }
 }
 
 async function repasserBrouillonListe(cmdId){
