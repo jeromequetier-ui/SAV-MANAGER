@@ -3288,8 +3288,13 @@ function renderDashMap(){
       const activeSav=sv.filter(s=>s.statut==='nouveau'||s.statut==='attente_intervention');
       const color=activeSav.length>0||c.statut==='sav_en_cours'?'#ef4444':c.statut==='livre'?'#10b981':c.statut==='ouverture'?'#8b5cf6':c.statut==='en_cours'?'#eab308':'#94a3b8';
       const label=c.statut==='livre'?'✓':activeSav.length>0?activeSav.length.toString():'';
+      // Nuance visuelle : chantier ouverture SANS panneau posé → contour orange vif
+      const panneauAPoser=c.statut==='ouverture'&&!c.panneau_pose;
+      const borderColor=panneauAPoser?'#f97316':'#fff';
+      const borderWidth=panneauAPoser?'4px':'3px';
+      const iconLabel=panneauAPoser?'🚧':label;
       const icon=L.divIcon({className:'',
-        html:`<div style="width:28px;height:28px;border-radius:50% 50% 50% 0;background:${color};border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);transform:rotate(-45deg);display:flex;align-items:center;justify-content:center"><span style="transform:rotate(45deg);color:#fff;font-size:9px;font-weight:800">${label}</span></div>`,
+        html:`<div style="width:28px;height:28px;border-radius:50% 50% 50% 0;background:${color};border:${borderWidth} solid ${borderColor};box-shadow:0 2px 8px rgba(0,0,0,0.4);transform:rotate(-45deg);display:flex;align-items:center;justify-content:center"><span style="transform:rotate(45deg);color:#fff;font-size:${panneauAPoser?'11px':'9px'};font-weight:800">${iconLabel}</span></div>`,
         iconSize:[28,28],iconAnchor:[14,28],popupAnchor:[0,-32]});
       const statut=CHANTIER_STATUTS[c.statut]||CHANTIER_STATUTS.en_cours;
       const sv_info=activeSav.length>0?`<div style="color:#ef4444;font-size:12px;font-weight:600;margin-top:4px">🔧 ${activeSav.length} SAV actif(s)</div>`:'<div style="color:#10b981;font-size:12px;margin-top:4px">✓ Aucun SAV</div>';
@@ -3298,15 +3303,16 @@ function renderDashMap(){
         <div style="font-weight:800;font-size:14px">${c.nom}</div>
         <span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:${statut.cls.includes('sav')?'#fee2e2':statut.cls.includes('livre')?'#d1fae5':statut.cls.includes('ouverture')?'#f3e8ff':'#fefce8'};color:${statut.cls.includes('sav')?'#ef4444':statut.cls.includes('livre')?'#065f46':statut.cls.includes('ouverture')?'#7c3aed':'#ca8a04'}">${statut.l}</span>
         <div style="font-size:11px;color:#64748b;margin-top:4px">${c.adresse||''}</div>
+        ${c.statut==='ouverture'?`<div style="margin-top:6px;padding:5px 8px;border-radius:7px;background:${c.panneau_pose?'#f0fdf4':'#fff7ed'};font-size:11px;font-weight:600;color:${c.panneau_pose?'#059669':'#d97706'};cursor:pointer" onclick="window.__togglePanneau('${c.id}')">${c.panneau_pose?'✅ Panneau posé':'🚧 Panneau à poser — cliquer pour valider'}</div>`:''}
         ${c.tel?`<div style="font-size:11px;margin-top:3px">📞 ${c.tel}</div>`:''}
         ${sv_info}
         <button onclick="window.__od('${c.id}')" style="margin-top:9px;width:100%;padding:8px;border:none;background:#2563eb;color:#fff;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;font-family:-apple-system,sans-serif">Ouvrir la fiche →</button>
         ${c.statut!=='sav_en_cours'?`<button onclick="window.__sav('${c.id}')" style="margin-top:6px;width:100%;padding:8px;border:none;background:#fee2e2;color:#ef4444;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;font-family:-apple-system,sans-serif">🔧 Déclarer un SAV</button>`:''}
       </div>`,{maxWidth:260});
       // Determine layers
-      const mLayers=activeSav.length>0?['sav_en_cours','sav']:[c.statut];
+      const mLayers=activeSav.length>0?['sav_en_cours']:[c.statut];
       marker.addTo(map);
-      dashMapMarkers.push({marker,layers:mLayers});
+      dashMapMarkers.push({marker,layers:mLayers,_clientId:c.id});
     });
     // Géolocalisation
     if(navigator.geolocation){
@@ -3318,6 +3324,34 @@ function renderDashMap(){
       },()=>{},{enableHighAccuracy:true,timeout:10000});
     }
     window.__od=id=>openDetail(id);
+    window.__togglePanneau=async id=>{
+      const client=clients.find(c=>c.id===id);
+      if(!client)return;
+      const newVal=!client.panneau_pose;
+      try{
+        await db('PATCH','clients',{panneau_pose:newVal},`?id=eq.${id}`);
+        clients=clients.map(c=>c.id===id?{...c,panneau_pose:newVal}:c);
+        // Mettre à jour SEULEMENT le marqueur concerné (sans re-render ni scroll)
+        const entry=dashMapMarkers.find(m=>m._clientId===id);
+        if(entry&&dashMapInst){
+          const c2=clients.find(x=>x.id===id);
+          const sv=clientSav(id);
+          const activeSav=sv.filter(s=>s.statut==='nouveau'||s.statut==='attente_intervention');
+          const color=activeSav.length>0||c2.statut==='sav_en_cours'?'#ef4444':c2.statut==='livre'?'#10b981':c2.statut==='ouverture'?'#8b5cf6':c2.statut==='en_cours'?'#eab308':'#94a3b8';
+          const label=c2.statut==='livre'?'✓':activeSav.length>0?activeSav.length.toString():'';
+          const panneauAPoser=c2.statut==='ouverture'&&!c2.panneau_pose;
+          const borderColor=panneauAPoser?'#f97316':'#fff';
+          const borderWidth=panneauAPoser?'4px':'3px';
+          const iconLabel=panneauAPoser?'🚧':label;
+          const newIcon=L.divIcon({className:'',
+            html:`<div style="width:28px;height:28px;border-radius:50% 50% 50% 0;background:${color};border:${borderWidth} solid ${borderColor};box-shadow:0 2px 8px rgba(0,0,0,0.4);transform:rotate(-45deg);display:flex;align-items:center;justify-content:center"><span style="transform:rotate(45deg);color:#fff;font-size:${panneauAPoser?'11px':'9px'};font-weight:800">${iconLabel}</span></div>`,
+            iconSize:[28,28],iconAnchor:[14,28],popupAnchor:[0,-32]});
+          entry.marker.setIcon(newIcon);
+        }
+        dashMapInst.closePopup();
+        toast(newVal?'✅ Panneau posé':'🚧 Panneau à poser');
+      }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+    };
     window.__sav=async id=>{
       const client=clients.find(c=>c.id===id);
       if(!client)return;
