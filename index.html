@@ -1125,7 +1125,7 @@ async function toggleNoteLine(planningId,lineIdx){
   // Re-render immediately
   openEditPlanningModal(planningId);
   // Save to DB
-  try{await db('PATCH','planning',{notes_done:done},`?id=eq.${planningId}`);}catch(e){}
+  try{await db('PATCH','planning',{notes_done:done},`?id=eq.${planningId}`);}catch(e){toast('⚠ '+e.message,'#ef4444');}
 }
 
 function openEditPlanningModal(id){
@@ -2021,6 +2021,7 @@ function openCommande(cmdId){
       <button onclick="openAddSeuilModal()" class="btn btn-secondary" style="flex:1">🔲 Barre de seuil</button>
       <button onclick="openAssignExistingRef()" class="btn btn-secondary" style="flex:1">+ Référence existante</button>
     </div>
+    <button onclick="openAddPieceModal()" class="btn btn-secondary" style="width:100%;margin-bottom:8px;background:#f0fdf4;color:#059669;border:1.5px solid #a7f3d0">🚿 Ajouter une pièce (douche, oubli...)</button>
     <div style="margin-bottom:8px">
       <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">📝 Note pour le fournisseur (optionnel)</label>
       <textarea id="cmd-note-globale" oninput="_setCmdNote(this.value)" onblur="_saveCmdNoteNow()" placeholder="Ex: Livraison avant le 15, prévoir palette..." style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:12px;min-height:50px;resize:vertical">${cmd.note_globale||''}</textarea>
@@ -2433,6 +2434,57 @@ async function deleteMur(murId){
   if(!cmd)return;
   cmd.murs=(cmd.murs||[]).filter(m=>m.id!==murId);
   await db('PATCH','commandes_carrelage',{murs:cmd.murs,updated_at:new Date().toISOString()},`?id=eq.${cmd.id}`);
+  openCommande(cmd.id);
+}
+
+function openAddPieceModal(){
+  document.getElementById('m-client-title').textContent='🚿 Ajouter une pièce';
+  document.getElementById('m-client-body').innerHTML=`
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Nom de la pièce *</label>
+        <input id="np-nom" type="text" placeholder="Ex: Douche italienne, Cellier..." style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+      </div>
+      <div style="display:flex;gap:8px">
+        <div style="flex:1">
+          <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Surface (m²) *</label>
+          <input id="np-surface" type="number" step="0.01" placeholder="Ex: 1.5" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+        </div>
+        <div style="flex:1">
+          <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Plinthe (ml)</label>
+          <input id="np-plinthe-ml" type="number" step="0.01" placeholder="0" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:13px"/>
+        </div>
+      </div>
+      <div style="font-size:10px;color:#94a3b8">La surface est prise telle quelle (pas de recalcul chute). Ajoutez déjà votre marge si besoin.</div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-secondary" onclick="closeM('m-client')">Annuler</button>
+        <button class="btn btn-primary" onclick="saveNewPiece()">+ Ajouter</button>
+      </div>
+    </div>
+  `;
+  openM('m-client');
+}
+
+async function saveNewPiece(){
+  const nom=document.getElementById('np-nom').value.trim();
+  const surface=parseFloat(document.getElementById('np-surface').value)||0;
+  const plintheML=parseFloat(document.getElementById('np-plinthe-ml').value)||0;
+  if(!nom||!surface){toast('Nom et surface obligatoires','#ef4444');return;}
+  const cmd=commandesList.find(x=>x.id===window._cmdCourante);
+  if(!cmd)return;
+  const newPiece={
+    id:'p'+Date.now(),
+    nom,
+    surface:Math.round(surface*100)/100,
+    plinthe_ml:Math.round(plintheML*100)/100,
+    perimetre:0,ouvertures:0,
+    ref_id:null,plinthe:null,
+    from_xls:true
+  };
+  cmd.pieces=[...(cmd.pieces||[]),newPiece];
+  await _saveCmdPieces(cmd);
+  closeM('m-client');
+  toast('🚿 Pièce ajoutée !');
   openCommande(cmd.id);
 }
 
@@ -2990,15 +3042,25 @@ async function envoyerCommande(){
   const {parRef,plinthes}=_cmdRecap(cmd);
   if(Object.keys(parRef).length===0&&Object.keys(plinthes).length===0){toast('Aucune référence sélectionnée','#ef4444');return;}
 
-  let corps='Bonjour,%0D%0A%0D%0AMerci de préparer la commande suivante :%0D%0A%0D%0AChantier : '+(cl?.nom||'')+'%0D%0AAdresse : '+(cl?.adresse||'')+'%0D%0A%0D%0A';
+  // Construire le texte en clair, encoder une seule fois à la fin
+  const L=[];
+  L.push('Bonjour,');
+  L.push('');
+  L.push('Merci de préparer la commande suivante :');
+  L.push('');
+  L.push('Chantier : '+(cl?.nom||''));
+  L.push('Adresse : '+(cl?.adresse||''));
+  L.push('');
+  // Carrelage / parquet / faïence
   Object.entries(parRef).forEach(([refId,d])=>{
     const ref=carrelageRefs.find(r=>r.id===refId);
     const label=[ref?.reference,ref?.coloris,ref?.format].filter(Boolean).join(' - ');
-    const qte=d.type==='faience'?d.m2.toFixed(1)+' m2':d.m2.toFixed(1)+' m2';
-    corps+='- '+label+' : '+qte+'%0D%0A';
+    const qte=d.type==='faience'?(d.carreaux+' carreaux ('+d.m2.toFixed(1)+' m2)'):d.m2.toFixed(1)+' m2';
+    L.push('- '+label+' : '+qte);
     const joint=(window._joints||{})[refId];
-    if(joint)corps+='   Joint : '+joint+'%0D%0A';
+    if(joint)L.push('   Joint : '+joint);
   });
+  // Plinthes
   Object.values(plinthes).forEach(d=>{
     let label;
     if(d.type==='assortie'){
@@ -3007,13 +3069,30 @@ async function envoyerCommande(){
     } else {
       label='Plinthe '+PLINTHE_TYPES[d.type];
     }
-    corps+='- '+label+' : '+d.ml.toFixed(1)+' ml%0D%0A';
+    L.push('- '+label+' : '+d.ml.toFixed(1)+' ml');
   });
+  // Barres de seuil
+  const seuilsGrouped={};
+  (cmd.seuils||[]).forEach(s=>{
+    const key=s.finition+'|'+s.longueur;
+    if(!seuilsGrouped[key])seuilsGrouped[key]={finition:s.finition,longueur:s.longueur,qte:0};
+    seuilsGrouped[key].qte++;
+  });
+  Object.values(seuilsGrouped).forEach(s=>{
+    L.push('- Barre de seuil '+s.finition+' '+s.longueur+' cm : '+s.qte+' u.');
+  });
+  // Note globale
   const noteG=window._cmdNote||cmd.note_globale||'';
-  if(noteG.trim())corps+='%0D%0ANote : '+encodeURIComponent(noteG)+'%0D%0A';
-  corps+='%0D%0ALivraison sur chantier.';
+  if(noteG.trim()){
+    L.push('');
+    L.push('Note : '+noteG);
+  }
+  L.push('');
+  L.push('Livraison sur chantier.');
 
-  window.open('mailto:wilfried.arenecarrelages@gmail.com?subject='+encodeURIComponent('MA17SUD / COMMANDE '+(cl?.nom||''))+'&body='+corps);
+  const corpsTexte=L.join('\r\n');
+  const mailUrl='mailto:wilfried.arenecarrelages@gmail.com?subject='+encodeURIComponent('MA17SUD / COMMANDE '+(cl?.nom||''))+'&body='+encodeURIComponent(corpsTexte);
+  window.open(mailUrl);
 
   // Marquer envoyée + sauver note
   const dateEnvoi=new Date().toISOString();
