@@ -169,7 +169,7 @@ input,select,textarea{font-family:inherit;}
 @keyframes voicePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.8;transform:scale(1.05)}}
 .ai-processing{font-size:11px;color:#7c3aed;margin-top:4px;display:none;}
 /* CHATBOT */
-#chat-btn{position:fixed;bottom:20px;right:16px;z-index:700;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#2563eb);border:none;color:#fff;font-size:22px;cursor:pointer;box-shadow:0 4px 16px rgba(124,58,237,0.4);display:flex;align-items:center;justify-content:center;}
+#chat-btn{display:none!important;}
 #chat-panel{position:fixed;bottom:82px;right:12px;width:340px;max-width:calc(100vw - 24px);height:500px;background:#fff;border-radius:18px;box-shadow:0 8px 40px rgba(0,0,0,0.2);z-index:700;display:none;flex-direction:column;overflow:hidden;border:1.5px solid #e2e8f0;}
 #chat-panel.open{display:flex;}
 .chat-head{background:linear-gradient(135deg,#7c3aed,#2563eb);padding:13px 16px;display:flex;align-items:center;justify-content:space-between;}
@@ -321,11 +321,18 @@ let savTri='clients';
 const STATUTS={
   nouveau:{l:'Nouveau',cls:'s-nouveau'},
   planifie:{l:'Planifié 📅',cls:'s-planifie'},
-  attente_intervention:{l:'Attente retour artisan',cls:'s-attente'},
+  attente_intervention:{l:'En cours',cls:'s-attente'},
   resolu:{l:'Résolu',cls:'s-resolu'}
 };
 // Statuts disponibles selon type de SAV
 function getStatutsForSav(sav){
+  if(sav.type_sav==='fournisseur'){
+    return {
+      nouveau:{l:'Nouveau',cls:'s-nouveau'},
+      attente_intervention:{l:'En cours',cls:'s-attente'},
+      resolu:{l:'Résolu',cls:'s-resolu'}
+    };
+  }
   if(!sav.artisan_id){
     return {
       nouveau:{l:'Nouveau',cls:'s-nouveau'},
@@ -333,11 +340,11 @@ function getStatutsForSav(sav){
       resolu:{l:'Résolu',cls:'s-resolu'}
     };
   }
-  // SAV artisan - inclut planifié
+  // SAV artisan
   return {
     nouveau:{l:'Nouveau',cls:'s-nouveau'},
     planifie:{l:'Planifié 📅',cls:'s-planifie'},
-    attente_intervention:{l:'Attente retour artisan',cls:'s-attente'},
+    attente_intervention:{l:'En cours',cls:'s-attente'},
     resolu:{l:'Résolu',cls:'s-resolu'}
   };
 }
@@ -1199,6 +1206,8 @@ async function deletePlanningItem(id){
   } else {
     toast('Tâche supprimée');
   }
+  // Fermer le pop-up et revenir à la vue planning
+  closeM('m-client');
   _renderPlanningView();
 }
 
@@ -1504,47 +1513,103 @@ async function planifierTache(titre,clientId,notes,dateHeure){
 // ══════════════════════════════════════
 function renderCommandes(c){
   c.classList.remove('sav-view','suivi-view');
-  // Tri : brouillons d'abord, puis envoyées, chaque groupe par ordre alpha client
-  const cmds=[...commandesList].sort((a,b)=>{
-    const statutOrder={brouillon:0,envoyee:1};
-    const sa=statutOrder[a.statut]??0;
-    const sb=statutOrder[b.statut]??0;
-    if(sa!==sb)return sa-sb;
-    const na=(clients.find(x=>x.id===a.client_id)?.nom||'').toLowerCase();
-    const nb=(clients.find(x=>x.id===b.client_id)?.nom||'').toLowerCase();
+  window._cmdSearch=window._cmdSearch||'';
+  _renderCommandesList(c);
+}
+
+function _renderCommandesList(c){
+  if(!c)c=document.getElementById('content');
+  // Grouper par client
+  const byClient={};
+  commandesList.forEach(cmd=>{
+    if(!byClient[cmd.client_id])byClient[cmd.client_id]=[];
+    byClient[cmd.client_id].push(cmd);
+  });
+  // Trier les clients par nom
+  const clientIds=Object.keys(byClient).sort((a,b)=>{
+    const na=(clients.find(x=>x.id===a)?.nom||'').toLowerCase();
+    const nb=(clients.find(x=>x.id===b)?.nom||'').toLowerCase();
     return na.localeCompare(nb);
   });
+  // Filtre recherche
+  const search=(window._cmdSearch||'').toLowerCase();
+  const filteredIds=search?clientIds.filter(id=>{
+    const nom=(clients.find(x=>x.id===id)?.nom||'').toLowerCase();
+    return nom.includes(search);
+  }):clientIds;
+
+  const badges={carrelage:{icon:'🧱',label:'Carrelage',col:'#0369a1'},swao:{icon:'🪟',label:'SWAO',col:'#15803d'},vm:{icon:'📦',label:'VM',col:'#b45309'}};
+
+  function cmdRow(cmds,type){
+    const cmd=cmds.find(x=>(x.type_commande||'carrelage')===type);
+    const b=badges[type];
+    let chip;
+    if(!cmd){
+      chip='<span style="padding:3px 11px;border-radius:20px;font-size:11px;font-weight:700;background:#f1f5f9;color:#94a3b8">— Aucune</span>';
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-top:1px solid #f1f5f9;opacity:.5">
+        <span style="display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:700;color:${b.col}">${b.icon} ${b.label}</span>
+        ${chip}
+      </div>`;
+    }
+    if(cmd.statut==='envoyee'){
+      const d=cmd.date_envoi?new Date(cmd.date_envoi).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}):'';
+      chip=`<span style="padding:3px 11px;border-radius:20px;font-size:11px;font-weight:700;background:#d1fae5;color:#065f46">✉ Envoyée${d?' · '+d:''}</span>`;
+    } else {
+      chip='<span style="padding:3px 11px;border-radius:20px;font-size:11px;font-weight:700;background:#eff6ff;color:#2563eb">📝 Brouillon</span>';
+    }
+    return `<div data-cmdid="${cmd.id}" onclick="openCommande(this.dataset.cmdid)" style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-top:1px solid #f1f5f9;cursor:pointer">
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:700;color:${b.col}">${b.icon} ${b.label}</span>
+      <div style="display:flex;align-items:center">${chip}<span style="color:#cbd5e1;font-size:16px;margin-left:4px">›</span></div>
+    </div>`;
+  }
+
   c.innerHTML=`
-    <h1 style="font-size:20px;font-weight:800;margin-bottom:5px">🧱 Commandes</h1>
-    <p style="color:#64748b;font-size:12px;margin-bottom:6px">Commandes carrelage & plinthes — Arène Carrelage</p>
-    <div style="display:flex;gap:8px;margin-bottom:14px">
-      <button onclick="openNewCommande()" class="btn btn-primary" style="flex:1">+ Nouvelle commande</button>
-      <button onclick="openGestionRefs()" class="btn btn-secondary" style="flex:1">⚙️ Mes références</button>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:10px">
-      ${cmds.length===0?'<div class="empty"><div class="big">🧱</div><p style="color:#64748b">Aucune commande</p></div>':
-      cmds.map(cmd=>{
-        const cl=clients.find(x=>x.id===cmd.client_id);
-        const pieces=(cmd.pieces||[]).filter(p=>p.ref_id);
-        const totalM2=pieces.reduce((t,p)=>t+(p.surface||0)*1.1,0);
-        return `<div class="card" style="padding:12px">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <div style="flex:1;cursor:pointer" data-cmdid="${cmd.id}" onclick="openCommande(this.dataset.cmdid)">
-              <div style="font-weight:800;font-size:14px">${cl?.nom||'Client inconnu'}</div>
-              <div style="font-size:11px;color:#64748b">${cl?.adresse||''}</div>
-              <div style="font-size:11px;color:#2563eb;font-weight:600;margin-top:3px">${pieces.length} pièce(s)</div>
+    <h1 style="font-size:20px;font-weight:800;margin-bottom:4px">🛒 Commandes</h1>
+    <p style="color:#64748b;font-size:12px;margin-bottom:14px">Toutes les commandes fournisseurs par chantier</p>
+    <button onclick="openNewCommande()" class="btn btn-primary" style="width:100%;margin-bottom:12px">+ Nouvelle commande</button>
+    <input id="cmd-search" value="${(window._cmdSearch||'').replace(/"/g,'&quot;')}" oninput="window._cmdSearch=this.value;_renderCommandesList()" placeholder="🔍 Rechercher un client..." style="width:100%;padding:11px 14px;border-radius:12px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:14px;margin-bottom:14px"/>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      ${filteredIds.length===0?'<div class="empty"><div class="big">🛒</div><p style="color:#64748b">Aucune commande</p></div>':
+      filteredIds.map(cid=>{
+        const cl=clients.find(x=>x.id===cid);
+        const cmds=byClient[cid];
+        return `<div class="card" style="overflow:hidden;padding:0">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px 10px">
+            <div>
+              <div style="font-size:15px;font-weight:800">${cl?.nom||'Client inconnu'}</div>
+              <div style="font-size:11px;color:#64748b;margin-top:1px">${cl?.adresse||''}</div>
             </div>
-            <div style="text-align:right">
-              <span class="status ${cmd.statut==='envoyee'?'s-resolu':'s-nouveau'}">${cmd.statut==='envoyee'?'✉ Envoyée':'📝 Brouillon'}</span>
-              ${cmd.date_envoi?`<div style="font-size:10px;color:#64748b;margin-top:3px">${new Date(cmd.date_envoi).toLocaleDateString('fr-FR')}</div>`:''}
-              ${cmd.statut==='envoyee'?`<button data-cmdid="${cmd.id}" onclick="event.stopPropagation();repasserBrouillonListe(this.dataset.cmdid)" style="margin-top:5px;padding:3px 8px;border-radius:6px;background:#fff7ed;color:#d97706;border:1px solid #fed7aa;cursor:pointer;font-size:10px;font-weight:700;font-family:inherit">↩ Brouillon</button>`:''}
-            </div>
+            <button data-cid="${cid}" onclick="event.stopPropagation();deleteClientCommandes(this.dataset.cid)" style="width:30px;height:30px;border-radius:8px;background:#fff5f5;color:#ef4444;border:1px solid #fee2e2;cursor:pointer;font-size:14px;flex-shrink:0">🗑</button>
           </div>
+          ${cmdRow(cmds,'carrelage')}
+          ${cmdRow(cmds,'swao')}
+          ${cmdRow(cmds,'vm')}
         </div>`;
       }).join('')}
     </div>
   `;
+  // Garder le focus sur la recherche
+  if(window._cmdSearch){
+    const inp=document.getElementById('cmd-search');
+    if(inp){inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);}
+  }
 }
+
+async function deleteClientCommandes(clientId){
+  const cl=clients.find(x=>x.id===clientId);
+  const cmds=commandesList.filter(c=>c.client_id===clientId);
+  if(!confirm('Supprimer TOUTES les commandes de '+(cl?.nom||'ce client')+' ? ('+cmds.length+' commande(s))'))return;
+  try{
+    for(const cmd of cmds){
+      // Supprimer entrées planning liées si SAV (sécurité)
+      await db('DELETE','commandes_carrelage','',`?id=eq.${cmd.id}`);
+    }
+    commandesList=commandesList.filter(c=>c.client_id!==clientId);
+    toast('Commandes supprimées');
+    _renderCommandesList();
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
 
 function openGestionRefs(){
   document.getElementById('m-client-title').textContent='⚙️ Mes références';
@@ -1695,6 +1760,97 @@ function _refreshCmdMode(){
   }
 }
 
+function _parseDims(libelle){
+  // Extrait "115 x 60" ou "212.5 x 240" du libellé
+  const m=libelle.match(/(\d+[.,]?\d*)\s*x\s*(\d+[.,]?\d*)/i);
+  if(!m)return null;
+  return {d1:parseFloat(m[1].replace(',','.')),d2:parseFloat(m[2].replace(',','.'))};
+}
+
+function _extractSWAO(rows){
+  const menuiseries=[];
+  const portes=[];
+  const vitrages=[];
+  rows.forEach(row=>{
+    let lib='';
+    for(let c=0;c<row.length;c++){
+      const v=String(row[c]||'');
+      if(v.length>lib.length&&(v.toLowerCase().includes('châssis')||v.toLowerCase().includes('chassis')||v.toLowerCase().includes('fenêtre')||v.toLowerCase().includes('fenetre')||v.toLowerCase().includes('baie')||v.toLowerCase().includes('coulis')||v.toLowerCase().includes('vitrage')||v.toLowerCase().includes('basculant')||v.toLowerCase().includes("porte d'entrée")||v.toLowerCase().includes("p. d'entrée"))){lib=v;}
+    }
+    if(!lib)return;
+    const ll=lib.toLowerCase();
+    // Exclure les lignes de POSE et JAMBAGES (on ne veut que la fourniture)
+    if(ll.startsWith('pose')||ll.includes('jambage')||ll.startsWith('four. et pose')){return;}
+    // Ne garder que les vraies fournitures
+    const okStart=ll.startsWith('four.')||ll.startsWith('f.')||ll.startsWith('p.')||ll.startsWith('châssis')||ll.startsWith('chassis')||ll.startsWith('fenêtre')||ll.startsWith('fenetre')||ll.startsWith('vitrage')||ll.startsWith('porte basculante');
+    if(!okStart)return;
+    // Quantité
+    let qt=0;
+    for(let c=0;c<row.length;c++){
+      const raw=String(row[c]||'').replace(',','.').trim();
+      const n=parseFloat(raw);
+      if(!isNaN(n)&&n>0&&n<100&&Number.isInteger(n)){qt=n;break;}
+    }
+    if(qt===0)qt=1;
+    const dims=_parseDims(lib);
+    const dimStr=dims?dims.d1+' x '+dims.d2:'';
+
+    if(ll.includes('vitrage')&&(ll.includes('vandal')||ll.includes('granit')||ll.includes('dépoli')||ll.includes('depoli'))){
+      vitrages.push({label:lib.replace(/\s*\d+[.,]?\d*\s*x\s*\d+[.,]?\d*/i,'').trim(),dim:dimStr});
+    } else if(ll.includes('basculant')||(ll.includes('porte')&&ll.includes('garage'))){
+      portes.push({id:'pg'+Date.now()+Math.random().toString(36).slice(2,6),type:'garage',label:'Porte de garage basculante',dim:dimStr,qte:qt,ral:'',moteur:false});
+    } else if(ll.includes("porte d'entrée")||ll.includes("p. d'entrée")){
+      portes.push({id:'pe'+Date.now()+Math.random().toString(36).slice(2,6),type:'entree',label:lib.replace(/\s*\d+[.,]?\d*\s*x\s*\d+[.,]?\d*/i,'').trim(),dim:dimStr,qte:qt,modele:'',ral:''});
+    } else if(ll.includes('châssis')||ll.includes('chassis')||ll.includes('fenêtre')||ll.includes('fenetre')||ll.includes('coulis')||ll.includes('baie')){
+      const isAlu=ll.includes('alu');
+      menuiseries.push({id:'m'+Date.now()+Math.random().toString(36).slice(2,6),label:lib.replace(/\s*\d+[.,]?\d*\s*x\s*\d+[.,]?\d*/i,'').trim(),dim:dimStr,qte:qt,isAlu,ral:'',vitrages:[]});
+    }
+  });
+  // Associer les vitrages aux menuiseries de même dimension
+  vitrages.forEach(v=>{
+    const m=menuiseries.find(mm=>mm.dim===v.dim);
+    if(m)m.vitrages.push(v.label);
+  });
+  return {menuiseries,portes};
+}
+
+function _extractVM(rows){
+  const coffres=[];
+  const portes=[];
+  rows.forEach(row=>{
+    let lib='';
+    for(let c=0;c<row.length;c++){
+      const v=String(row[c]||'');
+      if(v.length>lib.length&&(v.toLowerCase().includes('vr eveno')||v.toLowerCase().includes('b.-porte')||v.toLowerCase().includes('bloc-porte')||v.toLowerCase().includes('isoplane'))){lib=v;}
+    }
+    if(!lib)return;
+    const ll=lib.toLowerCase();
+    let qt=0;
+    for(let c=0;c<row.length;c++){
+      const raw=String(row[c]||'').replace(',','.').trim();
+      const n=parseFloat(raw);
+      if(!isNaN(n)&&n>0&&n<100&&Number.isInteger(n)){qt=n;break;}
+    }
+    if(qt===0)qt=1;
+    const dims=_parseDims(lib);
+
+    if(ll.includes('vr eveno')&&dims){
+      // dims.d1 = hauteur (cm), dims.d2 = largeur (cm)
+      // Convertir en mm, largeur -4mm
+      const hauteurMm=Math.round(dims.d1*10);
+      const largeurMm=Math.round(dims.d2*10)-4;
+      coffres.push({id:'c'+Date.now()+Math.random().toString(36).slice(2,6),largeur_mm:largeurMm,hauteur_mm:hauteurMm,qte:qt,type_tablier:'alu',coloris_tablier:'',coloris_lame:''});
+    } else if((ll.includes('b.-porte')||ll.includes('bloc-porte')||ll.includes('isoplane'))&&dims){
+      const isolante=ll.includes('isolante');
+      // Créer une porte par unité pour pouvoir attribuer pièce + finition individuellement
+      for(let i=0;i<qt;i++){
+        portes.push({id:'pi'+Date.now()+Math.random().toString(36).slice(2,6)+i,dim:dims.d1+' x '+dims.d2,isolante,piece:'',finition:'KETCH'});
+      }
+    }
+  });
+  return {coffres,portes};
+}
+
 async function importerMetre(){
   const clientId=document.getElementById('cmd-client').value;
   const fileInput=document.getElementById('cmd-xls');
@@ -1776,13 +1932,34 @@ async function importerMetre(){
       btn.disabled=false;btn.textContent='📊 Importer le métré';return;
     }
 
-    const res=await db('POST','commandes_carrelage',{client_id:clientId,pieces,statut:'brouillon'});
+    // ═══ Extraction SWAO (menuiseries + portes) ═══
+    const swaoItems=_extractSWAO(rows);
+    // ═══ Extraction VM (coffres + portes intérieures) ═══
+    const vmItems=_extractVM(rows);
+
+    // Créer la commande carrelage
+    const res=await db('POST','commandes_carrelage',{client_id:clientId,pieces,statut:'brouillon',type_commande:'carrelage'});
     const cmd=Array.isArray(res)?res[0]:res;
     commandesList.unshift(cmd);
+
+    // Créer la commande SWAO si items trouvés
+    if(swaoItems.menuiseries.length>0||swaoItems.portes.length>0){
+      const resSwao=await db('POST','commandes_carrelage',{client_id:clientId,statut:'brouillon',type_commande:'swao',swao_data:swaoItems});
+      const cmdSwao=Array.isArray(resSwao)?resSwao[0]:resSwao;
+      commandesList.unshift(cmdSwao);
+    }
+
+    // Créer la commande VM si items trouvés
+    if(vmItems.coffres.length>0||vmItems.portes.length>0){
+      const resVm=await db('POST','commandes_carrelage',{client_id:clientId,statut:'brouillon',type_commande:'vm',vm_data:vmItems});
+      const cmdVm=Array.isArray(resVm)?resVm[0]:resVm;
+      commandesList.unshift(cmdVm);
+    }
+
     closeM('m-client');
-    const totalMl=pieces.reduce((t,p)=>t+(p.plinthe_ml||0),0);
-    toast('✅ '+pieces.length+' pièces · '+totalMl.toFixed(1)+' ml plinthe importés !');
-    openCommande(cmd.id);
+    const nbCmd=1+(swaoItems.menuiseries.length>0||swaoItems.portes.length>0?1:0)+(vmItems.coffres.length>0||vmItems.portes.length>0?1:0);
+    toast('✅ '+pieces.length+' pièces carrelage + '+(nbCmd-1)+' commande(s) menuiserie importées !');
+    goView('commandes');
   }catch(e){
     st.innerHTML='<div style="font-size:12px;color:#ef4444;font-weight:600">❌ Erreur: '+e.message+'</div>';
     btn.disabled=false;btn.textContent='📊 Importer le métré';
@@ -1883,10 +2060,239 @@ function _setJoint(refId,val){
 }
 const PIECE_COLORS=['#3b82f6','#ef4444','#10b981','#f59e0b','#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316','#6366f1'];
 
+function openCommandeVM(cmd){
+  window._cmdCourante=cmd.id;
+  const cl=clients.find(x=>x.id===cmd.client_id);
+  const c=document.getElementById('content');
+  const data=cmd.vm_data||{coffres:[],portes:[]};
+  const coffres=data.coffres||[];
+  const portes=data.portes||[];
+  const portesIso=portes.filter(p=>p.isolante);
+  const portesStd=portes.filter(p=>!p.isolante);
+
+  function coffreLine(cf){
+    const isAlu=cf.type_tablier==='alu';
+    return `<div style="padding:11px 0;border-bottom:1px solid #f1f5f9">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
+        <div style="font-size:14px;font-weight:700">Coffre <span style="color:#b45309">${cf.largeur_mm} × ${cf.hauteur_mm} mm</span></div>
+        <div style="font-size:13px;font-weight:800;color:#b45309;white-space:nowrap">× ${cf.qte}</div>
+      </div>
+      <div style="margin-top:7px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        <span style="display:inline-flex;gap:3px;background:#f1f5f9;border-radius:7px;padding:2px">
+          <button onclick="_vmSetCoffre('${cf.id}','type_tablier','alu')" style="padding:4px 12px;border-radius:5px;border:none;background:${isAlu?'#fff':'transparent'};color:${isAlu?'#0f172a':'#64748b'};cursor:pointer;font-size:12px;font-family:inherit;font-weight:600;${isAlu?'box-shadow:0 1px 3px rgba(0,0,0,0.12)':''}">Alu</button>
+          <button onclick="_vmSetCoffre('${cf.id}','type_tablier','pvc')" style="padding:4px 12px;border-radius:5px;border:none;background:${!isAlu?'#fff':'transparent'};color:${!isAlu?'#0f172a':'#64748b'};cursor:pointer;font-size:12px;font-family:inherit;font-weight:600;${!isAlu?'box-shadow:0 1px 3px rgba(0,0,0,0.12)':''}">PVC</button>
+        </span>
+        ${isAlu?`<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#64748b">Tablier <input type="text" value="${(cf.coloris_tablier||'').replace(/"/g,'&quot;')}" oninput="_vmSetCoffre('${cf.id}','coloris_tablier',this.value)" placeholder="coloris" style="padding:4px 8px;border-radius:6px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:12px;background:#f8fafc;width:100px"/></span>`:`<span style="font-size:11px;color:#059669;font-weight:600">Tablier blanc auto</span>`}
+        <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#64748b">Lame finale + coulisses <input type="text" value="${(cf.coloris_lame||'').replace(/"/g,'&quot;')}" oninput="_vmSetCoffre('${cf.id}','coloris_lame',this.value)" placeholder="coloris" style="padding:4px 8px;border-radius:6px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:12px;background:#f8fafc;width:100px"/></span>
+      </div>
+    </div>`;
+  }
+
+  function porteLine(p){
+    return `<div style="padding:9px 0;border-bottom:1px solid #f1f5f9">
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        ${p.isolante?`<span style="font-size:13px;font-weight:700">Bloc-porte ${p.dim} <span style="padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;background:#dbeafe;color:#1e40af">🔵 Isolante</span></span><br>`:''}
+        <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#64748b">Pièce <input type="text" value="${(p.piece||'').replace(/"/g,'&quot;')}" oninput="_vmSetPorte('${p.id}','piece',this.value)" placeholder="pièce" style="padding:4px 8px;border-radius:6px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:12px;background:#f8fafc;width:100px"/></span>
+        <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#64748b">Finition
+          <select onchange="_vmSetPorte('${p.id}','finition',this.value)" style="padding:4px 8px;border-radius:6px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:12px;background:#f8fafc">
+            <option ${p.finition==='KETCH'?'selected':''}>KETCH</option>
+            <option ${p.finition==='KAORI'?'selected':''}>KAORI</option>
+            <option ${p.finition==='ISOPLANE'?'selected':''}>ISOPLANE</option>
+          </select>
+        </span>
+      </div>
+    </div>`;
+  }
+
+  // Récap finitions
+  const finCount={};
+  portes.forEach(p=>{finCount[p.finition]=(finCount[p.finition]||0)+1;});
+  const recapFin=Object.entries(finCount).map(([f,n])=>n+'× '+f).join(' · ');
+
+  c.innerHTML=`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <button onclick="goView('commandes')" style="width:32px;height:32px;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;font-size:16px">‹</button>
+    </div>
+    <div class="card" style="overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;background:#b45309;padding:12px 16px">
+        <div style="color:#fff;font-size:14px;font-weight:800">📦 VM — ${cl?.nom||''}</div>
+        <span style="background:#fff;color:#b45309;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">${cmd.statut==='envoyee'?'✉ Envoyée':'Brouillon'}</span>
+      </div>
+      <div style="padding:16px">
+        <div style="font-size:11px;color:#64748b;margin-bottom:12px">${cl?.adresse||''}</div>
+
+        ${coffres.length>0?`<div style="font-size:11px;font-weight:800;color:#b45309;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #b45309;padding-bottom:5px;margin-bottom:8px">Coffres VR Eveno</div>
+        ${coffres.map(coffreLine).join('')}`:''}
+
+        ${portes.length>0?`<div style="font-size:11px;font-weight:800;color:#b45309;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #b45309;padding-bottom:5px;margin:18px 0 8px">Portes intérieures</div>
+        ${portesIso.map(porteLine).join('')}
+        ${portesStd.length>0?`<div style="font-size:12px;color:#64748b;margin:8px 0 2px;font-weight:600">${portesStd.length} bloc(s)-porte(s) standard :</div>`:''}
+        ${portesStd.map(porteLine).join('')}
+        ${recapFin?`<div data-vm-recap style="margin-top:10px;padding:8px 11px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;font-size:12px;color:#854d0e"><b>Récap finitions :</b> ${recapFin}</div>`:''}`:''}
+
+        <div style="margin-top:14px">
+          <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:5px">📝 Note pour VM</label>
+          <textarea id="vm-note" oninput="_vmSetNote(this.value)" placeholder="Optionnel..." style="width:100%;padding:9px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:12px;min-height:44px;resize:vertical">${cmd.note_globale||''}</textarea>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button onclick="exportVM()" class="btn btn-primary" style="flex:1">📄 Bon de commande</button>
+          <button onclick="envoyerVM()" class="btn btn-primary" style="flex:1;background:#10b981">✉ Envoyer</button>
+          <button onclick="deleteCommande()" style="padding:10px 14px;border-radius:10px;background:#fff5f5;color:#ef4444;border:1.5px solid #fee2e2;cursor:pointer;font-family:inherit">🗑</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+let _vmSaveTimer=null;
+function _vmSetCoffre(id,field,value){
+  const cmd=commandesList.find(x=>x.id===window._cmdCourante);
+  if(!cmd||!cmd.vm_data)return;
+  cmd.vm_data.coffres=(cmd.vm_data.coffres||[]).map(cf=>cf.id===id?{...cf,[field]:value}:cf);
+  if(field==='type_tablier')openCommandeVM(cmd); // re-render pour afficher/masquer champs
+  clearTimeout(_vmSaveTimer);
+  _vmSaveTimer=setTimeout(async()=>{try{await db('PATCH','commandes_carrelage',{vm_data:cmd.vm_data},`?id=eq.${cmd.id}`);}catch(e){}},700);
+}
+function _vmSetPorte(id,field,value){
+  const cmd=commandesList.find(x=>x.id===window._cmdCourante);
+  if(!cmd||!cmd.vm_data)return;
+  cmd.vm_data.portes=(cmd.vm_data.portes||[]).map(p=>p.id===id?{...p,[field]:value}:p);
+  // re-render seulement si finition change (pour mettre à jour le récap)
+  if(field==='finition'){
+    // Update recap without losing focus - just update the recap div
+    const finCount={};
+    cmd.vm_data.portes.forEach(p=>{finCount[p.finition]=(finCount[p.finition]||0)+1;});
+    const recapFin=Object.entries(finCount).map(([f,n])=>n+'× '+f).join(' · ');
+    const recapEl=document.querySelector('[data-vm-recap]');
+    if(recapEl)recapEl.innerHTML='<b>Récap finitions :</b> '+recapFin;
+  }
+  clearTimeout(_vmSaveTimer);
+  _vmSaveTimer=setTimeout(async()=>{try{await db('PATCH','commandes_carrelage',{vm_data:cmd.vm_data},`?id=eq.${cmd.id}`);}catch(e){}},700);
+}
+function _vmSetNote(val){
+  const cmd=commandesList.find(x=>x.id===window._cmdCourante);
+  if(!cmd)return;
+  cmd.note_globale=val;
+  clearTimeout(_vmSaveTimer);
+  _vmSaveTimer=setTimeout(async()=>{try{await db('PATCH','commandes_carrelage',{note_globale:val||null},`?id=eq.${cmd.id}`);}catch(e){}},700);
+}
+function exportVM(){toast('PDF VM — à venir');}
+function envoyerVM(){toast('Envoi VM — à venir');}
+
+function openCommandeSWAO(cmd){
+  window._cmdCourante=cmd.id;
+  const cl=clients.find(x=>x.id===cmd.client_id);
+  const c=document.getElementById('content');
+  const data=cmd.swao_data||{menuiseries:[],portes:[]};
+  const menuiseries=data.menuiseries||[];
+  const portes=data.portes||[];
+  const portesEntree=portes.filter(p=>p.type==='entree');
+  const portesGarage=portes.filter(p=>p.type==='garage');
+
+  function menuLine(m){
+    return `<div style="padding:10px 0;border-bottom:1px solid #f1f5f9">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
+        <div style="font-size:14px;font-weight:700">${m.label} <span style="font-weight:400;color:#64748b;font-size:13px">${m.dim}</span></div>
+        <div style="font-size:13px;font-weight:800;color:#15803d;white-space:nowrap">× ${m.qte}</div>
+      </div>
+      <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        ${(m.vitrages||[]).map(v=>`<span style="padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;background:#fef9c3;color:#854d0e">${v}</span>`).join('')}
+        ${m.isAlu?`<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#64748b">RAL <input type="text" value="${(m.ral||'').replace(/"/g,'&quot;')}" data-mid="${m.id}" oninput="_swaoSet('menuiseries','${m.id}','ral',this.value)" placeholder="couleur" style="padding:4px 8px;border-radius:6px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:12px;background:#f8fafc;width:140px"/></span>`:''}
+      </div>
+    </div>`;
+  }
+
+  function porteEntreeLine(p){
+    return `<div style="padding:10px 0;border-bottom:1px solid #f1f5f9">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
+        <div style="font-size:14px;font-weight:700">${p.label} <span style="font-weight:400;color:#64748b;font-size:13px">${p.dim}</span></div>
+        <div style="font-size:13px;font-weight:800;color:#15803d">× ${p.qte}</div>
+      </div>
+      <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#64748b">Modèle <input type="text" value="${(p.modele||'').replace(/"/g,'&quot;')}" oninput="_swaoSet('portes','${p.id}','modele',this.value)" placeholder="modèle" style="padding:4px 8px;border-radius:6px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:12px;background:#f8fafc;width:110px"/></span>
+        <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#64748b">RAL <input type="text" value="${(p.ral||'').replace(/"/g,'&quot;')}" oninput="_swaoSet('portes','${p.id}','ral',this.value)" placeholder="couleur" style="padding:4px 8px;border-radius:6px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:12px;background:#f8fafc;width:100px"/></span>
+      </div>
+    </div>`;
+  }
+
+  function porteGarageLine(p){
+    return `<div style="padding:10px 0;border-bottom:1px solid #f1f5f9">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
+        <div style="font-size:14px;font-weight:700">${p.label} <span style="font-weight:400;color:#64748b;font-size:13px">${p.dim}</span></div>
+        <div style="font-size:13px;font-weight:800;color:#15803d">× ${p.qte}</div>
+      </div>
+      <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#64748b">RAL <input type="text" value="${(p.ral||'').replace(/"/g,'&quot;')}" oninput="_swaoSet('portes','${p.id}','ral',this.value)" placeholder="couleur" style="padding:4px 8px;border-radius:6px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:12px;background:#f8fafc;width:100px"/></span>
+        <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#059669;cursor:pointer"><input type="checkbox" ${p.moteur?'checked':''} onchange="_swaoSet('portes','${p.id}','moteur',this.checked)" style="width:15px;height:15px;accent-color:#059669"/> ⚙️ Moteur</label>
+      </div>
+    </div>`;
+  }
+
+  c.innerHTML=`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <button onclick="goView('commandes')" style="width:32px;height:32px;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;font-size:16px">‹</button>
+    </div>
+    <div class="card" style="overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;background:#15803d;padding:12px 16px">
+        <div style="color:#fff;font-size:14px;font-weight:800">🪟 SWAO — ${cl?.nom||''}</div>
+        ${cmd.statut==='envoyee'?`<span style="background:#fff;color:#15803d;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">✉ Envoyée</span>`:`<span style="background:#fff;color:#15803d;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">Brouillon</span>`}
+      </div>
+      <div style="padding:16px">
+        <div style="font-size:11px;color:#64748b;margin-bottom:12px">${cl?.adresse||''}</div>
+
+        ${menuiseries.length>0?`<div style="font-size:11px;font-weight:800;color:#15803d;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #15803d;padding-bottom:5px;margin-bottom:8px">Menuiseries</div>
+        ${menuiseries.map(menuLine).join('')}`:''}
+
+        ${portesEntree.length>0||portesGarage.length>0?`<div style="font-size:11px;font-weight:800;color:#15803d;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #15803d;padding-bottom:5px;margin:18px 0 8px">Portes</div>
+        ${portesEntree.map(porteEntreeLine).join('')}
+        ${portesGarage.map(porteGarageLine).join('')}`:''}
+
+        <div style="margin-top:14px">
+          <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:5px">📝 Note pour SWAO</label>
+          <textarea id="swao-note" oninput="_swaoSetNote(this.value)" placeholder="Optionnel..." style="width:100%;padding:9px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:12px;min-height:44px;resize:vertical">${cmd.note_globale||''}</textarea>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button onclick="exportSWAO()" class="btn btn-primary" style="flex:1">📄 Bon de commande</button>
+          <button onclick="envoyerSWAO()" class="btn btn-primary" style="flex:1;background:#10b981">✉ Envoyer</button>
+          <button onclick="deleteCommande()" style="padding:10px 14px;border-radius:10px;background:#fff5f5;color:#ef4444;border:1.5px solid #fee2e2;cursor:pointer;font-family:inherit">🗑</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+let _swaoSaveTimer=null;
+function _swaoSet(section,itemId,field,value){
+  const cmd=commandesList.find(x=>x.id===window._cmdCourante);
+  if(!cmd||!cmd.swao_data)return;
+  cmd.swao_data[section]=(cmd.swao_data[section]||[]).map(it=>it.id===itemId?{...it,[field]:value}:it);
+  clearTimeout(_swaoSaveTimer);
+  _swaoSaveTimer=setTimeout(async()=>{
+    try{await db('PATCH','commandes_carrelage',{swao_data:cmd.swao_data},`?id=eq.${cmd.id}`);}catch(e){}
+  },700);
+}
+function _swaoSetNote(val){
+  const cmd=commandesList.find(x=>x.id===window._cmdCourante);
+  if(!cmd)return;
+  cmd.note_globale=val;
+  clearTimeout(_swaoSaveTimer);
+  _swaoSaveTimer=setTimeout(async()=>{
+    try{await db('PATCH','commandes_carrelage',{note_globale:val||null},`?id=eq.${cmd.id}`);}catch(e){}
+  },700);
+}
+
+function exportSWAO(){toast('PDF SWAO — à venir');}
+function envoyerSWAO(){toast('Envoi SWAO — à venir');}
+
 function openCommande(cmdId){
   const cmd=commandesList.find(x=>x.id===cmdId);
   if(!cmd)return;
   window._cmdCourante=cmdId;
+  // Router selon le type de commande
+  if(cmd.type_commande==='swao')return openCommandeSWAO(cmd);
+  if(cmd.type_commande==='vm')return openCommandeVM(cmd);
   window._cmdNote=cmd.note_globale||'';
   window._joints=cmd.joints||{};
   const cl=clients.find(x=>x.id===cmd.client_id);
@@ -2017,9 +2423,9 @@ function openCommande(cmdId){
       </div>
     </div>`:''}
     <div style="display:flex;gap:8px;margin-bottom:8px">
-      <button onclick="openAddRefAndAssignModal()" class="btn btn-primary" style="flex:1">+ Nouveau revêtement</button>
+      <button onclick="openAssignExistingRef()" class="btn btn-primary" style="flex:1">+ Référence existante</button>
       <button onclick="openAddSeuilModal()" class="btn btn-secondary" style="flex:1">🔲 Barre de seuil</button>
-      <button onclick="openAssignExistingRef()" class="btn btn-secondary" style="flex:1">+ Référence existante</button>
+      <button onclick="openGestionRefs()" class="btn btn-secondary" style="flex:1">⚙️ Références</button>
     </div>
     <button onclick="openAddPieceModal()" class="btn btn-secondary" style="width:100%;margin-bottom:8px;background:#f0fdf4;color:#059669;border:1.5px solid #a7f3d0">🚿 Ajouter une pièce (douche, oubli...)</button>
     <div style="margin-bottom:8px">
@@ -3242,13 +3648,7 @@ function goView(v){
 // ── DASHBOARD
 function renderDashboard(c){
   c.innerHTML=`
-    <h1 style="font-size:21px;font-weight:800;margin-bottom:3px">Tableau de bord</h1>
-    <p style="color:#64748b;font-size:13px;margin-bottom:15px">MA 17 SUD — Vue d'ensemble en temps réel</p>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <div style="font-weight:700;font-size:15px">🔧 SAV en cours</div>
-      <button onclick="goView('sav')" style="padding:5px 12px;border-radius:8px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:12px;font-weight:600">Voir tout →</button>
-    </div>
-    <div id="dash-sav-list"></div>
+    <div id="dash-hero"></div>
     <!-- CARTE -->
     <div id="dash-map-container" style="margin-top:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -3263,13 +3663,85 @@ function renderDashboard(c){
       </div>
       <div class="map-wrap">
         <div class="map-bar"><span id="dash-map-label">🗺️ MA 17 SUD — Tous les chantiers</span></div>
-        <div id="map-main" style="height:380px;width:100%;transition:height .3s"></div>
+        <div id="map-main" style="height:440px;width:100%;transition:height .3s"></div>
       </div>
     </div>
   `;
-  renderDashSav();
-  setupDashSavClicks();
+  renderDashHero();
   renderDashMap();
+}
+
+function renderDashHero(){
+  const el=document.getElementById('dash-hero');
+  if(!el)return;
+  const now=new Date();
+  const today=now.toISOString().split('T')[0];
+  const dateStr=now.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  // Tâches du jour depuis le planning
+  const taches=(planningList||[]).filter(p=>p.date===today&&p.statut!=='fait')
+    .sort((a,b)=>(a.heure||'99').localeCompare(b.heure||'99'));
+  const typeIco={sav:'🔧',tache:'✅',visite:'🏡'};
+  // Message du jour
+  let msg;
+  const nb=taches.length;
+  if(nb===0){
+    const calmes=['Rien de prévu aujourd\'hui — belle journée pour avancer sur l\'administratif.','Journée libre : l\'occasion de prendre de l\'avance.','Aucun rendez-vous aujourd\'hui. Respirez !'];
+    msg=calmes[now.getDate()%calmes.length];
+  } else if(nb===1){
+    msg='1 chose au programme aujourd\'hui. Ça va rouler.';
+  } else if(nb<=3){
+    msg=nb+' rendez-vous prévus aujourd\'hui. Bonne journée !';
+  } else {
+    msg='Journée bien remplie : '+nb+' rendez-vous au programme. Courage !';
+  }
+
+  el.innerHTML=`
+    <div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);border-radius:18px;padding:22px;color:#fff;position:relative;overflow:hidden">
+      <div id="dash-weather" style="position:absolute;top:18px;right:20px;text-align:right">
+        <div style="font-size:11px;opacity:.6">Météo…</div>
+      </div>
+      <div style="font-size:14px;opacity:.85;font-weight:500">Bonjour Jérôme 👋</div>
+      <div style="font-size:13px;opacity:.6;margin-top:2px;text-transform:capitalize">${dateStr}</div>
+      <div style="font-size:16px;font-weight:600;line-height:1.4;margin-top:16px;max-width:82%">${msg}</div>
+      ${nb>0?`<div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:7px">
+        ${taches.map(t=>{
+          const cl=clients.find(c=>c.id===t.client_id);
+          const lbl=cl?cl.nom:(t.titre.length>18?t.titre.slice(0,18)+'…':t.titre);
+          return `<span data-pid="${t.id}" onclick="_goPlanningTache(this.dataset.pid)" style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.12);border-radius:20px;padding:6px 12px;font-size:12px;cursor:pointer;white-space:nowrap">
+            <span style="font-weight:800">${t.heure?t.heure.slice(0,5):'—'}</span>
+            <span>${typeIco[t.type]||'📌'} ${lbl}</span>
+          </span>`;
+        }).join('')}
+      </div>`:`<div style="font-size:13px;opacity:.7;font-style:italic;margin-top:12px">Aucune tâche planifiée aujourd'hui</div>`}
+    </div>
+  `;
+  _loadDashWeather();
+}
+
+function _goPlanningTache(pid){
+  const p=(planningList||[]).find(x=>x.id===pid);
+  if(p&&p.date){window._planningDate=p.date;window._planningView='day';}
+  goView('planning');
+  // Ouvrir le détail de la tâche après le rendu
+  setTimeout(()=>{if(typeof openEditPlanningModal==='function')openEditPlanningModal(pid);},150);
+}
+
+async function _loadDashWeather(){
+  const el=document.getElementById('dash-weather');
+  if(!el)return;
+  try{
+    // Position : centre Charente-Maritime (Saintes) par défaut
+    let lat=45.74,lng=-0.63;
+    const resp=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code&timezone=auto`);
+    const data=await resp.json();
+    const temp=Math.round(data.current.temperature_2m);
+    const code=data.current.weather_code;
+    const wmap={0:'☀️ Ensoleillé',1:'🌤 Dégagé',2:'⛅ Nuageux',3:'☁️ Couvert',45:'🌫 Brouillard',48:'🌫 Brouillard',51:'🌦 Bruine',53:'🌦 Bruine',55:'🌦 Bruine',61:'🌧 Pluie',63:'🌧 Pluie',65:'🌧 Forte pluie',71:'🌨 Neige',80:'🌦 Averses',81:'🌦 Averses',82:'⛈ Averses',95:'⛈ Orage'};
+    const desc=wmap[code]||'🌡';
+    el.innerHTML=`<div style="font-size:32px;font-weight:800;line-height:1">${temp}°</div><div style="font-size:12px;opacity:.8;margin-top:2px">${desc}</div>`;
+  }catch(e){
+    el.innerHTML='';
+  }
 }
 
 function renderDashSav(){
@@ -3655,17 +4127,24 @@ function renderSav(c){
       <span class="search-ic">🔍</span>
       <input type="text" id="sav-search" placeholder="Rechercher par client, titre…" oninput="applyAllSavFilters(this.value)"/>
     </div>
-    <div style="display:flex;gap:7px;margin-bottom:10px">
-      <button onclick="setSavTri('clients')" id="sav-tri-clients" style="flex:1;padding:7px;border-radius:9px;border:2px solid #2563eb;background:#eff6ff;color:#2563eb;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">🏡 Par chantier</button>
-      <button onclick="setSavTri('artisans')" id="sav-tri-artisans" style="flex:1;padding:7px;border-radius:9px;border:2px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;font-size:12px;font-weight:400;font-family:inherit">👷 Par artisan</button>
+    <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px">Affichage</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px">
+      <button onclick="setSavScope('clients')" id="scope-clients" style="padding:8px;border-radius:9px;border:2px solid #2563eb;background:#eff6ff;color:#2563eb;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">🏡 Par chantier</button>
+      <button onclick="setSavScope('artisans')" id="scope-artisans" style="padding:8px;border-radius:9px;border:2px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;font-size:12px;font-weight:400;font-family:inherit">👷 Par artisan</button>
+      <button onclick="setSavScope('interne')" id="scope-interne" style="padding:8px;border-radius:9px;border:2px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;font-size:12px;font-weight:400;font-family:inherit">🏠 Interne (${sv.filter(s=>s.type_sav!=='fournisseur'&&!s.artisan_id).length})</button>
+      <button onclick="setSavScope('fournisseur')" id="scope-fournisseur" style="padding:8px;border-radius:9px;border:2px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;font-size:12px;font-weight:400;font-family:inherit">📦 Fournisseur (${sv.filter(s=>s.type_sav==='fournisseur').length})</button>
     </div>
-    <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap" id="sav-statut-filters">
-      <button onclick="filterSavByStatut(null)" id="sf-all" style="padding:4px 12px;border-radius:20px;border:2px solid #2563eb;background:#eff6ff;color:#2563eb;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit">Tous (${sv.length})</button>
-      <button onclick="filterSavByStatut('nouveau')" id="sf-nouveau" class="status s-nouveau" style="cursor:pointer;font-family:inherit">Nouveau (${sv.filter(s=>s.statut==='nouveau').length})</button>
-      <button onclick="filterSavByStatut('attente_intervention')" id="sf-attente_intervention" class="status s-attente" style="cursor:pointer;font-family:inherit">Attente retour (${sv.filter(s=>s.statut==='attente_intervention').length})</button>
-      <button onclick="filterSavByStatut('resolu')" id="sf-resolu" class="status s-resolu" style="cursor:pointer;font-family:inherit">Résolu (${sv.filter(s=>s.statut==='resolu').length})</button>
-      <button onclick="filterSavByStatut('interne')" id="sf-interne" style="padding:2px 10px;border-radius:20px;border:1px solid #e9d5ff;background:#f3e8ff;color:#7c3aed;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit">🏠 Interne (${sv.filter(s=>!s.artisan_id).length})</button>
-      <button onclick="filterSavByStatut('planifie')" id="sf-planifie" style="padding:2px 10px;border-radius:20px;border:1px solid #c7d2fe;background:#e0e7ff;color:#3730a3;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit">📅 Planifié (${sv.filter(s=>s.statut==='planifie').length})</button>
+    <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px">Filtrer & trier</div>
+    <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap" id="sav-statut-filters">
+      <button onclick="filterSavByStatut(null)" id="sf-all" style="padding:4px 12px;border-radius:20px;border:2px solid #2563eb;background:#eff6ff;color:#2563eb;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit">Tous</button>
+      <button onclick="filterSavByStatut('nouveau')" id="sf-nouveau" class="status s-nouveau" style="cursor:pointer;font-family:inherit">Nouveau</button>
+      <button onclick="filterSavByStatut('attente_intervention')" id="sf-attente_intervention" class="status s-attente" style="cursor:pointer;font-family:inherit">En cours</button>
+      <button onclick="filterSavByStatut('planifie')" id="sf-planifie" style="padding:2px 10px;border-radius:20px;border:1px solid #c7d2fe;background:#e0e7ff;color:#3730a3;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit">📅 Planifié</button>
+      <button onclick="filterSavByStatut('resolu')" id="sf-resolu" class="status s-resolu" style="cursor:pointer;font-family:inherit">Résolu</button>
+    </div>
+    <div style="display:flex;gap:7px;margin-bottom:12px">
+      <button onclick="toggleSavTriJours()" id="sav-tri-jours" style="flex:1;padding:6px;border-radius:9px;border:1.5px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit">⏱ Trier par jours</button>
+      <button onclick="resetSavTri()" id="sav-tri-reset" style="padding:6px 12px;border-radius:9px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#94a3b8;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit">↩ A-Z</button>
     </div>
     </div>
     <div id="sav-list-container"></div>
@@ -3673,7 +4152,68 @@ function renderSav(c){
   renderSavItems(sv);
 }
 
+function toggleSavTriJours(){
+  // Cycle: off → vieux en haut → récent en haut → off
+  if(!window._savTriJours){window._savTriJours='old';}
+  else if(window._savTriJours==='old'){window._savTriJours='new';}
+  else {window._savTriJours=null;}
+  const btn=document.getElementById('sav-tri-jours');
+  if(btn){
+    if(window._savTriJours==='old'){btn.textContent='⏱ Plus vieux en haut ↓';btn.style.border='2px solid #2563eb';btn.style.background='#eff6ff';btn.style.color='#2563eb';}
+    else if(window._savTriJours==='new'){btn.textContent='⏱ Plus récent en haut ↑';btn.style.border='2px solid #2563eb';btn.style.background='#eff6ff';btn.style.color='#2563eb';}
+    else {btn.textContent='⏱ Trier par jours';btn.style.border='1.5px solid #e2e8f0';btn.style.background='#fff';btn.style.color='#64748b';}
+  }
+  renderSavItems(window._currentSavList||savList);
+}
+
+function resetSavTri(){
+  window._savTriJours=null;
+  const btn=document.getElementById('sav-tri-jours');
+  if(btn){btn.textContent='⏱ Trier par jours';btn.style.border='1.5px solid #e2e8f0';btn.style.background='#fff';btn.style.color='#64748b';}
+  renderSavItems(window._currentSavList||savList);
+}
+
+function _savJoursRef(s){
+  // Nombre de jours de référence selon statut
+  if(s.statut==='attente_intervention'&&s.date_mail)return jours(s.date_mail);
+  if(s.statut==='resolu'&&s.date_intervention)return jours(s.date_intervention);
+  return jours(s.date_signalement);
+}
+
+function renderSavItemsFlat(list){
+  const el=document.getElementById('sav-list-container');
+  if(!el)return;
+  if(list.length===0){el.innerHTML='<div class="empty"><div class="big">🔧</div><p>Aucun dossier SAV</p></div>';return;}
+  const dir=window._savTriJours;
+  const sorted=[...list].sort((a,b)=>{
+    const ja=_savJoursRef(a),jb=_savJoursRef(b);
+    return dir==='new'?(ja-jb):(jb-ja);
+  });
+  el.innerHTML='<div class="card" style="overflow:hidden">'+sorted.map(s=>{
+    const client=clients.find(c=>c.id===s.client_id);
+    const artisan=artisans.find(a=>a.id===s.artisan_id);
+    const jr=_savJoursRef(s);
+    const isOpen=window._savOpen===s.id;
+    if(isOpen)return renderOneSav(s,client);
+    // ligne compacte avec nom client en plus + jours en évidence
+    const dotColor=s.statut==='resolu'?'#10b981':s.statut==='planifie'?'#8b5cf6':(s.statut==='attente_intervention'&&jr>7)?'#ef4444':s.statut==='attente_intervention'?'#f59e0b':'#3b82f6';
+    const stCls=STATUTS[s.statut]?.cls||'s-nouveau';
+    const stLabel=STATUTS[s.statut]?.l||'Nouveau';
+    return '<div data-sid="'+s.id+'" onclick="toggleSavOpen(this.dataset.sid)" style="display:flex;align-items:center;gap:9px;padding:9px 13px;border-bottom:1px solid #f1f5f9;cursor:pointer;font-size:12px">'
+      +'<span style="width:8px;height:8px;border-radius:50%;background:'+dotColor+';flex-shrink:0"></span>'
+      +'<span style="font-weight:800;color:#0f172a;min-width:70px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90px">'+(client?.nom||'—')+'</span>'
+      +'<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:#475569">'+s.titre+'</span>'
+      +'<span style="background:#f1f5f9;color:#334155;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;white-space:nowrap">'+jr+'j</span>'
+      +'<span class="status '+stCls+'" style="font-size:10px">'+stLabel+'</span>'
+      +'<span style="color:#cbd5e1;font-size:12px">›</span>'
+    +'</div>';
+  }).join('')+'</div>';
+}
+
 function renderSavItems(list){
+  window._currentSavList=list;
+  // Si tri par jours actif → vue à plat
+  if(window._savTriJours){return renderSavItemsFlat(list);}
   const el=document.getElementById('sav-list-container');
   if(!el)return;
   if(list.length===0){el.innerHTML='<div class="empty"><div class="big">🔧</div><p>Aucun dossier SAV</p></div>';return;}
@@ -3746,6 +4286,27 @@ function renderOneSav(s,client){
   const jMail=s.date_mail?jours(s.date_mail):null;
   const enRetard=s.statut==='attente_intervention'&&jMail>7;
   const cid=s.client_id, sid=s.id;
+  const isOpen=window._savOpen===sid;
+
+  // Point couleur selon statut
+  const dotColor=s.statut==='resolu'?'#10b981':s.statut==='planifie'?'#8b5cf6':enRetard?'#ef4444':s.statut==='attente_intervention'?'#f59e0b':'#3b82f6';
+  const stCls=STATUTS[s.statut]?.cls||'s-nouveau';
+  const stLabel=STATUTS[s.statut]?.l||'Nouveau';
+  const artLabel=s.type_sav==='fournisseur'?'📦 Fournisseur':artisan?(artisan.entreprise||artisan.nom):'🏠 Interne';
+
+  // ─── LIGNE FERMÉE ───
+  if(!isOpen){
+    return '<div data-sid="'+sid+'" onclick="toggleSavOpen(this.dataset.sid)" style="display:flex;align-items:center;gap:9px;padding:9px 13px;border-bottom:1px solid #f1f5f9;cursor:pointer;font-size:12px">'
+      +'<span style="width:8px;height:8px;border-radius:50%;background:'+dotColor+';flex-shrink:0"></span>'
+      +'<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">'+s.titre+'</span>'
+      +'<span style="color:#94a3b8;font-size:11px;white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis">'+artLabel+'</span>'
+      +'<span class="status '+stCls+'" style="font-size:10px">'+stLabel+'</span>'
+      +(enRetard?'<span style="background:#fef2f2;color:#dc2626;font-size:9px;font-weight:700;padding:2px 6px;border-radius:5px">'+jMail+'j</span>':'')
+      +'<span style="color:#cbd5e1;font-size:12px">›</span>'
+    +'</div>';
+  }
+
+  // ─── LIGNE OUVERTE (détail + actions) ───
   const cc=[client?.email,client?.email2].filter(Boolean).join(',');
   const tels=[
     client?.tel?(client?.conjoint1?client.conjoint1+' : '+client.tel:client.tel):'',
@@ -3763,71 +4324,165 @@ function renderOneSav(s,client){
   const mailHref=artisan?.email?'mailto:'+artisan.email+'?cc='+cc+'&subject='+encodeURIComponent('Intervention SAV : '+s.titre)+'&body='+body:'';
   const relanceBody='Bonjour,%0A%0ANous revenons vers vous concernant le SAV ci-dessous, sans réponse depuis '+jMail+' jours.%0A%0A'+body;
   const relanceHref=artisan?.email?'mailto:'+artisan.email+'?cc='+cc+'&subject='+encodeURIComponent('RELANCE - '+s.titre)+'&body='+relanceBody:'';
-  const borderColor=enRetard?'#fecaca':s.statut==='resolu'?'#a7f3d0':'#f1f5f9';
-  const bgColor=enRetard?'#fff5f5':s.statut==='resolu'?'#f0fdf4':'#fff';
+  // SMS relance
+  const smsBody=encodeURIComponent('Bonjour, relance SAV '+(client?.nom||'')+' : '+s.titre+'. Merci de nous recontacter.');
+  const smsHref=artisan?.tel?'sms:'+artisan.tel+'?&body='+smsBody:'';
 
-  let html='<div style="padding:12px 14px;border-bottom:1.5px solid '+borderColor+';background:'+bgColor+'">';
-  // Titre + statut
-  html+='<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px">';
-  html+='<div style="flex:1;min-width:0">';
-  html+='<div style="font-weight:700;font-size:13px">'+s.titre+'</div>';
-  html+='<div style="font-size:11px;color:#64748b;margin-top:2px">'+frDate(s.date_signalement)+' · '+j+'j'+(artisan?' · <b>'+artisan.nom+'</b>':'')+'</div>';
-  if(s.statut==='attente_intervention'&&jMail!==null){
-    html+='<div style="font-size:11px;font-weight:600;margin-top:3px;color:'+(enRetard?'#ef4444':'#d97706')+'">'+(enRetard?'⚠ Relance nécessaire — ':'✉ Mail envoyé — ')+jMail+'j sans réponse</div>';
-  }
-
-  if(s.notes)html+='<div style="font-size:11px;color:#94a3b8;font-style:italic;margin-top:3px;background:#f8fafc;padding:5px 8px;border-radius:6px">'+s.notes+'</div>';
-  // Date de planification
+  // Vue à plat (interne/fournisseur ou tri jours) → afficher le nom du client dans le header
+  const flatView=(typeof savScope!=='undefined'&&(savScope==='interne'||savScope==='fournisseur'))||window._savTriJours;
+  let html='<div style="border-bottom:1px solid #f1f5f9;background:#fafbfc">';
+  // Header cliquable (referme)
+  html+='<div data-sid="'+sid+'" onclick="toggleSavOpen(this.dataset.sid)" style="display:flex;align-items:center;gap:9px;padding:9px 13px;cursor:pointer">'
+    +'<span style="width:8px;height:8px;border-radius:50%;background:'+dotColor+';flex-shrink:0"></span>'
+    +(flatView&&client?'<span style="font-weight:800;color:#0f172a;font-size:11px;white-space:nowrap;max-width:95px;overflow:hidden;text-overflow:ellipsis">'+client.nom+'</span>':'')
+    +'<span style="flex:1;font-weight:700;font-size:12px'+(flatView?';color:#475569':'')+'">'+s.titre+'</span>'
+    +'<span class="status '+stCls+'" style="font-size:10px">'+stLabel+'</span>'
+    +(enRetard?'<span style="background:#fef2f2;color:#dc2626;font-size:9px;font-weight:700;padding:2px 6px;border-radius:5px">'+jMail+'j</span>':'')
+    +'<span style="color:#cbd5e1;font-size:12px;transform:rotate(90deg)">›</span>'
+  +'</div>';
+  // Détail
+  html+='<div style="padding:0 13px 13px 30px">';
+  // Description
+  html+='<div style="font-size:12px;color:#334155;line-height:1.5;background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:9px 11px;margin-bottom:10px;white-space:pre-wrap">';
+  html+='<div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:3px">Description</div>';
+  html+=(s.notes||s.titre);
+  if(artisan)html+='<div style="margin-top:5px;color:#64748b">Artisan : <b>'+(artisan.entreprise||artisan.nom)+'</b>'+(artisan.metier?' ('+artisan.metier+')':'')+'</div>';
+  html+='</div>';
+  // Timeline
+  html+='<div style="margin-bottom:10px">';
+  html+='<div style="display:flex;gap:8px;font-size:11px;color:#64748b;padding:3px 0"><span style="font-weight:700;color:#475569;min-width:78px">'+frDate(s.date_signalement)+'</span>📝 SAV créé</div>';
+  if(s.date_mail)html+='<div style="display:flex;gap:8px;font-size:11px;color:#64748b;padding:3px 0"><span style="font-weight:700;color:#475569;min-width:78px">'+frDate(s.date_mail)+'</span>✉ Demande envoyée</div>';
   if(s.statut==='planifie'){
     const planItem=planningList.find(p=>p.sav_id===s.id);
     if(planItem?.date){
-      const dpFr=new Date(planItem.date+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
-      html+='<div data-pid="'+planItem.id+'" onclick="openEditPlanningModal(this.dataset.pid)" style="cursor:pointer;font-size:11px;font-weight:700;margin-top:4px;color:#3730a3;background:#e0e7ff;padding:4px 8px;border-radius:6px;display:inline-flex;align-items:center;gap:4px;border:1.5px solid #c7d2fe">📅 Planifié le '+dpFr+(planItem.heure?' à '+planItem.heure.slice(0,5):'')+(planItem.heure_fin?' → '+planItem.heure_fin.slice(0,5):'')+'  ✏</div>';
+      const dpFr=new Date(planItem.date+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+      html+='<div data-pid="'+planItem.id+'" onclick="event.stopPropagation();openEditPlanningModal(this.dataset.pid)" style="display:flex;gap:8px;font-size:11px;color:#3730a3;padding:3px 0;cursor:pointer"><span style="font-weight:700;min-width:78px">'+dpFr+'</span>📅 Planifié'+(planItem.heure?' à '+planItem.heure.slice(0,5):'')+' ✏</div>';
     }
   }
+  if(enRetard)html+='<div style="display:flex;gap:8px;font-size:11px;color:#dc2626;font-weight:600;padding:3px 0"><span style="font-weight:700;min-width:78px">Auj.</span>⚠ '+jMail+' jours sans réponse</div>';
+  if(s.statut==='resolu'&&s.date_intervention)html+='<div style="display:flex;gap:8px;font-size:11px;color:#10b981;font-weight:600;padding:3px 0"><span style="font-weight:700;min-width:78px">'+frDate(s.date_intervention)+'</span>✅ Résolu</div>';
   html+='</div>';
-  // Statut menu
-  html+='<div class="statut-wrap" onclick="event.stopPropagation()">';
-  html+='<span class="status '+(STATUTS[s.statut]?.cls||'s-nouveau')+'" data-menu="smenu-'+sid+'" style="cursor:pointer;white-space:nowrap" onclick="toggleSavStatutMenu(this.dataset.menu,event)">'+(STATUTS[s.statut]?.l||'Nouveau')+' ▾</span>';
+  // ─── Historique fournisseur (éditable) ───
+  if(s.type_sav==='fournisseur'){
+    const hist=s.historique||[];
+    html+='<div style="margin-bottom:10px">';
+    html+='<div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:5px">Suivi</div>';
+    hist.forEach((h,i)=>{
+      html+='<div style="display:flex;gap:8px;font-size:11px;color:#64748b;padding:3px 0;align-items:flex-start">'
+        +'<span style="font-weight:700;color:#475569;min-width:72px;white-space:nowrap">'+h.date+'</span>'
+        +'<span style="flex:1">'+h.texte.replace(/</g,"&lt;")+'</span>'
+        +'<button data-sid="'+sid+'" data-i="'+i+'" onclick="event.stopPropagation();_delHistLine(this.dataset.sid,parseInt(this.dataset.i))" style="border:none;background:none;color:#cbd5e1;cursor:pointer;font-size:12px;padding:0">✕</button>'
+      +'</div>';
+    });
+    html+='<div style="display:flex;gap:6px;margin-top:6px">'
+      +'<input type="text" id="hist-input-'+sid+'" placeholder="Ajouter un suivi..." onclick="event.stopPropagation()" onkeydown="if(event.key===\'Enter\'){event.stopPropagation();_addHistLine(\''+sid+'\')}" style="flex:1;padding:6px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:12px"/>'
+      +'<button data-sid="'+sid+'" onclick="event.stopPropagation();_addHistLine(this.dataset.sid)" style="padding:6px 12px;border-radius:8px;border:none;background:#d97706;color:#fff;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">+</button>'
+    +'</div>';
+    html+='</div>';
+  }
+
+  // Actions
+  html+='<div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">';
+  if(s.type_sav==='fournisseur'){
+    // Pas de relance - juste statut + edit + delete
+    html+='<span class="status '+stCls+'" data-menu="smenu-'+sid+'" onclick="event.stopPropagation();toggleSavStatutMenu(this.dataset.menu,event)" style="cursor:pointer;padding:7px 12px;border-radius:9px;font-size:12px;font-weight:700">🔄 Statut ▾</span>';
+    html+='<div class="statut-menu" id="smenu-'+sid+'" style="right:0;left:auto;min-width:160px">';
+    const sd=getStatutsForSav(s);
+    Object.entries(sd).filter(([k])=>k!==s.statut).forEach(([k,v])=>{
+      html+='<button data-sid="'+sid+'" data-k="'+k+'" data-cid="'+cid+'" onclick="event.stopPropagation();chgStatut(this.dataset.sid,this.dataset.k,this.dataset.cid)"><span class="status '+v.cls+'">'+v.l+'</span></button>';
+    });
+    html+='</div>';
+    html+='<button onclick="event.stopPropagation();openSavModal(this.dataset.cid,this.dataset.sid)" data-cid="'+cid+'" data-sid="'+sid+'" style="padding:7px 10px;border-radius:9px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:12px;font-family:inherit">✏</button>';
+    html+='<button onclick="event.stopPropagation();delSavFromList(this.dataset.sid,this.dataset.cid)" data-sid="'+sid+'" data-cid="'+cid+'" style="padding:7px 10px;border-radius:9px;border:1.5px solid #fee2e2;background:#fff5f5;color:#ef4444;cursor:pointer;font-size:12px;font-family:inherit;margin-left:auto">🗑</button>';
+    html+='</div></div></div>';
+    return html;
+  }
+  if(artisan){
+    if(s.statut==='nouveau'&&artisan.email){
+      html+='<a href="'+mailHref+'" data-sid="'+sid+'" data-cid="'+cid+'" onclick="event.stopPropagation();sendMailAndUpdateStatus(this.dataset.sid,this.dataset.cid,event)" style="text-decoration:none;padding:7px 12px;border-radius:9px;border:1.5px solid #bfdbfe;background:#eff6ff;color:#2563eb;font-size:12px;font-weight:700">✉ Demander</a>';
+    } else if(artisan.email){
+      html+='<a href="'+relanceHref+'" onclick="event.stopPropagation()" style="text-decoration:none;padding:7px 12px;border-radius:9px;border:1.5px solid #bfdbfe;background:#eff6ff;color:#2563eb;font-size:12px;font-weight:700">✉ Relance mail</a>';
+    }
+    if(artisan.tel)html+='<a href="'+smsHref+'" onclick="event.stopPropagation()" style="text-decoration:none;padding:7px 12px;border-radius:9px;border:1.5px solid #bbf7d0;background:#f0fdf4;color:#15803d;font-size:12px;font-weight:700">💬 Relance SMS</a>';
+  } else {
+    if(s.statut!=='planifie'){
+      html+='<button data-sid="'+sid+'" onclick="event.stopPropagation();planifierSav(this.dataset.sid)" style="padding:7px 12px;border-radius:9px;border:1.5px solid #ddd6fe;background:#f5f3ff;color:#7c3aed;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">📅 Planifier</button>';
+    } else {
+      const pi=planningList.find(p=>p.sav_id===s.id);
+      if(pi)html+='<button data-pid="'+pi.id+'" onclick="event.stopPropagation();openEditPlanningModal(this.dataset.pid)" style="padding:7px 12px;border-radius:9px;border:1.5px solid #ddd6fe;background:#f5f3ff;color:#7c3aed;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">📅 Modifier planif</button>';
+    }
+  }
+  // Statut
+  html+='<span class="status '+stCls+'" data-menu="smenu-'+sid+'" onclick="event.stopPropagation();toggleSavStatutMenu(this.dataset.menu,event)" style="cursor:pointer;padding:7px 12px;border-radius:9px;font-size:12px;font-weight:700">🔄 Statut ▾</span>';
   html+='<div class="statut-menu" id="smenu-'+sid+'" style="right:0;left:auto;min-width:180px">';
   const statutsDispos=getStatutsForSav(s);
   Object.entries(statutsDispos).filter(([k])=>k!==s.statut).forEach(([k,v])=>{
-    // Pour artisan + planifié → ouvre modal date
     if(k==='planifie'&&s.artisan_id){
-      html+='<button data-sid="'+sid+'" data-cid="'+cid+'" onclick="openPlanifieArtisanModal(this.dataset.sid,this.dataset.cid)"><span class="status '+v.cls+'">'+v.l+'</span></button>';
+      html+='<button data-sid="'+sid+'" data-cid="'+cid+'" onclick="event.stopPropagation();openPlanifieArtisanModal(this.dataset.sid,this.dataset.cid)"><span class="status '+v.cls+'">'+v.l+'</span></button>';
     } else {
-      html+='<button data-sid="'+sid+'" data-k="'+k+'" data-cid="'+cid+'" onclick="chgStatut(this.dataset.sid,this.dataset.k,this.dataset.cid)"><span class="status '+v.cls+'">'+v.l+'</span></button>';
+      html+='<button data-sid="'+sid+'" data-k="'+k+'" data-cid="'+cid+'" onclick="event.stopPropagation();chgStatut(this.dataset.sid,this.dataset.k,this.dataset.cid)"><span class="status '+v.cls+'">'+v.l+'</span></button>';
     }
   });
-
-  html+='</div></div></div>';
-  // Actions
-  html+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">';
-  if(artisan){
-    html+='<div style="flex:1;min-width:0;font-size:11px;color:#374151;background:#f1f5f9;padding:5px 9px;border-radius:7px;display:flex;align-items:center;gap:6px">';
-    html+='<span style="font-weight:600">'+(artisan.metier||'Artisan')+' :</span>'+(artisan.entreprise||artisan.nom);
-    if(artisan.tel)html+='<a href="tel:'+artisan.tel+'" onclick="event.stopPropagation()" style="margin-left:auto;padding:3px 8px;border-radius:6px;background:#dbeafe;color:#1e40af;font-weight:700;text-decoration:none;font-size:11px">📞</a>';
-    html+='</div>';
-  } else {
-    html+='<div style="display:flex;align-items:center;gap:6px">';
-    html+='<div style="font-size:11px;background:#f3e8ff;color:#7c3aed;padding:4px 9px;border-radius:7px;font-weight:600">🏠 SAV Interne — MA 17 SUD</div>';
-    if(s.statut!=='planifie'){
-      html+='<button data-sid="'+sid+'" onclick="planifierSav(this.dataset.sid)" style="padding:4px 9px;border-radius:7px;background:#eff6ff;color:#2563eb;border:1.5px solid #bfdbfe;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit">📅 Planifier</button>';
-    }
-    html+='</div>';
-  }
-  if(s.statut==='nouveau'&&artisan?.email){
-    html+='<a href="'+mailHref+'" class="btn btn-primary btn-sm" style="text-decoration:none" onclick="event.stopPropagation();sendMailAndUpdateStatus(this.dataset.sid,this.dataset.cid,event)" data-sid="'+sid+'" data-cid="'+cid+'">✉ Demander</a>';
-  } else if(s.statut==='attente_intervention'&&artisan?.email){
-    html+='<a href="'+relanceHref+'" class="btn btn-sm" style="text-decoration:none;background:#fff7ed;color:#d97706;border:1.5px solid #fed7aa" onclick="event.stopPropagation()">🔁 Relancer</a>';
-  } else if(s.statut==='resolu'){
-    html+='<span style="font-size:11px;color:#10b981;font-weight:600">✅ Résolu'+(s.date_intervention?' le '+frDate(s.date_intervention):'')+'</span>';
-  }
-  html+='<button onclick="event.stopPropagation();openSavModal(this.dataset.cid,this.dataset.sid)" data-cid="'+cid+'" data-sid="'+sid+'" style="padding:4px 8px;border-radius:7px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:11px;font-family:inherit">✏</button>';
-  html+='<button onclick="event.stopPropagation();delSavFromList(this.dataset.sid,this.dataset.cid)" data-sid="'+sid+'" data-cid="'+cid+'" style="padding:4px 8px;border-radius:7px;border:1.5px solid #fee2e2;background:#fff5f5;color:#ef4444;cursor:pointer;font-size:11px;font-family:inherit">🗑</button>';
+  html+='</div>';
+  // Edit + Delete
+  html+='<button onclick="event.stopPropagation();openSavModal(this.dataset.cid,this.dataset.sid)" data-cid="'+cid+'" data-sid="'+sid+'" style="padding:7px 10px;border-radius:9px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:12px;font-family:inherit">✏</button>';
+  html+='<button onclick="event.stopPropagation();delSavFromList(this.dataset.sid,this.dataset.cid)" data-sid="'+sid+'" data-cid="'+cid+'" style="padding:7px 10px;border-radius:9px;border:1.5px solid #fee2e2;background:#fff5f5;color:#ef4444;cursor:pointer;font-size:12px;font-family:inherit;margin-left:auto">🗑</button>';
+  html+='</div>';
   html+='</div></div>';
   return html;
 }
+
+async function _addHistLine(sid){
+  const inp=document.getElementById('hist-input-'+sid);
+  if(!inp)return;
+  const texte=inp.value.trim();
+  if(!texte)return;
+  const s=savList.find(x=>x.id===sid);
+  if(!s)return;
+  const date=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'});
+  const hist=[...(s.historique||[]),{date,texte}];
+  // Passer en "En cours" si fournisseur + statut nouveau + 1ère ligne
+  let newStatut=s.statut;
+  if(s.type_sav==='fournisseur'&&s.statut==='nouveau'){
+    newStatut='attente_intervention';
+  }
+  // Mettre à jour savList ET _currentSavList
+  savList=savList.map(x=>x.id===sid?{...x,historique:hist,statut:newStatut}:x);
+  if(window._currentSavList){
+    window._currentSavList=window._currentSavList.map(x=>x.id===sid?{...x,historique:hist,statut:newStatut}:x);
+  }
+  window._savOpen=sid;
+  const inp2=document.getElementById('hist-input-'+sid);
+  if(inp2)inp2.value='';
+  renderSavItems(window._currentSavList||savList);
+  // Sauvegarde en arrière-plan
+  try{
+    const patch={historique:hist};
+    if(newStatut!==s.statut)patch.statut=newStatut;
+    await db('PATCH','sav',patch,`?id=eq.${sid}`);
+  }catch(e){
+    toast('⚠ Erreur: '+e.message,'#ef4444');
+  }
+}
+
+async function _delHistLine(sid,idx){
+  const s=savList.find(x=>x.id===sid);
+  if(!s)return;
+  const hist=(s.historique||[]).filter((_,i)=>i!==idx);
+  savList=savList.map(x=>x.id===sid?{...x,historique:hist}:x);
+  if(window._currentSavList){
+    window._currentSavList=window._currentSavList.map(x=>x.id===sid?{...x,historique:hist}:x);
+  }
+  window._savOpen=sid;
+  renderSavItems(window._currentSavList||savList);
+  try{await db('PATCH','sav',{historique:hist},`?id=eq.${sid}`);}catch(e){}
+}
+
+function toggleSavOpen(sid){
+  window._savOpen=(window._savOpen===sid)?null:sid;
+  renderSavItems(_currentSavList||savList);
+}
+
 function toggleSavStatutMenu(menuId,event){
   event.stopPropagation();
   document.querySelectorAll('.statut-menu.open').forEach(m=>m.classList.remove('open'));
@@ -3917,24 +4572,26 @@ async function relanceIA(artisanId){
   }
 }
 
-function setSavTri(tri){
-  savTri=tri;
-  const btnC=document.getElementById('sav-tri-clients');
-  const btnA=document.getElementById('sav-tri-artisans');
-  const filters=document.getElementById('sav-statut-filters');
-  if(btnC&&btnA){
-    if(tri==='clients'){
-      btnC.style.borderColor='#2563eb';btnC.style.background='#eff6ff';btnC.style.color='#2563eb';btnC.style.fontWeight='700';
-      btnA.style.borderColor='#e2e8f0';btnA.style.background='#fff';btnA.style.color='#64748b';btnA.style.fontWeight='400';
-      if(filters)filters.style.display='flex';
-    } else {
-      btnA.style.borderColor='#7c3aed';btnA.style.background='#f3e8ff';btnA.style.color='#7c3aed';btnA.style.fontWeight='700';
-      btnC.style.borderColor='#e2e8f0';btnC.style.background='#fff';btnC.style.color='#64748b';btnC.style.fontWeight='400';
-      if(filters)filters.style.display='none';
-    }
-  }
+let savScope='clients';
+function setSavScope(scope){
+  savScope=scope;
+  // 'clients' et 'artisans' = modes de groupement ; 'interne' et 'fournisseur' = périmètres (groupés par chantier)
+  savTri=(scope==='artisans')?'artisans':'clients';
+  const scopes={clients:'#2563eb',artisans:'#7c3aed',interne:'#7c3aed',fournisseur:'#d97706'};
+  const bgs={clients:'#eff6ff',artisans:'#f3e8ff',interne:'#f3e8ff',fournisseur:'#fffbeb'};
+  ['clients','artisans','interne','fournisseur'].forEach(s=>{
+    const btn=document.getElementById('scope-'+s);
+    if(!btn)return;
+    const active=s===scope;
+    btn.style.border='2px solid '+(active?scopes[s]:'#e2e8f0');
+    btn.style.background=active?bgs[s]:'#fff';
+    btn.style.color=active?scopes[s]:'#64748b';
+    btn.style.fontWeight=active?'700':'400';
+  });
   applyAllSavFilters(document.getElementById('sav-search')?.value||'');
 }
+
+function setSavTri(tri){savScope=tri==='artisans'?'artisans':'clients';setSavScope(savScope);}
 
 function renderSavByArtisan(list){
   const el=document.getElementById('sav-list-container');
@@ -4049,8 +4706,15 @@ function renderSavByArtisan(list){
 
 function applyAllSavFilters(q){
   let list=savList;
-  if(savStatutFilter==='interne')list=list.filter(s=>!s.artisan_id);
+  // Périmètre (scope)
+  const scope=(typeof savScope!=='undefined')?savScope:'clients';
+  if(scope==='interne')list=list.filter(s=>s.type_sav!=='fournisseur'&&!s.artisan_id);
+  else if(scope==='fournisseur')list=list.filter(s=>s.type_sav==='fournisseur');
+  else if(scope==='artisans')list=list.filter(s=>s.artisan_id);
+  // Filtre statut (sous-filtre)
+  if(savStatutFilter==='planifie')list=list.filter(s=>s.statut==='planifie');
   else if(savStatutFilter)list=list.filter(s=>s.statut===savStatutFilter);
+  // Recherche
   if(q){
     const lq=q.toLowerCase();
     list=list.filter(s=>{
@@ -4058,8 +4722,33 @@ function applyAllSavFilters(q){
       return (client?.nom||'').toLowerCase().includes(lq)||s.titre.toLowerCase().includes(lq)||(s.notes||'').toLowerCase().includes(lq);
     });
   }
-  if(savTri==='artisans'){renderSavByArtisan(list);}
-  else{renderSavItems(list);}
+  // Rendu : par artisan OU groupé par chantier (vue complète)
+  if(scope==='artisans'){renderSavByArtisan(list);return;}
+  // Interne, Fournisseur et Par chantier → tous en vue groupée par chantier
+  renderSavItems(list);
+}
+
+// Rendu à plat pour interne/fournisseur (trié par statut)
+function renderSavItemsFlatScope(list){
+  window._currentSavList=list;
+  const el=document.getElementById('sav-list-container');
+  if(!el)return;
+  if(list.length===0){el.innerHTML='<div class="empty"><div class="big">🔧</div><p>Aucun SAV</p></div>';return;}
+  el.innerHTML='<div class="card" style="overflow:hidden">'+list.map(s=>{
+    const client=clients.find(c=>c.id===s.client_id);
+    if(window._savOpen===s.id)return renderOneSav(s,client);
+    const jr=_savJoursRef(s);
+    const dotColor=s.statut==='resolu'?'#10b981':s.statut==='planifie'?'#8b5cf6':(s.statut==='attente_intervention'&&jr>7)?'#ef4444':s.statut==='attente_intervention'?'#f59e0b':'#3b82f6';
+    const stCls=STATUTS[s.statut]?.cls||'s-nouveau';
+    const stLabel=STATUTS[s.statut]?.l||'Nouveau';
+    return '<div data-sid="'+s.id+'" onclick="toggleSavOpen(this.dataset.sid)" style="display:flex;align-items:center;gap:9px;padding:9px 13px;border-bottom:1px solid #f1f5f9;cursor:pointer;font-size:12px">'
+      +'<span style="width:8px;height:8px;border-radius:50%;background:'+dotColor+';flex-shrink:0"></span>'
+      +'<span style="font-weight:800;color:#0f172a;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:95px">'+(client?.nom||'—')+'</span>'
+      +'<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:#475569">'+s.titre+'</span>'
+      +'<span class="status '+stCls+'" style="font-size:10px">'+stLabel+'</span>'
+      +'<span style="color:#cbd5e1;font-size:12px">›</span>'
+    +'</div>';
+  }).join('')+'</div>';
 }
 
 // ── SUIVI DE CHANTIER
@@ -4888,17 +5577,26 @@ function openSavModal(clientId,savId){
   const s=savId?savList.find(x=>x.id===savId):null;
   const ac=clientArtisans(clientId);
   document.getElementById('m-sav-title').textContent=s?'Modifier SAV':'Nouveau SAV';
+  const curType=s?.type_sav||(s?.artisan_id?'artisan':'interne');
   document.getElementById('m-sav-body').innerHTML=`
-    <div class="field"><label>Problème / Titre</label><input id="fs-titre" value="${s?.titre||''}" placeholder="Ex: Fuite sous-lavabo"/></div>
+    <div class="field"><label>Problème / Titre</label><input id="fs-titre" value="${s?.titre||''}" placeholder="Ex: Fuite sous-lavabo (ou nom fournisseur)"/></div>
+    <div class="field"><label>Type de SAV</label>
+      <div style="display:flex;gap:6px">
+        <button type="button" onclick="_setSavType('interne')" id="stype-interne" class="stype-btn" style="flex:1;padding:8px;border-radius:9px;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;border:2px solid ${curType==='interne'?'#2563eb':'#e2e8f0'};background:${curType==='interne'?'#eff6ff':'#fff'};color:${curType==='interne'?'#2563eb':'#64748b'}">🏠 Interne</button>
+        <button type="button" onclick="_setSavType('artisan')" id="stype-artisan" class="stype-btn" style="flex:1;padding:8px;border-radius:9px;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;border:2px solid ${curType==='artisan'?'#2563eb':'#e2e8f0'};background:${curType==='artisan'?'#eff6ff':'#fff'};color:${curType==='artisan'?'#2563eb':'#64748b'}">👷 Artisan</button>
+        <button type="button" onclick="_setSavType('fournisseur')" id="stype-fournisseur" class="stype-btn" style="flex:1;padding:8px;border-radius:9px;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;border:2px solid ${curType==='fournisseur'?'#f59e0b':'#e2e8f0'};background:${curType==='fournisseur'?'#fffbeb':'#fff'};color:${curType==='fournisseur'?'#d97706':'#64748b'}">📦 Fournisseur</button>
+      </div>
+      <input type="hidden" id="fs-type" value="${curType}"/>
+    </div>
     <div class="grid2">
       <div class="field"><label>Date de signalement</label><input type="date" id="fs-date" value="${s?.date_signalement||today()}"/></div>
       <div class="field"><label>Statut</label>
         <select id="fs-statut">
-          ${Object.entries(STATUTS).map(([k,v])=>`<option value="${k}"${(s?.statut||'nouveau')===k?' selected':''}>${v.l}</option>`).join('')}
+          ${Object.entries(getStatutsForSav({type_sav:curType,artisan_id:curType==='artisan'?'x':null})).map(([k,v])=>`<option value="${k}"${(s?.statut||'nouveau')===k?' selected':''}>${v.l}</option>`).join('')}
         </select>
       </div>
     </div>
-    <div class="field"><label>Artisan responsable</label>
+    <div class="field" id="fs-artisan-wrap" style="display:${curType==='artisan'?'block':'none'}"><label>Artisan responsable</label>
       <select id="fs-artisan">
         <option value="">— Sélectionner —</option>
         ${ac.length>0?`<optgroup label="Artisans du chantier">${ac.map(a=>`<option value="${a.id}"${s?.artisan_id===a.id?' selected':''}>${a.metier||''} – ${a.nom}</option>`).join('')}</optgroup>`:''}
@@ -4923,11 +5621,38 @@ function openSavModal(clientId,savId){
   closeM('m-detail');openM('m-sav');
 }
 
+function _setSavType(t){
+  document.getElementById('fs-type').value=t;
+  // Boutons
+  ['interne','artisan','fournisseur'].forEach(tt=>{
+    const btn=document.getElementById('stype-'+tt);
+    if(!btn)return;
+    const active=tt===t;
+    const col=tt==='fournisseur'?'#f59e0b':'#2563eb';
+    const bg=tt==='fournisseur'?'#fffbeb':'#eff6ff';
+    const txt=tt==='fournisseur'?'#d97706':'#2563eb';
+    btn.style.border='2px solid '+(active?col:'#e2e8f0');
+    btn.style.background=active?bg:'#fff';
+    btn.style.color=active?txt:'#64748b';
+  });
+  // Afficher/masquer artisan
+  const aw=document.getElementById('fs-artisan-wrap');
+  if(aw)aw.style.display=t==='artisan'?'block':'none';
+  // Mettre à jour les statuts dispo
+  const sel=document.getElementById('fs-statut');
+  if(sel){
+    const cur=sel.value;
+    const dispos=getStatutsForSav({type_sav:t,artisan_id:t==='artisan'?'x':null});
+    sel.innerHTML=Object.entries(dispos).map(([k,v])=>`<option value="${k}"${cur===k?' selected':''}>${v.l}</option>`).join('');
+  }
+}
+
 async function saveSav(clientId,savId){
   const titre=document.getElementById('fs-titre').value.trim();
   if(!titre){toast('Le titre est obligatoire','#ef4444');return;}
   const savStatut=document.getElementById('fs-statut').value||'nouveau';
-  const data={titre,date_signalement:document.getElementById('fs-date').value,statut:savStatut,artisan_id:document.getElementById('fs-artisan').value||null,notes:document.getElementById('fs-notes').value.trim(),client_id:clientId,updated_at:new Date().toISOString()};
+  const typeSav=document.getElementById('fs-type')?.value||'interne';
+  const data={titre,date_signalement:document.getElementById('fs-date').value,statut:savStatut,type_sav:typeSav,artisan_id:typeSav==='artisan'?(document.getElementById('fs-artisan').value||null):null,notes:document.getElementById('fs-notes').value.trim(),client_id:clientId,updated_at:new Date().toISOString()};
   try{
     if(savId){
       await db('PATCH','sav',data,`?id=eq.${savId}`);
