@@ -186,6 +186,11 @@ input,select,textarea{font-family:inherit;}
 #chat-input:focus{border-color:#7c3aed;}
 #chat-send{padding:8px 13px;border-radius:20px;border:none;background:#7c3aed;color:#fff;cursor:pointer;font-size:15px;flex-shrink:0;}
 #chat-mic-btn{padding:8px 10px;border-radius:20px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:14px;flex-shrink:0;}
+
+
+#sav-list-container{padding-bottom:40vh}
+@keyframes savSlideOut{0%{opacity:1;transform:translateX(0)}100%{opacity:0;transform:translateX(30px)}}
+.sav-resolving{animation:savSlideOut .35s ease forwards}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
@@ -1517,6 +1522,30 @@ function renderCommandes(c){
   _renderCommandesList(c);
 }
 
+function _cmdIsVierge(cmd){
+  const tc=cmd.type_commande||'carrelage';
+  if(tc==='carrelage'){
+    // Vierge si aucune pièce n'a de référence assignée
+    const pieces=cmd.pieces||[];
+    return !pieces.some(p=>p.ref_id)&&(cmd.murs||[]).length===0&&(cmd.seuils||[]).length===0;
+  }
+  if(tc==='swao'){
+    const d=cmd.swao_data||{};
+    const m=d.menuiseries||[];const p=d.portes||[];
+    // En cours si un RAL, modèle ou moteur rempli
+    const touched=m.some(x=>x.ral)||p.some(x=>x.ral||x.modele||x.moteur);
+    return !touched;
+  }
+  if(tc==='vm'){
+    const d=cmd.vm_data||{};
+    const cf=d.coffres||[];const p=d.portes||[];
+    // En cours si un coloris rempli ou une finition modifiée (hors KETCH par défaut) ou une pièce renseignée
+    const touched=cf.some(x=>x.coloris_tablier||x.coloris_lame)||p.some(x=>x.piece||(x.finition&&x.finition!=='ISOPLANE'));
+    return !touched;
+  }
+  return false;
+}
+
 function _renderCommandesList(c){
   if(!c)c=document.getElementById('content');
   // Grouper par client
@@ -1554,8 +1583,10 @@ function _renderCommandesList(c){
     if(cmd.statut==='envoyee'){
       const d=cmd.date_envoi?new Date(cmd.date_envoi).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}):'';
       chip=`<span style="padding:3px 11px;border-radius:20px;font-size:11px;font-weight:700;background:#d1fae5;color:#065f46">✉ Envoyée${d?' · '+d:''}</span>`;
+    } else if(_cmdIsVierge(cmd)){
+      chip='<span style="padding:3px 11px;border-radius:20px;font-size:11px;font-weight:700;background:#f1f5f9;color:#94a3b8">📄 Brouillon vierge</span>';
     } else {
-      chip='<span style="padding:3px 11px;border-radius:20px;font-size:11px;font-weight:700;background:#eff6ff;color:#2563eb">📝 Brouillon</span>';
+      chip='<span style="padding:3px 11px;border-radius:20px;font-size:11px;font-weight:700;background:#eff6ff;color:#2563eb">📝 Brouillon en cours</span>';
     }
     return `<div data-cmdid="${cmd.id}" onclick="openCommande(this.dataset.cmdid)" style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-top:1px solid #f1f5f9;cursor:pointer">
       <span style="display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:700;color:${b.col}">${b.icon} ${b.label}</span>
@@ -1782,7 +1813,7 @@ function _extractSWAO(rows){
     // Exclure les lignes de POSE et JAMBAGES (on ne veut que la fourniture)
     if(ll.startsWith('pose')||ll.includes('jambage')||ll.startsWith('four. et pose')){return;}
     // Ne garder que les vraies fournitures
-    const okStart=ll.startsWith('four.')||ll.startsWith('f.')||ll.startsWith('p.')||ll.startsWith('châssis')||ll.startsWith('chassis')||ll.startsWith('fenêtre')||ll.startsWith('fenetre')||ll.startsWith('vitrage')||ll.startsWith('porte basculante');
+    const okStart=ll.startsWith('four.')||ll.startsWith('f.')||ll.startsWith('p.')||ll.startsWith('châssis')||ll.startsWith('chassis')||ll.startsWith('fenêtre')||ll.startsWith('fenetre')||ll.startsWith('vitrage')||ll.startsWith('porte basculante')||ll.startsWith('porte-fenêtre')||ll.startsWith('porte-fenetre')||ll.startsWith('porte fenêtre')||ll.startsWith('porte fenetre');
     if(!okStart)return;
     // Quantité
     let qt=0;
@@ -1799,7 +1830,7 @@ function _extractSWAO(rows){
       vitrages.push({label:lib.replace(/\s*\d+[.,]?\d*\s*x\s*\d+[.,]?\d*/i,'').trim(),dim:dimStr});
     } else if(ll.includes('basculant')||(ll.includes('porte')&&ll.includes('garage'))){
       portes.push({id:'pg'+Date.now()+Math.random().toString(36).slice(2,6),type:'garage',label:'Porte de garage basculante',dim:dimStr,qte:qt,ral:'',moteur:false});
-    } else if(ll.includes("porte d'entrée")||ll.includes("p. d'entrée")){
+    } else if((ll.includes("porte d'entrée")||ll.includes("p. d'entrée"))&&!ll.includes('fenêtre')&&!ll.includes('fenetre')){
       portes.push({id:'pe'+Date.now()+Math.random().toString(36).slice(2,6),type:'entree',label:lib.replace(/\s*\d+[.,]?\d*\s*x\s*\d+[.,]?\d*/i,'').trim(),dim:dimStr,qte:qt,modele:'',ral:''});
     } else if(ll.includes('châssis')||ll.includes('chassis')||ll.includes('fenêtre')||ll.includes('fenetre')||ll.includes('coulis')||ll.includes('baie')){
       const isAlu=ll.includes('alu');
@@ -1844,7 +1875,7 @@ function _extractVM(rows){
       const isolante=ll.includes('isolante');
       // Créer une porte par unité pour pouvoir attribuer pièce + finition individuellement
       for(let i=0;i<qt;i++){
-        portes.push({id:'pi'+Date.now()+Math.random().toString(36).slice(2,6)+i,dim:dims.d1+' x '+dims.d2,isolante,piece:'',finition:'KETCH'});
+        portes.push({id:'pi'+Date.now()+Math.random().toString(36).slice(2,6)+i,dim:dims.d1+' x '+dims.d2,largeur:dims.d2,isolante,piece:'',finition:'ISOPLANE'});
       }
     }
   });
@@ -2065,6 +2096,9 @@ function openCommandeVM(cmd){
   const cl=clients.find(x=>x.id===cmd.client_id);
   const c=document.getElementById('content');
   const data=cmd.vm_data||{coffres:[],portes:[]};
+  // Récupérer les pièces du métré carrelage du même chantier
+  const cmdCarrelage=commandesList.find(x=>x.client_id===cmd.client_id&&(x.type_commande||'carrelage')==='carrelage');
+  const piecesDispo=cmdCarrelage?(cmdCarrelage.pieces||[]).map(p=>p.nom).filter(Boolean):[];
   const coffres=data.coffres||[];
   const portes=data.portes||[];
   const portesIso=portes.filter(p=>p.isolante);
@@ -2088,11 +2122,32 @@ function openCommandeVM(cmd){
     </div>`;
   }
 
+  function porteIsoLine(p){
+    const larg=p.largeur||(p.dim?p.dim.split(' x ')[1]:'');
+    return `<div style="padding:9px 0;border-bottom:1px solid #f1f5f9;background:#eff6ff;border-radius:8px;padding:9px 11px;margin-top:6px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:5px">Bloc-porte largeur ${larg} <span style="padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;background:#dbeafe;color:#1e40af">🔵 Isolante · Accès garage</span></div>
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#64748b">Finition
+        <select onchange="_vmSetPorte('${p.id}','finition',this.value)" style="padding:4px 8px;border-radius:6px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:12px;background:#f8fafc">
+          <option ${p.finition==='KETCH'?'selected':''}>KETCH</option>
+          <option ${p.finition==='KAORI'?'selected':''}>KAORI</option>
+          <option ${p.finition==='ISOPLANE'?'selected':''}>ISOPLANE</option>
+        </select>
+      </span>
+    </div>`;
+  }
+
   function porteLine(p){
+    const larg=p.largeur||(p.dim?p.dim.split(' x ')[1]:'');
     return `<div style="padding:9px 0;border-bottom:1px solid #f1f5f9">
+      <div style="font-size:13px;font-weight:700;margin-bottom:5px">Bloc-porte largeur ${larg} ${p.isolante?'<span style="padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;background:#dbeafe;color:#1e40af">🔵 Isolante</span>':''}</div>
       <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
-        ${p.isolante?`<span style="font-size:13px;font-weight:700">Bloc-porte ${p.dim} <span style="padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;background:#dbeafe;color:#1e40af">🔵 Isolante</span></span><br>`:''}
-        <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#64748b">Pièce <input type="text" value="${(p.piece||'').replace(/"/g,'&quot;')}" oninput="_vmSetPorte('${p.id}','piece',this.value)" placeholder="pièce" style="padding:4px 8px;border-radius:6px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:12px;background:#f8fafc;width:100px"/></span>
+        <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#64748b">Pièce
+          <select onchange="_vmSetPorte('${p.id}','piece',this.value)" style="padding:4px 8px;border-radius:6px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:12px;background:#f8fafc;max-width:130px">
+            <option value="">— choisir —</option>
+            ${piecesDispo.map(nom=>`<option value="${nom.replace(/"/g,'&quot;')}" ${p.piece===nom?'selected':''}>${nom}</option>`).join('')}
+            ${p.piece&&!piecesDispo.includes(p.piece)?`<option value="${p.piece.replace(/"/g,'&quot;')}" selected>${p.piece}</option>`:''}
+          </select>
+        </span>
         <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#64748b">Finition
           <select onchange="_vmSetPorte('${p.id}','finition',this.value)" style="padding:4px 8px;border-radius:6px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:12px;background:#f8fafc">
             <option ${p.finition==='KETCH'?'selected':''}>KETCH</option>
@@ -2125,9 +2180,25 @@ function openCommandeVM(cmd){
         ${coffres.map(coffreLine).join('')}`:''}
 
         ${portes.length>0?`<div style="font-size:11px;font-weight:800;color:#b45309;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #b45309;padding-bottom:5px;margin:18px 0 8px">Portes intérieures</div>
-        ${portesIso.map(porteLine).join('')}
-        ${portesStd.length>0?`<div style="font-size:12px;color:#64748b;margin:8px 0 2px;font-weight:600">${portesStd.length} bloc(s)-porte(s) standard :</div>`:''}
-        ${portesStd.map(porteLine).join('')}
+        ${portesStd.length>0?`
+          <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:#fffbeb;border:1.5px solid #fde68a;cursor:pointer;margin-bottom:8px">
+            <input type="checkbox" ${cmd.vm_toutes_identiques?'checked':''} onchange="_vmToggleToutesIdentiques(this.checked)" style="width:16px;height:16px;accent-color:#d97706"/>
+            <span style="font-size:12px;font-weight:700;color:#d97706">Toutes les portes standard ont la même finition</span>
+          </label>
+          ${cmd.vm_toutes_identiques?`
+            <div style="padding:9px 0;border-bottom:1px solid #f1f5f9">
+              <div style="font-size:13px;font-weight:700;margin-bottom:5px">${portesStd.length} bloc(s)-porte(s) largeur ${portesStd[0]?.largeur||(portesStd[0]?.dim?portesStd[0].dim.split(' x ')[1]:'')}</div>
+              <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#64748b">Finition (toutes)
+                <select onchange="_vmSetAllFinition(this.value)" style="padding:4px 8px;border-radius:6px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:12px;background:#f8fafc">
+                  <option ${portesStd[0]?.finition==='KETCH'?'selected':''}>KETCH</option>
+                  <option ${portesStd[0]?.finition==='KAORI'?'selected':''}>KAORI</option>
+                  <option ${portesStd[0]?.finition==='ISOPLANE'?'selected':''}>ISOPLANE</option>
+                </select>
+              </span>
+            </div>
+          `:portesStd.map(porteLine).join('')}
+        `:''}
+        ${portesIso.map(porteIsoLine).join('')}
         ${recapFin?`<div data-vm-recap style="margin-top:10px;padding:8px 11px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;font-size:12px;color:#854d0e"><b>Récap finitions :</b> ${recapFin}</div>`:''}`:''}
 
         <div style="margin-top:14px">
@@ -2170,6 +2241,22 @@ function _vmSetPorte(id,field,value){
   clearTimeout(_vmSaveTimer);
   _vmSaveTimer=setTimeout(async()=>{try{await db('PATCH','commandes_carrelage',{vm_data:cmd.vm_data},`?id=eq.${cmd.id}`);}catch(e){}},700);
 }
+async function _vmToggleToutesIdentiques(checked){
+  const cmd=commandesList.find(x=>x.id===window._cmdCourante);
+  if(!cmd)return;
+  cmd.vm_toutes_identiques=checked;
+  openCommandeVM(cmd);
+  try{await db('PATCH','commandes_carrelage',{vm_toutes_identiques:checked},`?id=eq.${cmd.id}`);}catch(e){}
+}
+
+async function _vmSetAllFinition(finition){
+  const cmd=commandesList.find(x=>x.id===window._cmdCourante);
+  if(!cmd||!cmd.vm_data)return;
+  cmd.vm_data.portes=(cmd.vm_data.portes||[]).map(p=>p.isolante?p:{...p,finition});
+  openCommandeVM(cmd);
+  try{await db('PATCH','commandes_carrelage',{vm_data:cmd.vm_data},`?id=eq.${cmd.id}`);}catch(e){}
+}
+
 function _vmSetNote(val){
   const cmd=commandesList.find(x=>x.id===window._cmdCourante);
   if(!cmd)return;
@@ -4153,24 +4240,23 @@ function renderSav(c){
 }
 
 function toggleSavTriJours(){
-  // Cycle: off → vieux en haut → récent en haut → off
-  if(!window._savTriJours){window._savTriJours='old';}
-  else if(window._savTriJours==='old'){window._savTriJours='new';}
-  else {window._savTriJours=null;}
+  // Boucle : vieux en haut ⇄ récent en haut (seul A-Z désactive)
+  if(window._savTriJours==='new'){window._savTriJours='old';}
+  else {window._savTriJours='new';}
   const btn=document.getElementById('sav-tri-jours');
   if(btn){
-    if(window._savTriJours==='old'){btn.textContent='⏱ Plus vieux en haut ↓';btn.style.border='2px solid #2563eb';btn.style.background='#eff6ff';btn.style.color='#2563eb';}
-    else if(window._savTriJours==='new'){btn.textContent='⏱ Plus récent en haut ↑';btn.style.border='2px solid #2563eb';btn.style.background='#eff6ff';btn.style.color='#2563eb';}
-    else {btn.textContent='⏱ Trier par jours';btn.style.border='1.5px solid #e2e8f0';btn.style.background='#fff';btn.style.color='#64748b';}
+    if(window._savTriJours==='old'){btn.textContent='⏱ Plus vieux en haut ↓';}
+    else {btn.textContent='⏱ Plus récent en haut ↑';}
+    btn.style.border='2px solid #2563eb';btn.style.background='#eff6ff';btn.style.color='#2563eb';
   }
-  renderSavItems(window._currentSavList||savList);
+  applyAllSavFilters(document.getElementById('sav-search')?.value||'');
 }
 
 function resetSavTri(){
   window._savTriJours=null;
   const btn=document.getElementById('sav-tri-jours');
   if(btn){btn.textContent='⏱ Trier par jours';btn.style.border='1.5px solid #e2e8f0';btn.style.background='#fff';btn.style.color='#64748b';}
-  renderSavItems(window._currentSavList||savList);
+  applyAllSavFilters(document.getElementById('sav-search')?.value||'');
 }
 
 function _savJoursRef(s){
@@ -4405,9 +4491,9 @@ function renderOneSav(s,client){
     }
     if(artisan.tel)html+='<a href="'+smsHref+'" onclick="event.stopPropagation()" style="text-decoration:none;padding:7px 12px;border-radius:9px;border:1.5px solid #bbf7d0;background:#f0fdf4;color:#15803d;font-size:12px;font-weight:700">💬 Relance SMS</a>';
   } else {
-    if(s.statut!=='planifie'){
+    if(s.statut!=='planifie'&&s.statut!=='resolu'){
       html+='<button data-sid="'+sid+'" onclick="event.stopPropagation();planifierSav(this.dataset.sid)" style="padding:7px 12px;border-radius:9px;border:1.5px solid #ddd6fe;background:#f5f3ff;color:#7c3aed;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">📅 Planifier</button>';
-    } else {
+    } else if(s.statut==='planifie'){
       const pi=planningList.find(p=>p.sav_id===s.id);
       if(pi)html+='<button data-pid="'+pi.id+'" onclick="event.stopPropagation();openEditPlanningModal(this.dataset.pid)" style="padding:7px 12px;border-radius:9px;border:1.5px solid #ddd6fe;background:#f5f3ff;color:#7c3aed;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">📅 Modifier planif</button>';
     }
@@ -4479,8 +4565,41 @@ async function _delHistLine(sid,idx){
 }
 
 function toggleSavOpen(sid){
-  window._savOpen=(window._savOpen===sid)?null:sid;
-  renderSavItems(_currentSavList||savList);
+  const wasOpen=window._savOpen===sid;
+  window._savOpen=wasOpen?null:sid;
+  // Ré-appliquer les filtres actifs (scope + statut + tri) au lieu de tout afficher
+  if(currentView==='sav'){
+    applyAllSavFilters(document.getElementById('sav-search')?.value||'');
+  } else {
+    renderSavItems(window._currentSavList||savList);
+  }
+  // Si on vient d'ouvrir → scroller le conteneur pour montrer tout le détail déplié
+  if(!wasOpen){
+    setTimeout(()=>{
+      const container=document.getElementById('sav-list-container');
+      if(!container)return;
+      // Trouver le bloc déplié (le parent de la ligne header qui contient le détail)
+      const header=container.querySelector('[data-sid="'+sid+'"]');
+      if(!header)return;
+      const block=header.parentElement; // le div qui englobe header + détail
+      if(!block)return;
+      const blockRect=block.getBoundingClientRect();
+      const contRect=container.getBoundingClientRect();
+      // Position du bas du bloc par rapport au conteneur
+      const blockBottom=blockRect.bottom-contRect.top+container.scrollTop;
+      const blockTop=blockRect.top-contRect.top+container.scrollTop;
+      const visibleH=container.clientHeight;
+      // Si le bloc dépasse en bas, scroller pour le montrer
+      if(blockRect.bottom>contRect.bottom){
+        // Amener le bas du bloc en vue (avec marge), ou le haut si le bloc est plus grand que l'écran
+        if(blockRect.height>visibleH){
+          container.scrollTo({top:blockTop-10,behavior:'smooth'});
+        } else {
+          container.scrollTo({top:blockBottom-visibleH+20,behavior:'smooth'});
+        }
+      }
+    },80);
+  }
 }
 
 function toggleSavStatutMenu(menuId,event){
@@ -4490,11 +4609,25 @@ function toggleSavStatutMenu(menuId,event){
   if(!menu)return;
   menu.classList.toggle('open');
   if(menu.classList.contains('open')){
-    // Position fixed under the clicked element
     const rect=event.target.getBoundingClientRect();
-    menu.style.top=(rect.bottom+4)+'px';
     menu.style.right=(window.innerWidth-rect.right)+'px';
     menu.style.left='auto';
+    // Afficher d'abord pour mesurer la hauteur du menu
+    menu.style.visibility='hidden';
+    menu.style.top='0px';
+    const menuH=menu.offsetHeight||180;
+    const spaceBelow=window.innerHeight-rect.bottom;
+    const spaceAbove=rect.top;
+    // Si pas assez de place en dessous mais assez au-dessus → ouvrir vers le haut
+    if(spaceBelow<menuH+10&&spaceAbove>menuH){
+      menu.style.top=(rect.top-menuH-4)+'px';
+    } else {
+      // S'assurer que le menu ne dépasse pas en bas
+      let topPos=rect.bottom+4;
+      if(topPos+menuH>window.innerHeight-10){topPos=window.innerHeight-menuH-10;}
+      menu.style.top=topPos+'px';
+    }
+    menu.style.visibility='visible';
   }
 }
 
@@ -4722,6 +4855,8 @@ function applyAllSavFilters(q){
       return (client?.nom||'').toLowerCase().includes(lq)||s.titre.toLowerCase().includes(lq)||(s.notes||'').toLowerCase().includes(lq);
     });
   }
+  // Si tri par jours actif → vue à plat prioritaire (tous scopes sauf artisan)
+  if(window._savTriJours&&scope!=='artisans'){renderSavItemsFlat(list);return;}
   // Rendu : par artisan OU groupé par chantier (vue complète)
   if(scope==='artisans'){renderSavByArtisan(list);return;}
   // Interne, Fournisseur et Par chantier → tous en vue groupée par chantier
@@ -5754,10 +5889,35 @@ async function chgStatut(savId,statut,clientId){
       }else{toast(`Statut → ${STATUTS[statut]?.l}`);}
     }else{toast(`Statut → ${STATUTS[statut]?.l}`);}
     showSync('💾 Sauvegardé');updateUI();
-    if(currentView==='sav'){goView('sav');}
+    if(currentView==='sav'){
+      // Animation de glissement si passage en résolu
+      if(statut==='resolu'){
+        // Trouver l'élément SAV ouvert et l'animer
+        const savEl=document.querySelector('[data-sid="'+savId+'"]')?.closest('.card')||document.querySelector('[data-sid="'+savId+'"]');
+        const container=document.getElementById('sav-list-container');
+        const scrollPos=container?container.scrollTop:0;
+        window._savOpen=null;
+        // Re-render en préservant le scroll
+        _rerenderSavKeepScroll(scrollPos);
+      } else {
+        const container=document.getElementById('sav-list-container');
+        const scrollPos=container?container.scrollTop:0;
+        _rerenderSavKeepScroll(scrollPos);
+      }
+    }
     else if(clientId){openDetail(clientId);}
     else{goView(currentView);}
   }catch(e){toast('Erreur: '+e.message,'#ef4444');}
+}
+
+function _rerenderSavKeepScroll(scrollPos){
+  // Re-render la liste SAV sans changer de vue ni scroller
+  applyAllSavFilters(document.getElementById('sav-search')?.value||'');
+  // Restaurer la position de scroll
+  setTimeout(()=>{
+    const container=document.getElementById('sav-list-container');
+    if(container)container.scrollTop=scrollPos;
+  },20);
 }
 
 // ══════════════════════════════════════════════
