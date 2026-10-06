@@ -2331,14 +2331,22 @@ function openCommandeSWAO(cmd){
   function menuLine(m){
     return `<div style="padding:10px 0;border-bottom:1px solid #f1f5f9">
       <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
-        <div style="font-size:14px;font-weight:700">${m.label} <span style="font-weight:400;color:#64748b;font-size:13px">${m.dim}</span> ${m.isAlu?'<span style="padding:1px 6px;border-radius:5px;font-size:9px;font-weight:700;background:#dbeafe;color:#1e40af">ALU</span>':'<span style="padding:1px 6px;border-radius:5px;font-size:9px;font-weight:700;background:#f1f5f9;color:#64748b">PVC</span>'} ${m.isOB?'<span style="padding:1px 6px;border-radius:5px;font-size:9px;font-weight:700;background:#fef3c7;color:#92400e">OB</span>':''} ${(m.vitrages||[]).map(v=>`<span style="padding:1px 6px;border-radius:5px;font-size:9px;font-weight:700;background:#fef9c3;color:#854d0e">${v}</span>`).join(' ')}</div>
+        <div style="font-size:14px;font-weight:700">${m.label} <span style="font-weight:400;color:#64748b;font-size:13px">${m.dim}</span></div>
+      </div>
+      <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:5px;align-items:center">
+        ${_swaoBadge(m,'alu','ALU')}
+        ${_swaoBadge(m,'pvc','PVC')}
+        ${_swaoBadge(m,'ob','OB')}
+        ${_swaoBadge(m,'v442','44-2')}
+        ${_swaoBadge(m,'da','DA')}
       </div>
       <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
         <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#64748b">Pièce
           <select data-mid="${m.id}" onchange="_swaoSet('menuiseries','${m.id}','piece',this.value)" style="padding:4px 8px;border-radius:6px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:12px;background:#f8fafc;max-width:130px">
             <option value="">— choisir —</option>
             ${piecesSwao.map(nom=>`<option value="${nom.replace(/"/g,'&quot;')}" ${m.piece===nom?'selected':''}>${nom}</option>`).join('')}
-            ${m.piece&&!piecesSwao.includes(m.piece)?`<option value="${m.piece.replace(/"/g,'&quot;')}" selected>${m.piece}</option>`:''}
+            <option value="Garage" ${m.piece==='Garage'?'selected':''}>Garage</option>
+            ${m.piece&&!piecesSwao.includes(m.piece)&&m.piece!=='Garage'?`<option value="${m.piece.replace(/"/g,'&quot;')}" selected>${m.piece}</option>`:''}
           </select>
         </span>
         ${m.isAlu?`<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#64748b">RAL <input type="text" value="${(m.ral||'').replace(/"/g,'&quot;')}" data-mid="${m.id}" oninput="_swaoSet('menuiseries','${m.id}','ral',this.value)" placeholder="Blanc si vide" style="padding:4px 8px;border-radius:6px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:12px;background:#f8fafc;width:120px"/></span>`:''}
@@ -2406,6 +2414,42 @@ function openCommandeSWAO(cmd){
   `;
 }
 
+function _swaoBadge(m,key,label){
+  // État : si m.badges existe on l'utilise, sinon on dérive de la détection
+  let active;
+  if(m.badges&&m.badges[key]!==undefined){active=m.badges[key];}
+  else{
+    // Valeurs par défaut selon détection
+    if(key==='alu')active=!!m.isAlu;
+    else if(key==='pvc')active=!m.isAlu;
+    else if(key==='ob')active=!!m.isOB;
+    else if(key==='v442')active=(m.vitrages||[]).includes('44-2');
+    else if(key==='da')active=(m.vitrages||[]).includes('DA');
+    else active=false;
+  }
+  const bg=active?'#e2e8f0':'#fff';
+  const col=active?'#334155':'#cbd5e1';
+  const border=active?'#cbd5e1':'#e2e8f0';
+  const deco=active?'':'text-decoration:line-through;opacity:.6';
+  return `<span data-mid="${m.id}" data-bkey="${key}" onclick="_swaoToggleBadge(this.dataset.mid,this.dataset.bkey)" style="padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;background:${bg};color:${col};border:1.5px solid ${border};cursor:pointer;${deco}">${label}</span>`;
+}
+
+async function _swaoToggleBadge(mid,key){
+  const cmd=commandesList.find(x=>x.id===window._cmdCourante);
+  if(!cmd||!cmd.swao_data)return;
+  cmd.swao_data.menuiseries=(cmd.swao_data.menuiseries||[]).map(m=>{
+    if(m.id!==mid)return m;
+    const badges=m.badges?{...m.badges}:{
+      alu:!!m.isAlu,pvc:!m.isAlu,ob:!!m.isOB,
+      v442:(m.vitrages||[]).includes('44-2'),da:(m.vitrages||[]).includes('DA')
+    };
+    badges[key]=!badges[key];
+    return {...m,badges};
+  });
+  openCommandeSWAO(cmd);
+  try{await db('PATCH','commandes_carrelage',{swao_data:cmd.swao_data},`?id=eq.${cmd.id}`);}catch(e){}
+}
+
 let _swaoSaveTimer=null;
 function _swaoSet(section,itemId,field,value){
   const cmd=commandesList.find(x=>x.id===window._cmdCourante);
@@ -2436,18 +2480,33 @@ function envoyerSWAO(){
   const portesEntree=portes.filter(p=>p.type==='entree');
   const portesGarage=portes.filter(p=>p.type==='garage');
 
-  // Détecter PVC / ALU global
-  const hasAlu=menuiseries.some(m=>m.isAlu);
-  const hasPvc=menuiseries.some(m=>!m.isAlu);
+  // Lire l'état d'un badge (manuel ou détecté)
+  const bdg=(m,key)=>{
+    if(m.badges&&m.badges[key]!==undefined)return m.badges[key];
+    if(key==='alu')return !!m.isAlu;
+    if(key==='pvc')return !m.isAlu;
+    if(key==='ob')return !!m.isOB;
+    if(key==='v442')return (m.vitrages||[]).includes('44-2');
+    if(key==='da')return (m.vitrages||[]).includes('DA');
+    return false;
+  };
+
+  // Détecter PVC / ALU global (selon badges)
+  const hasAlu=menuiseries.some(m=>bdg(m,'alu'));
+  const hasPvc=menuiseries.some(m=>bdg(m,'pvc'));
   const typeMenui=hasAlu&&hasPvc?'PVC ALU':hasAlu?'ALU':'PVC';
 
   // Coulissant : RAL ou Blanc
   const coul=menuiseries.find(m=>m.isCoulissant);
   const coulRal=coul&&coul.ral?coul.ral:'Blanc';
 
-  // Pièces oscillo-battantes
-  const piecesOB=menuiseries.filter(m=>m.isOB&&m.piece).map(m=>m.piece);
+  // Pièces oscillo-battantes (badge OB actif)
+  const piecesOB=menuiseries.filter(m=>bdg(m,'ob')&&m.piece).map(m=>m.piece);
   const obTxt=piecesOB.length>0?piecesOB.join(', '):'TOUTES';
+
+  // Vitrage SDB : imprimé si au moins un DA, sinon clair
+  const hasDA=menuiseries.some(m=>bdg(m,'da'));
+  const vitrageSDB=hasDA?'IMPRIME':'CLAIR';
 
   const L=[];
   L.push('Bonjour,');
@@ -2461,9 +2520,26 @@ function envoyerSWAO(){
   L.push('Prevoir encastrement pour les baies et vantail principal a droite');
   L.push('Mortaise de ventilation sur ouvrants et prevoir grille plate exterieure sur le coulissant');
   L.push('Pas de volets roulants.');
-  L.push('VITRAGE CLAIR OU IMPRIME POUR SALLE DE BAIN');
+  L.push('VITRAGE '+vitrageSDB+' POUR SALLE DE BAIN');
   L.push('Portes fenetres poignees seulement interieures sans barillet');
   L.push('Verres depoli acide (44-2) sur fenetre sans VR');
+  L.push('');
+  // Détail menuiseries avec RAL
+  if(menuiseries.length>0){
+    L.push('--- MENUISERIES ---');
+    menuiseries.forEach(m=>{
+      const typeM=bdg(m,'alu')?'ALU':'PVC';
+      const ral=m.ral?m.ral:'Blanc';
+      const vitr=[];
+      if(bdg(m,'v442'))vitr.push('44-2');
+      if(bdg(m,'da'))vitr.push('DA');
+      let ligne='- '+m.label+' '+m.dim+' '+typeM+(bdg(m,'ob')?' OB':'')+' - RAL '+ral;
+      if(m.piece)ligne+=' ('+m.piece+')';
+      if(vitr.length>0)ligne+=' ['+vitr.join(', ')+']';
+      L.push(ligne);
+    });
+    L.push('');
+  }
 
   // Porte d'entrée
   portesEntree.forEach(p=>{
@@ -2476,11 +2552,18 @@ function envoyerSWAO(){
   // Porte de garage
   portesGarage.forEach(p=>{
     const typeG=p.typeGarage||'basculante';
-    const moteur=p.moteur?'avec':'sans';
-    const moteurType=typeG==='sectionnelle'?'novomatic 200 LED':'integraport rail court';
     const h=p.h_mm||'';
     const l=p.l_mm||'';
-    L.push('Porte de garage '+typeG+' '+moteur+' motorisation ('+moteurType+') DIMENSION H '+h+' mm X L '+l+' mm');
+    const ral=p.ral?p.ral:'Blanc';
+    let ligne='Porte de garage '+typeG+' RAL '+ral+' ';
+    if(p.moteur){
+      const moteurType=typeG==='sectionnelle'?'novomatic 200 LED':'integraport rail court';
+      ligne+='avec motorisation ('+moteurType+')';
+    } else {
+      ligne+='sans motorisation';
+    }
+    ligne+=' DIMENSION H '+h+' mm X L '+l+' mm';
+    L.push(ligne);
   });
   if(portesGarage.length===0)L.push('Porte de garage battante ou sectionnelle avec/sans motorisation DIMENSION H mm X L mm');
 
