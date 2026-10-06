@@ -1840,7 +1840,9 @@ function _extractSWAO(rows){
       const isAlu=ll.includes('alu');
       const isOB=ll.includes('oscillo');
       const isCoulissant=ll.includes('coulis')||ll.includes('baie');
-      const cleanLabel=lib.replace(/\s*\d+[.,]?\d*\s*x\s*\d+[.,]?\d*/i,'').trim();
+      let cleanLabel=lib.replace(/\s*\d+[.,]?\d*\s*x\s*\d+[.,]?\d*/i,'').trim();
+      // Simplifier : retirer "à rupture therm. laqué" et variantes
+      cleanLabel=cleanLabel.replace(/\s*à rupture therm\.?\s*laqué?/gi,'').replace(/\s*rupture thermique/gi,'').replace(/\s*laqué?/gi,'').replace(/\s+/g,' ').trim();
       // Une ligne par unité
       for(let i=0;i<qt;i++){
         menuiseries.push({id:'m'+Date.now()+Math.random().toString(36).slice(2,6)+i,label:cleanLabel,dim:dimStr,qte:1,isAlu,isOB,isCoulissant,piece:'',ral:'',vitrages:[]});
@@ -1848,9 +1850,16 @@ function _extractSWAO(rows){
     }
   });
   // Associer les vitrages aux menuiseries de même dimension
+  // Grouper les vitrages par dimension
+  const vitragesParDim={};
   vitrages.forEach(v=>{
-    const m=menuiseries.find(mm=>mm.dim===v.dim);
-    if(m)m.vitrages.push(v.label);
+    if(!vitragesParDim[v.dim])vitragesParDim[v.dim]=[];
+    vitragesParDim[v.dim].push(v.label);
+  });
+  // Attribuer tous les vitrages d'une dimension à la première menuiserie de cette dimension
+  Object.entries(vitragesParDim).forEach(([dim,labels])=>{
+    const m=menuiseries.find(mm=>mm.dim===dim);
+    if(m)m.vitrages=labels;
   });
   return {menuiseries,portes};
 }
