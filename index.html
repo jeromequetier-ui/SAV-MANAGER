@@ -1827,7 +1827,15 @@ function _extractSWAO(rows){
     const dimStr=dims?dims.d1+' x '+dims.d2:'';
 
     if(ll.includes('vitrage')&&(ll.includes('vandal')||ll.includes('granit')||ll.includes('dépoli')||ll.includes('depoli'))){
-      vitrages.push({label:lib.replace(/\s*\d+[.,]?\d*\s*x\s*\d+[.,]?\d*/i,'').trim(),dim:dimStr});
+      // Renommer : anti-vandalisme → 44-2, granité → DA
+      let vLabel;
+      if(ll.includes('vandal'))vLabel='44-2';
+      else if(ll.includes('granit'))vLabel='DA';
+      else vLabel='44-2';
+      // Ajouter autant de fois que la quantité
+      for(let i=0;i<qt;i++){
+        vitrages.push({label:vLabel,dim:dimStr});
+      }
     } else if(ll.includes('basculant')||ll.includes('sectionnel')||(ll.includes('porte')&&ll.includes('garage'))){
       const typeGarage=ll.includes('sectionnel')?'sectionnelle':'basculante';
       // Dimensions en mm : hauteur = d1*10, largeur = d2*10 - 25
@@ -1856,10 +1864,31 @@ function _extractSWAO(rows){
     if(!vitragesParDim[v.dim])vitragesParDim[v.dim]=[];
     vitragesParDim[v.dim].push(v.label);
   });
-  // Attribuer tous les vitrages d'une dimension à la première menuiserie de cette dimension
+  // Distribuer les vitrages sur les menuiseries de même dimension (une par une)
   Object.entries(vitragesParDim).forEach(([dim,labels])=>{
-    const m=menuiseries.find(mm=>mm.dim===dim);
-    if(m)m.vitrages=labels;
+    const menusDim=menuiseries.filter(mm=>mm.dim===dim);
+    if(menusDim.length===0)return;
+    // Répartir : chaque vitrage va sur une menuiserie successive (en boucle)
+    // Mais si tous les vitrages concernent les mêmes menuiseries, les regrouper
+    // Cas simple : nb vitrages = nb menuiseries → 1 vitrage par menuiserie
+    // Cas : 2 types de vitrage (44-2 + DA) sur 2 menuiseries → chaque menuiserie reçoit les 2 types
+    // On regroupe par type et on distribue
+    const parType={};
+    labels.forEach(l=>{parType[l]=(parType[l]||0)+1;});
+    // Si chaque type a autant d'occurrences que de menuiseries → chaque menuiserie reçoit tous les types
+    const types=Object.keys(parType);
+    const allMatch=types.every(t=>parType[t]===menusDim.length);
+    if(allMatch){
+      // Chaque menuiserie reçoit tous les types de vitrage
+      menusDim.forEach(m=>{m.vitrages=[...types];});
+    } else {
+      // Distribution simple : répartir les labels un par un
+      let idx=0;
+      labels.forEach(l=>{
+        menusDim[idx%menusDim.length].vitrages.push(l);
+        idx++;
+      });
+    }
   });
   return {menuiseries,portes};
 }
@@ -2302,10 +2331,9 @@ function openCommandeSWAO(cmd){
   function menuLine(m){
     return `<div style="padding:10px 0;border-bottom:1px solid #f1f5f9">
       <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
-        <div style="font-size:14px;font-weight:700">${m.label} <span style="font-weight:400;color:#64748b;font-size:13px">${m.dim}</span> ${m.isAlu?'<span style="padding:1px 6px;border-radius:5px;font-size:9px;font-weight:700;background:#dbeafe;color:#1e40af">ALU</span>':'<span style="padding:1px 6px;border-radius:5px;font-size:9px;font-weight:700;background:#f1f5f9;color:#64748b">PVC</span>'} ${m.isOB?'<span style="padding:1px 6px;border-radius:5px;font-size:9px;font-weight:700;background:#fef3c7;color:#92400e">OB</span>':''}</div>
+        <div style="font-size:14px;font-weight:700">${m.label} <span style="font-weight:400;color:#64748b;font-size:13px">${m.dim}</span> ${m.isAlu?'<span style="padding:1px 6px;border-radius:5px;font-size:9px;font-weight:700;background:#dbeafe;color:#1e40af">ALU</span>':'<span style="padding:1px 6px;border-radius:5px;font-size:9px;font-weight:700;background:#f1f5f9;color:#64748b">PVC</span>'} ${m.isOB?'<span style="padding:1px 6px;border-radius:5px;font-size:9px;font-weight:700;background:#fef3c7;color:#92400e">OB</span>':''} ${(m.vitrages||[]).map(v=>`<span style="padding:1px 6px;border-radius:5px;font-size:9px;font-weight:700;background:#fef9c3;color:#854d0e">${v}</span>`).join(' ')}</div>
       </div>
       <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
-        ${(m.vitrages||[]).map(v=>`<span style="padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;background:#fef9c3;color:#854d0e">${v}</span>`).join('')}
         <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#64748b">Pièce
           <select data-mid="${m.id}" onchange="_swaoSet('menuiseries','${m.id}','piece',this.value)" style="padding:4px 8px;border-radius:6px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:12px;background:#f8fafc;max-width:130px">
             <option value="">— choisir —</option>
