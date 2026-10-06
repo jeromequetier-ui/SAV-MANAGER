@@ -2511,7 +2511,7 @@ function envoyerSWAO(){
   const L=[];
   L.push('Bonjour,');
   L.push('');
-  L.push('Veuillez trouver ci-dessous les details de cette commande : chantier '+(cl?.nom||''));
+  L.push('Veuillez trouver ci-dessous les détails de cette commande : chantier '+(cl?.nom||''));
   L.push('');
   // Si blanc → "BLANC", sinon "RAL xxx"
   const ralTxt=(ralGlobal.toLowerCase()==='blanc')?'BLANC':'RAL '+ralGlobal;
@@ -2519,21 +2519,21 @@ function envoyerSWAO(){
   L.push('Menuiseries '+typeMenui+' '+ralTxt);
   L.push('Coulissants ALU '+coulTxt);
   L.push('Dormant de 160mm (RE2020)');
-  L.push('Fenetres oscillo-battantes pour '+obTxt);
-  L.push('Prevoir encastrement pour les baies et vantail principal a droite');
-  L.push('Mortaise de ventilation sur ouvrants et prevoir grille plate exterieure sur le coulissant');
+  L.push('Fenêtres oscillo-battantes pour '+obTxt);
+  L.push('Prévoir encastrement pour les baies et vantail principal à droite');
+  L.push('Mortaise de ventilation sur ouvrants et prévoir grille plate extérieure sur le coulissant');
   L.push('Pas de volets roulants.');
   L.push('VITRAGE '+vitrageSDB+' POUR SALLE DE BAIN');
-  L.push('Portes fenetres poignees seulement interieures sans barillet');
-  L.push('Verres depoli acide (44-2) sur fenetre sans VR');
+  L.push('Portes fenêtres poignées seulement intérieures sans barillet');
+  L.push('Verres dépoli acide (44-2) sur fenêtre sans VR');
 
   // Porte d'entrée
   portesEntree.forEach(p=>{
     const ral=p.ral?p.ral:'BLANC';
     const modele=p.modele?p.modele:'XX';
-    L.push('Porte d\'entree ACIER RAL '+ral+' : modele '+modele);
+    L.push('Porte d\'entrée ACIER RAL '+ral+' : modèle '+modele);
   });
-  if(portesEntree.length===0)L.push('Porte d\'entree ACIER RAL BLANC ou COULEUR : modele XX');
+  if(portesEntree.length===0)L.push('Porte d\'entrée ACIER RAL BLANC ou COULEUR : modèle XX');
 
   // Porte de garage
   portesGarage.forEach(p=>{
@@ -2562,14 +2562,16 @@ function envoyerSWAO(){
   L.push('');
   L.push('Conducteur de travaux Herpin Florent : 07 55 65 01 20');
   L.push('');
-  L.push('Vous souhaitant une bonne journee.');
+  L.push('Vous souhaitant une bonne journée.');
 
   const corps=L.join('\r\n');
   const subject='MA17SUD / COMMANDE '+(cl?.nom||'CHANTIER');
   const mailUrl='mailto:serviceclient@swao.fr?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(corps);
   window.open(mailUrl);
   const dateEnvoi=new Date().toISOString();
-  db('PATCH','commandes_carrelage',{statut:'envoyee',date_envoi:dateEnvoi},`?id=eq.${cmd.id}`).then(()=>{
+  // Annuler tout save en attente et sauvegarder TOUT d'un coup (swao_data + statut)
+  clearTimeout(_swaoSaveTimer);
+  db('PATCH','commandes_carrelage',{statut:'envoyee',date_envoi:dateEnvoi,swao_data:cmd.swao_data,note_globale:cmd.note_globale||null},`?id=eq.${cmd.id}`).then(()=>{
     cmd.statut='envoyee';cmd.date_envoi=dateEnvoi;
     toast('✉ Commande SWAO envoyée !');
     goView('commandes');
