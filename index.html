@@ -1828,13 +1828,23 @@ function _extractSWAO(rows){
 
     if(ll.includes('vitrage')&&(ll.includes('vandal')||ll.includes('granit')||ll.includes('dépoli')||ll.includes('depoli'))){
       vitrages.push({label:lib.replace(/\s*\d+[.,]?\d*\s*x\s*\d+[.,]?\d*/i,'').trim(),dim:dimStr});
-    } else if(ll.includes('basculant')||(ll.includes('porte')&&ll.includes('garage'))){
-      portes.push({id:'pg'+Date.now()+Math.random().toString(36).slice(2,6),type:'garage',label:'Porte de garage basculante',dim:dimStr,qte:qt,ral:'',moteur:false});
+    } else if(ll.includes('basculant')||ll.includes('sectionnel')||(ll.includes('porte')&&ll.includes('garage'))){
+      const typeGarage=ll.includes('sectionnel')?'sectionnelle':'basculante';
+      // Dimensions en mm : hauteur = d1*10, largeur = d2*10 - 25
+      const hMm=dims?Math.round(dims.d1*10):0;
+      const lMm=dims?Math.round(dims.d2*10)-25:0;
+      portes.push({id:'pg'+Date.now()+Math.random().toString(36).slice(2,6),type:'garage',typeGarage,label:'Porte de garage '+typeGarage,dim:dimStr,h_mm:hMm,l_mm:lMm,qte:qt,ral:'',moteur:false});
     } else if((ll.includes("porte d'entrée")||ll.includes("p. d'entrée"))&&!ll.includes('fenêtre')&&!ll.includes('fenetre')){
       portes.push({id:'pe'+Date.now()+Math.random().toString(36).slice(2,6),type:'entree',label:lib.replace(/\s*\d+[.,]?\d*\s*x\s*\d+[.,]?\d*/i,'').trim(),dim:dimStr,qte:qt,modele:'',ral:''});
     } else if(ll.includes('châssis')||ll.includes('chassis')||ll.includes('fenêtre')||ll.includes('fenetre')||ll.includes('coulis')||ll.includes('baie')){
       const isAlu=ll.includes('alu');
-      menuiseries.push({id:'m'+Date.now()+Math.random().toString(36).slice(2,6),label:lib.replace(/\s*\d+[.,]?\d*\s*x\s*\d+[.,]?\d*/i,'').trim(),dim:dimStr,qte:qt,isAlu,ral:'',vitrages:[]});
+      const isOB=ll.includes('oscillo');
+      const isCoulissant=ll.includes('coulis')||ll.includes('baie');
+      const cleanLabel=lib.replace(/\s*\d+[.,]?\d*\s*x\s*\d+[.,]?\d*/i,'').trim();
+      // Une ligne par unité
+      for(let i=0;i<qt;i++){
+        menuiseries.push({id:'m'+Date.now()+Math.random().toString(36).slice(2,6)+i,label:cleanLabel,dim:dimStr,qte:1,isAlu,isOB,isCoulissant,piece:'',ral:'',vitrages:[]});
+      }
     }
   });
   // Associer les vitrages aux menuiseries de même dimension
@@ -2171,7 +2181,7 @@ function openCommandeVM(cmd){
     <div class="card" style="overflow:hidden">
       <div style="display:flex;align-items:center;justify-content:space-between;background:#b45309;padding:12px 16px">
         <div style="color:#fff;font-size:14px;font-weight:800">📦 VM — ${cl?.nom||''}</div>
-        <span style="background:#fff;color:#b45309;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">${cmd.statut==='envoyee'?'✉ Envoyée':'Brouillon'}</span>
+        ${cmd.statut==='envoyee'?`<button onclick="repasserBrouillonListe('${cmd.id}')" style="background:#fff;color:#b45309;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit">✉ Envoyée · ↩ brouillon</button>`:`<span style="background:#fff;color:#b45309;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">Brouillon</span>`}
       </div>
       <div style="padding:16px">
         <div style="font-size:11px;color:#64748b;margin-bottom:12px">${cl?.adresse||''}</div>
@@ -2272,6 +2282,9 @@ function openCommandeSWAO(cmd){
   const cl=clients.find(x=>x.id===cmd.client_id);
   const c=document.getElementById('content');
   const data=cmd.swao_data||{menuiseries:[],portes:[]};
+  // Pièces du métré carrelage du même chantier
+  const cmdCarr=commandesList.find(x=>x.client_id===cmd.client_id&&(x.type_commande||'carrelage')==='carrelage');
+  const piecesSwao=cmdCarr?(cmdCarr.pieces||[]).map(p=>p.nom).filter(Boolean):[];
   const menuiseries=data.menuiseries||[];
   const portes=data.portes||[];
   const portesEntree=portes.filter(p=>p.type==='entree');
@@ -2280,12 +2293,18 @@ function openCommandeSWAO(cmd){
   function menuLine(m){
     return `<div style="padding:10px 0;border-bottom:1px solid #f1f5f9">
       <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
-        <div style="font-size:14px;font-weight:700">${m.label} <span style="font-weight:400;color:#64748b;font-size:13px">${m.dim}</span></div>
-        <div style="font-size:13px;font-weight:800;color:#15803d;white-space:nowrap">× ${m.qte}</div>
+        <div style="font-size:14px;font-weight:700">${m.label} <span style="font-weight:400;color:#64748b;font-size:13px">${m.dim}</span> ${m.isAlu?'<span style="padding:1px 6px;border-radius:5px;font-size:9px;font-weight:700;background:#dbeafe;color:#1e40af">ALU</span>':'<span style="padding:1px 6px;border-radius:5px;font-size:9px;font-weight:700;background:#f1f5f9;color:#64748b">PVC</span>'} ${m.isOB?'<span style="padding:1px 6px;border-radius:5px;font-size:9px;font-weight:700;background:#fef3c7;color:#92400e">OB</span>':''}</div>
       </div>
       <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
         ${(m.vitrages||[]).map(v=>`<span style="padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;background:#fef9c3;color:#854d0e">${v}</span>`).join('')}
-        ${m.isAlu?`<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#64748b">RAL <input type="text" value="${(m.ral||'').replace(/"/g,'&quot;')}" data-mid="${m.id}" oninput="_swaoSet('menuiseries','${m.id}','ral',this.value)" placeholder="couleur" style="padding:4px 8px;border-radius:6px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:12px;background:#f8fafc;width:140px"/></span>`:''}
+        <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#64748b">Pièce
+          <select data-mid="${m.id}" onchange="_swaoSet('menuiseries','${m.id}','piece',this.value)" style="padding:4px 8px;border-radius:6px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:12px;background:#f8fafc;max-width:130px">
+            <option value="">— choisir —</option>
+            ${piecesSwao.map(nom=>`<option value="${nom.replace(/"/g,'&quot;')}" ${m.piece===nom?'selected':''}>${nom}</option>`).join('')}
+            ${m.piece&&!piecesSwao.includes(m.piece)?`<option value="${m.piece.replace(/"/g,'&quot;')}" selected>${m.piece}</option>`:''}
+          </select>
+        </span>
+        ${m.isAlu?`<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#64748b">RAL <input type="text" value="${(m.ral||'').replace(/"/g,'&quot;')}" data-mid="${m.id}" oninput="_swaoSet('menuiseries','${m.id}','ral',this.value)" placeholder="Blanc si vide" style="padding:4px 8px;border-radius:6px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:12px;background:#f8fafc;width:120px"/></span>`:''}
       </div>
     </div>`;
   }
@@ -2323,7 +2342,7 @@ function openCommandeSWAO(cmd){
     <div class="card" style="overflow:hidden">
       <div style="display:flex;align-items:center;justify-content:space-between;background:#15803d;padding:12px 16px">
         <div style="color:#fff;font-size:14px;font-weight:800">🪟 SWAO — ${cl?.nom||''}</div>
-        ${cmd.statut==='envoyee'?`<span style="background:#fff;color:#15803d;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">✉ Envoyée</span>`:`<span style="background:#fff;color:#15803d;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">Brouillon</span>`}
+        ${cmd.statut==='envoyee'?`<button onclick="repasserBrouillonListe('${cmd.id}')" style="background:#fff;color:#15803d;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit">✉ Envoyée · ↩ brouillon</button>`:`<span style="background:#fff;color:#15803d;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">Brouillon</span>`}
       </div>
       <div style="padding:16px">
         <div style="font-size:11px;color:#64748b;margin-bottom:12px">${cl?.adresse||''}</div>
@@ -2370,8 +2389,88 @@ function _swaoSetNote(val){
   },700);
 }
 
-function exportSWAO(){toast('PDF SWAO — à venir');}
-function envoyerSWAO(){toast('Envoi SWAO — à venir');}
+function envoyerSWAO(){
+  const cmd=commandesList.find(x=>x.id===window._cmdCourante);
+  if(!cmd)return;
+  const cl=clients.find(x=>x.id===cmd.client_id);
+  const d=cmd.swao_data||{menuiseries:[],portes:[]};
+  const menuiseries=d.menuiseries||[];
+  const portes=d.portes||[];
+  const portesEntree=portes.filter(p=>p.type==='entree');
+  const portesGarage=portes.filter(p=>p.type==='garage');
+
+  // Détecter PVC / ALU global
+  const hasAlu=menuiseries.some(m=>m.isAlu);
+  const hasPvc=menuiseries.some(m=>!m.isAlu);
+  const typeMenui=hasAlu&&hasPvc?'PVC ALU':hasAlu?'ALU':'PVC';
+
+  // Coulissant : RAL ou Blanc
+  const coul=menuiseries.find(m=>m.isCoulissant);
+  const coulRal=coul&&coul.ral?coul.ral:'Blanc';
+
+  // Pièces oscillo-battantes
+  const piecesOB=menuiseries.filter(m=>m.isOB&&m.piece).map(m=>m.piece);
+  const obTxt=piecesOB.length>0?piecesOB.join(', '):'TOUTES';
+
+  const L=[];
+  L.push('Bonjour,');
+  L.push('');
+  L.push('Veuillez trouver ci-dessous les details de cette commande : chantier '+(cl?.nom||''));
+  L.push('');
+  L.push('Menuiseries '+typeMenui);
+  L.push('Coulissants ALU '+coulRal);
+  L.push('Dormant de 160mm (RE2020)');
+  L.push('Fenetres oscillo-battantes pour '+obTxt);
+  L.push('Prevoir encastrement pour les baies et vantail principal a droite');
+  L.push('Mortaise de ventilation sur ouvrants et prevoir grille plate exterieure sur le coulissant');
+  L.push('Pas de volets roulants.');
+  L.push('VITRAGE CLAIR OU IMPRIME POUR SALLE DE BAIN');
+  L.push('Portes fenetres poignees seulement interieures sans barillet');
+  L.push('Verres depoli acide (44-2) sur fenetre sans VR');
+
+  // Porte d'entrée
+  portesEntree.forEach(p=>{
+    const ral=p.ral?p.ral:'BLANC';
+    const modele=p.modele?p.modele:'XX';
+    L.push('Porte d\'entree ACIER RAL '+ral+' : modele '+modele);
+  });
+  if(portesEntree.length===0)L.push('Porte d\'entree ACIER RAL BLANC ou COULEUR : modele XX');
+
+  // Porte de garage
+  portesGarage.forEach(p=>{
+    const typeG=p.typeGarage||'basculante';
+    const moteur=p.moteur?'avec':'sans';
+    const moteurType=typeG==='sectionnelle'?'novomatic 200 LED':'integraport rail court';
+    const h=p.h_mm||'';
+    const l=p.l_mm||'';
+    L.push('Porte de garage '+typeG+' '+moteur+' motorisation ('+moteurType+') DIMENSION H '+h+' mm X L '+l+' mm');
+  });
+  if(portesGarage.length===0)L.push('Porte de garage battante ou sectionnelle avec/sans motorisation DIMENSION H mm X L mm');
+
+  // Note
+  if(cmd.note_globale&&cmd.note_globale.trim()){
+    L.push('');
+    L.push('Note : '+cmd.note_globale);
+  }
+
+  L.push('');
+  L.push('Conducteur de travaux Herpin Florent : 07 55 65 01 20');
+  L.push('');
+  L.push('Vous souhaitant une bonne journee.');
+
+  const corps=L.join('\r\n');
+  const subject='MA17SUD / COMMANDE '+(cl?.nom||'CHANTIER');
+  const mailUrl='mailto:serviceclient@swao.fr?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(corps);
+  window.open(mailUrl);
+  const dateEnvoi=new Date().toISOString();
+  db('PATCH','commandes_carrelage',{statut:'envoyee',date_envoi:dateEnvoi},`?id=eq.${cmd.id}`).then(()=>{
+    cmd.statut='envoyee';cmd.date_envoi=dateEnvoi;
+    toast('✉ Commande SWAO envoyée !');
+    goView('commandes');
+  }).catch(e=>toast('⚠ '+e.message,'#ef4444'));
+}
+
+function exportSWAO(){envoyerSWAO();}
 
 function openCommande(cmdId){
   const cmd=commandesList.find(x=>x.id===cmdId);
@@ -3610,7 +3709,9 @@ async function repasserBrouillonListe(cmdId){
   await db('PATCH','commandes_carrelage',{statut:'brouillon',date_envoi:null},`?id=eq.${cmdId}`);
   cmd.statut='brouillon';cmd.date_envoi=null;
   toast('↩ Repassée en brouillon');
-  goView('commandes');
+  // Rester sur la commande ouverte si on y est, sinon liste
+  if(window._cmdCourante===cmdId){openCommande(cmdId);}
+  else{goView('commandes');}
 }
 
 async function repasserBrouillon(){
