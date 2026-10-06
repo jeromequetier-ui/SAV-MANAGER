@@ -2567,7 +2567,12 @@ function envoyerSWAO(){
   const corps=L.join('\r\n');
   const subject='MA17SUD / COMMANDE '+(cl?.nom||'CHANTIER');
   const mailUrl='mailto:serviceclient@swao.fr?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(corps);
-  window.open(mailUrl);
+  // Méthode fiable pour mailto avec accents : lien ancre cliqué
+  const a=document.createElement('a');
+  a.href=mailUrl;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
   const dateEnvoi=new Date().toISOString();
   // Annuler tout save en attente et sauvegarder TOUT d'un coup (swao_data + statut)
   clearTimeout(_swaoSaveTimer);
