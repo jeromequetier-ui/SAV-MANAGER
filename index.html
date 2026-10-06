@@ -2496,9 +2496,9 @@ function envoyerSWAO(){
   const hasPvc=menuiseries.some(m=>bdg(m,'pvc'));
   const typeMenui=hasAlu&&hasPvc?'PVC ALU':hasAlu?'ALU':'PVC';
 
-  // Coulissant : RAL ou Blanc
-  const coul=menuiseries.find(m=>m.isCoulissant);
-  const coulRal=coul&&coul.ral?coul.ral:'Blanc';
+  // RAL global des menuiseries (une maison = une couleur) : premier RAL rempli, sinon Blanc
+  const ralGlobal=(menuiseries.find(m=>m.ral&&m.ral.trim())||{}).ral||'Blanc';
+  const coulRal=ralGlobal;
 
   // Pièces oscillo-battantes (badge OB actif)
   const piecesOB=menuiseries.filter(m=>bdg(m,'ob')&&m.piece).map(m=>m.piece);
@@ -2513,8 +2513,11 @@ function envoyerSWAO(){
   L.push('');
   L.push('Veuillez trouver ci-dessous les details de cette commande : chantier '+(cl?.nom||''));
   L.push('');
-  L.push('Menuiseries '+typeMenui);
-  L.push('Coulissants ALU '+coulRal);
+  // Si blanc → "BLANC", sinon "RAL xxx"
+  const ralTxt=(ralGlobal.toLowerCase()==='blanc')?'BLANC':'RAL '+ralGlobal;
+  const coulTxt=(coulRal.toLowerCase()==='blanc')?'BLANC':'RAL '+coulRal;
+  L.push('Menuiseries '+typeMenui+' '+ralTxt);
+  L.push('Coulissants ALU '+coulTxt);
   L.push('Dormant de 160mm (RE2020)');
   L.push('Fenetres oscillo-battantes pour '+obTxt);
   L.push('Prevoir encastrement pour les baies et vantail principal a droite');
@@ -2523,23 +2526,6 @@ function envoyerSWAO(){
   L.push('VITRAGE '+vitrageSDB+' POUR SALLE DE BAIN');
   L.push('Portes fenetres poignees seulement interieures sans barillet');
   L.push('Verres depoli acide (44-2) sur fenetre sans VR');
-  L.push('');
-  // Détail menuiseries avec RAL
-  if(menuiseries.length>0){
-    L.push('--- MENUISERIES ---');
-    menuiseries.forEach(m=>{
-      const typeM=bdg(m,'alu')?'ALU':'PVC';
-      const ral=m.ral?m.ral:'Blanc';
-      const vitr=[];
-      if(bdg(m,'v442'))vitr.push('44-2');
-      if(bdg(m,'da'))vitr.push('DA');
-      let ligne='- '+m.label+' '+m.dim+' '+typeM+(bdg(m,'ob')?' OB':'')+' - RAL '+ral;
-      if(m.piece)ligne+=' ('+m.piece+')';
-      if(vitr.length>0)ligne+=' ['+vitr.join(', ')+']';
-      L.push(ligne);
-    });
-    L.push('');
-  }
 
   // Porte d'entrée
   portesEntree.forEach(p=>{
