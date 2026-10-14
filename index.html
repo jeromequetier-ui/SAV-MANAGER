@@ -5259,12 +5259,29 @@ function _suiviRow(s,flat){
 
   // OUVERT
   const dateCreation=s.created_at?new Date(s.created_at).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}):'';
-  // Mail / SMS
-  const cc=[cl?.email,cl?.email2].filter(Boolean).join(',');
-  const body='Bonjour,%0A%0ASuivi de chantier :%0A━━━━━━━━━━%0AChantier : '+(cl?.nom||'')+'%0AAdresse : '+encodeURIComponent(cl?.adresse||'')+'%0A━━━━━━━━━━%0A'+encodeURIComponent(s.titre||'')+'%0A'+encodeURIComponent(s.description||'')+'%0A%0AMerci,%0AMA 17 SUD';
-  const mailHref=artisan?.email?'mailto:'+artisan.email+'?cc='+cc+'&subject='+encodeURIComponent('Suivi : '+(s.titre||cl?.nom||''))+'&body='+body:'';
-  const smsBody=encodeURIComponent('Suivi '+(cl?.nom||'')+' : '+(s.titre||'')+'. '+(s.description||'').slice(0,200));
-  const smsHref=artisan?.tel?'sms:'+artisan.tel.replace(/\s/g,'')+'?&body='+smsBody:'';
+  // Mail / SMS — PAS de copie client, objet + corps complets
+  const mailLines=[
+    'Bonjour,',
+    '',
+    'Intervention à réaliser sur le chantier suivant :',
+    '',
+    'Chantier : '+(cl?.nom||''),
+    'Adresse : '+(cl?.adresse||''),
+    '',
+    'Détails :',
+    (s.titre||''),
+    (s.description||''),
+    '',
+    'Merci d\'intervenir dans les meilleurs délais.',
+    '',
+    'Cordialement,',
+    'MA 17 SUD'
+  ];
+  const mailBodyTxt=mailLines.join('\r\n');
+  const mailSubject='MA17SUD / INTERVENTION SUR CHANTIER : '+(cl?.nom||'');
+  const mailHref=artisan?.email?'mailto:'+artisan.email+'?subject='+encodeURIComponent(mailSubject)+'&body='+encodeURIComponent(mailBodyTxt):'';
+  const smsBody='Chantier '+(cl?.nom||'')+' : '+(s.titre||'')+'. '+(s.description||'');
+  const smsHref=artisan?.tel?'sms:'+artisan.tel.replace(/\s/g,'')+'?&body='+encodeURIComponent(smsBody):'';
 
   let html='<div style="border-bottom:1px solid #f1f5f9;background:#fafbfc">';
   html+='<div data-sid="'+s.id+'" onclick="toggleSuiviOpen(this.dataset.sid)" style="display:flex;align-items:center;gap:9px;padding:9px 13px;cursor:pointer">'
@@ -5282,8 +5299,12 @@ function _suiviRow(s,flat){
   html+='</div>';
   // Meta
   html+='<div style="font-size:11px;color:#64748b;margin-bottom:10px">📅 Créé le '+dateCreation;
-  if(artisan)html+=' · 🔧 '+(artisan.entreprise||artisan.nom);
-  else html+=' · 🏠 Interne MA 17 SUD';
+  if(s.date_envoi){
+    const dEnv=new Date(s.date_envoi).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+    html+=' · ✉ Envoyé le '+dEnv;
+  }
+  if(artisan)html+='<br>🔧 '+(artisan.entreprise||artisan.nom);
+  else html+='<br>🏠 Interne MA 17 SUD';
   html+='</div>';
   // Actions
   html+='<div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">';
@@ -5347,13 +5368,14 @@ async function chgSuiviStatut(sid,statut){
 }
 
 async function _suiviMailSent(sid){
-  // Passer en "en cours" si nouveau quand on envoie un mail/sms
   const s=suivisList.find(x=>x.id===sid);
-  if(s&&s.statut==='nouveau'){
-    suivisList=suivisList.map(x=>x.id===sid?{...x,statut:'en_cours'}:x);
-    try{await db('PATCH','suivis',{statut:'en_cours'},`?id=eq.${sid}`);}catch(e){}
-    setTimeout(()=>_renderSuiviView(),400);
-  }
+  if(!s)return;
+  const dateEnvoi=new Date().toISOString();
+  const patch={date_envoi:dateEnvoi};
+  if(s.statut==='nouveau')patch.statut='en_cours';
+  suivisList=suivisList.map(x=>x.id===sid?{...x,...patch}:x);
+  try{await db('PATCH','suivis',patch,`?id=eq.${sid}`);}catch(e){}
+  setTimeout(()=>_renderSuiviView(),400);
 }
 
 async function planifierSuivi(sid){
