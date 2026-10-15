@@ -5155,12 +5155,10 @@ function _renderSuiviView(c){
 
   c.innerHTML=`
     <div id="suivi-header">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <h1 style="font-size:20px;font-weight:800">📋 Suivi de chantier</h1>
-      </div>
-      <div style="display:flex;gap:8px;margin-bottom:10px">
-        <button onclick="openNewSuivi()" style="flex:1;padding:9px 14px;border-radius:10px;border:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;background:#00B4C5;color:#fff">+ Nouveau suivi</button>
-        <button onclick="openSuiviIA()" style="padding:9px 14px;border-radius:10px;border:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff">✨ Suivi IA</button>
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px">
+        <h1 style="font-size:16px;font-weight:800;flex:1;white-space:nowrap">📋 Suivi</h1>
+        <button onclick="openNewSuivi()" style="padding:8px 12px;border-radius:9px;border:none;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;background:#00B4C5;color:#fff;white-space:nowrap">+ Nouveau suivi</button>
+        <button onclick="openSuiviIA()" style="padding:8px 11px;border-radius:9px;border:none;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;white-space:nowrap">✨ IA</button>
       </div>
       <input id="suivi-search" value="${(window._suiviSearch||'').replace(/"/g,'&quot;')}" oninput="window._suiviSearch=this.value;_renderSuiviView()" placeholder="🔍 Rechercher un chantier..." style="width:100%;padding:10px 14px;border-radius:12px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:14px;margin-bottom:10px"/>
       <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px">Affichage</div>
@@ -5217,6 +5215,8 @@ function _renderSuiviList(list){
     const sorted=[...list].sort((a,b)=>{const ja=_suiviJoursRef(a),jb=_suiviJoursRef(b);return dir==='new'?(ja-jb):(jb-ja);});
     return '<div class="card" style="overflow:hidden">'+sorted.map(s=>_suiviRow(s,true)).join('')+'</div><div style="height:30vh"></div>';
   }
+  // Vue par artisan
+  if((window._suiviScope||'clients')==='artisans')return _renderSuiviArtisanView(list);
   // Groupé par chantier
   const byClient={};
   list.forEach(s=>{if(!byClient[s.client_id])byClient[s.client_id]=[];byClient[s.client_id].push(s);});
@@ -5229,9 +5229,10 @@ function _renderSuiviList(list){
     const cl=clients.find(x=>x.id===cid);
     const items=byClient[cid];
     return '<div class="card" style="overflow:hidden;margin-bottom:10px;padding:0">'
-      +'<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;background:#0f172a;color:#fff">'
-        +'<span style="font-weight:700;font-size:13px">'+(cl?.nom||'?')+'</span>'
-        +'<span style="font-size:11px;background:rgba(255,255,255,0.2);padding:2px 9px;border-radius:20px">'+items.length+' suivi'+(items.length>1?'s':'')+'</span>'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 13px;background:#0f172a;color:#fff">'
+        +'<span style="font-weight:700;font-size:13px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(cl?.nom||'?')+'</span>'
+        +'<span style="font-size:11px;background:rgba(255,255,255,0.2);padding:2px 9px;border-radius:20px;white-space:nowrap">'+items.length+' suivi'+(items.length>1?'s':'')+'</span>'
+        +'<button data-cid="'+cid+'" onclick="event.stopPropagation();openQuickTask(this.dataset.cid)" title="Ajouter une tâche" style="width:27px;height:27px;flex-shrink:0;border-radius:7px;background:#00B4C5;color:#fff;border:none;cursor:pointer;font-size:17px;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center">+</button>'
       +'</div>'
       +items.map(s=>_suiviRow(s,false)).join('')
     +'</div>';
@@ -5306,7 +5307,7 @@ function _suiviRow(s,flat){
   if(artisan)html+='<br>🔧 '+(artisan.entreprise||artisan.nom);
   else html+='<br>🏠 Interne MA 17 SUD';
   html+='</div>';
-  // Actions
+  // Actions — Mail/SMS (ou Planifier) à gauche · Modification / Statut / Poubelle à droite
   html+='<div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">';
   if(s.type_suivi==='interne'||!s.artisan_id){
     // Interne : planifier
@@ -5315,23 +5316,182 @@ function _suiviRow(s,flat){
     if(mailHref)html+='<a href="'+mailHref+'" data-sid="'+s.id+'" onclick="event.stopPropagation();_suiviMailSent(this.dataset.sid)" style="text-decoration:none;padding:7px 12px;border-radius:9px;border:1.5px solid #bfdbfe;background:#eff6ff;color:#2563eb;font-size:12px;font-weight:700">✉ Mail artisan</a>';
     if(smsHref)html+='<a href="'+smsHref+'" data-sid="'+s.id+'" onclick="event.stopPropagation();_suiviMailSent(this.dataset.sid)" style="text-decoration:none;padding:7px 12px;border-radius:9px;border:1.5px solid #bbf7d0;background:#f0fdf4;color:#15803d;font-size:12px;font-weight:700">💬 SMS artisan</a>';
   }
-  // Statut
+  // Espace pour pousser le groupe de droite
+  html+='<div style="flex:1;min-width:8px"></div>';
+  // Modification (texte)
+  html+='<button data-sid="'+s.id+'" onclick="event.stopPropagation();openEditSuivi(this.dataset.sid)" style="padding:7px 11px;border-radius:9px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#475569;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">✏ Modification</button>';
+  // Statut (à droite, près de la poubelle)
   html+='<span class="status '+st.cls+'" data-menu="sumenu-'+s.id+'" onclick="event.stopPropagation();toggleSuiviStatutMenu(this.dataset.menu,event)" style="cursor:pointer;padding:7px 12px;border-radius:9px;font-size:12px;font-weight:700">🔄 Statut ▾</span>';
   html+='<div class="statut-menu" id="sumenu-'+s.id+'" style="right:0;left:auto;min-width:160px">';
   Object.entries(SUIVI_STATUTS).filter(([k])=>k!==s.statut&&(k!=='planifie'||(s.type_suivi==='interne'||!s.artisan_id))).forEach(([k,v])=>{
     html+='<button data-sid="'+s.id+'" data-k="'+k+'" onclick="event.stopPropagation();chgSuiviStatut(this.dataset.sid,this.dataset.k)"><span class="status '+v.cls+'">'+v.l+'</span></button>';
   });
   html+='</div>';
-  html+='<button data-sid="'+s.id+'" onclick="event.stopPropagation();openEditSuivi(this.dataset.sid)" style="padding:7px 10px;border-radius:9px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:12px;font-family:inherit">✏</button>';
-  html+='<button data-sid="'+s.id+'" onclick="event.stopPropagation();deleteSuivi(this.dataset.sid)" style="padding:7px 10px;border-radius:9px;border:1.5px solid #fee2e2;background:#fff5f5;color:#ef4444;cursor:pointer;font-size:12px;font-family:inherit;margin-left:auto">🗑</button>';
+  // Poubelle
+  html+='<button data-sid="'+s.id+'" onclick="event.stopPropagation();deleteSuivi(this.dataset.sid)" style="padding:7px 11px;border-radius:9px;border:1.5px solid #fee2e2;background:#fff5f5;color:#ef4444;cursor:pointer;font-size:12px;font-family:inherit">🗑</button>';
   html+='</div>';
   html+='</div></div>';
   return html;
 }
 
 function toggleSuiviOpen(sid){
-  window._suiviOpen=(window._suiviOpen===sid)?null:sid;
+  const wasOpen=window._suiviOpen===sid;
+  // Mémoriser la position de scroll avant reconstruction
+  const contBefore=document.getElementById('suivi-list');
+  const scrollPos=contBefore?contBefore.scrollTop:0;
+  window._suiviOpen=wasOpen?null:sid;
   _renderSuiviView();
+  // Restaurer la position : à la fermeture on ne bouge pas, à l'ouverture on repart d'où on était
+  const contAfter=document.getElementById('suivi-list');
+  if(contAfter)contAfter.scrollTop=scrollPos;
+  // Même comportement que le SAV : à l'ouverture, ne scroller que si le bloc déplié dépasse en bas
+  if(!wasOpen){
+    setTimeout(()=>{
+      const container=document.getElementById('suivi-list');
+      if(!container)return;
+      const header=container.querySelector('[data-sid="'+sid+'"]');
+      if(!header)return;
+      const block=header.parentElement;
+      if(!block)return;
+      const blockRect=block.getBoundingClientRect();
+      const contRect=container.getBoundingClientRect();
+      const blockBottom=blockRect.bottom-contRect.top+container.scrollTop;
+      const blockTop=blockRect.top-contRect.top+container.scrollTop;
+      const visibleH=container.clientHeight;
+      if(blockRect.bottom>contRect.bottom){
+        if(blockRect.height>visibleH){
+          container.scrollTo({top:blockTop-10,behavior:'smooth'});
+        } else {
+          container.scrollTo({top:blockBottom-visibleH+20,behavior:'smooth'});
+        }
+      }
+    },80);
+  }
+}
+
+// ═══ VUE PAR ARTISAN ═══
+function _renderSuiviArtisanView(list){
+  const byArt={};
+  list.forEach(s=>{const aid=s.artisan_id;if(!aid)return;if(!byArt[aid])byArt[aid]=[];byArt[aid].push(s);});
+  const aids=Object.keys(byArt).sort((a,b)=>{
+    const na=(artisans.find(x=>x.id===a)?.entreprise||artisans.find(x=>x.id===a)?.nom||'').toLowerCase();
+    const nb=(artisans.find(x=>x.id===b)?.entreprise||artisans.find(x=>x.id===b)?.nom||'').toLowerCase();
+    return na.localeCompare(nb);
+  });
+  if(aids.length===0)return '<div class="empty"><div class="big">✅</div><p style="color:#10b981;font-weight:700">Aucune tâche artisan !</p></div>';
+  window._suiviArtClientOpen=window._suiviArtClientOpen||{};
+  return aids.map(aid=>{
+    const a=artisans.find(x=>x.id===aid);
+    const items=byArt[aid];
+    const nbTot=items.length;
+    // groupé par client
+    const byCl={};
+    items.forEach(s=>{if(!byCl[s.client_id])byCl[s.client_id]=[];byCl[s.client_id].push(s);});
+    const clids=Object.keys(byCl).sort((x,y)=>{
+      const nx=(clients.find(c=>c.id===x)?.nom||'').toLowerCase();
+      const ny=(clients.find(c=>c.id===y)?.nom||'').toLowerCase();
+      return nx.localeCompare(ny);
+    });
+    const artTitre=a?((a.metier?a.metier+' — ':'')+(a.entreprise||a.nom)):'Artisan';
+    const tel=a?.tel?a.tel.replace(/\s/g,''):'';
+    let h='<div class="card" style="overflow:hidden;margin-bottom:10px;padding:0">';
+    // bannière artisan
+    h+='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 13px;background:#4c1d95;color:#fff">';
+    h+='<div style="flex:1;overflow:hidden">';
+    h+='<div style="font-weight:800;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+artTitre+'</div>';
+    h+='<div style="color:#c4b5fd;font-size:11px;margin-top:1px">'+(a?.tel||'')+' · '+clids.length+' chantier'+(clids.length>1?'s':'')+' · '+nbTot+' tâche'+(nbTot>1?'s':'')+'</div>';
+    h+='</div>';
+    h+='<div style="display:flex;gap:5px;flex-shrink:0">';
+    if(tel)h+='<a href="tel:'+tel+'" onclick="event.stopPropagation()" style="width:28px;height:28px;border-radius:7px;background:#6d28d9;color:#f3e8ff;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:13px">📞</a>';
+    if(a?.email)h+='<a href="mailto:'+a.email+'" onclick="event.stopPropagation()" style="width:28px;height:28px;border-radius:7px;background:#6d28d9;color:#f3e8ff;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:13px">✉</a>';
+    if(tel)h+='<a href="sms:'+tel+'" onclick="event.stopPropagation()" style="width:28px;height:28px;border-radius:7px;background:#6d28d9;color:#f3e8ff;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:13px">💬</a>';
+    h+='</div></div>';
+    // clients dépliables
+    clids.forEach(cid=>{
+      const cl=clients.find(c=>c.id===cid);
+      const tasks=byCl[cid];
+      const key=aid+'|'+cid;
+      const isOpen=!!window._suiviArtClientOpen[key];
+      h+='<div data-k="'+key+'" onclick="toggleSuiviArtClient(this.dataset.k)" style="display:flex;align-items:center;gap:8px;padding:9px 13px;cursor:pointer;border-bottom:1px solid #f1f5f9">';
+      h+='<span style="flex:1;font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🏡 '+(cl?.nom||'?')+'</span>';
+      h+='<span style="font-size:10px;background:#ede9fe;color:#6d28d9;padding:2px 8px;border-radius:20px;white-space:nowrap">'+tasks.length+' tâche'+(tasks.length>1?'s':'')+'</span>';
+      h+='<span style="color:#cbd5e1;font-size:12px;display:inline-block'+(isOpen?';transform:rotate(90deg)':'')+'">›</span>';
+      h+='</div>';
+      if(isOpen){
+        h+='<div style="padding:4px 13px 10px 30px;background:#fafbfc">';
+        tasks.forEach((s,i)=>{
+          const st=SUIVI_STATUTS[s.statut]||SUIVI_STATUTS.nouveau;
+          h+='<div style="padding:8px 0'+(i<tasks.length-1?';border-bottom:1px dashed #e9edf3':'')+'">';
+          h+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="width:7px;height:7px;border-radius:50%;background:'+st.dot+';flex-shrink:0"></span><span style="font-weight:700;font-size:12px;flex:1">'+(s.titre||'')+'</span><span class="status '+st.cls+'" style="font-size:9px">'+st.l+'</span></div>';
+          if(s.description)h+='<div style="font-size:12px;color:#475569;white-space:pre-wrap;line-height:1.5;padding-left:13px">'+s.description+'</div>';
+          h+='</div>';
+        });
+        h+='</div>';
+      }
+    });
+    h+='</div>';
+    return h;
+  }).join('')+'<div style="height:30vh"></div>';
+}
+function toggleSuiviArtClient(key){
+  window._suiviArtClientOpen=window._suiviArtClientOpen||{};
+  window._suiviArtClientOpen[key]=!window._suiviArtClientOpen[key];
+  _renderSuiviView();
+}
+
+// ═══ AJOUT RAPIDE DE TÂCHE (client déjà connu) ═══
+function openQuickTask(cid){
+  const cl=clients.find(x=>x.id===cid);
+  if(!cl)return;
+  window._quickTaskClient=cid;
+  const ac=clientArtisans(cid);const acIds=ac.map(a=>a.id);
+  const autres=[...artisans].filter(a=>!acIds.includes(a.id)).sort((x,y)=>x.nom.localeCompare(y.nom));
+  let opts='<option value="">— Sélectionner —</option>';
+  if(ac.length){opts+='<optgroup label="⭐ Artisans de ce chantier">';ac.forEach(a=>{opts+='<option value="'+a.id+'">'+(a.metier||'')+' – '+(a.entreprise||a.nom)+'</option>';});opts+='</optgroup>';}
+  opts+='<optgroup label="Tous les artisans">';autres.forEach(a=>{opts+='<option value="'+a.id+'">'+(a.metier||'')+' – '+(a.entreprise||a.nom)+'</option>';});opts+='</optgroup>';
+  document.getElementById('m-sav-title').textContent='+ Tâche';
+  document.getElementById('m-sav-body').innerHTML=`
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="background:#ecfeff;border:1.5px solid #a5f3fc;border-radius:9px;padding:9px 12px;font-size:13px;font-weight:700;color:#0891b2">🏡 ${cl.nom}</div>
+      <div class="field"><label>Type</label>
+        <div style="display:flex;gap:6px">
+          <button type="button" onclick="_qtSetType('interne')" id="qttype-interne" style="flex:1;padding:8px;border-radius:9px;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;border:2px solid #00B4C5;background:#ecfeff;color:#0891b2">🏠 Interne</button>
+          <button type="button" onclick="_qtSetType('artisan')" id="qttype-artisan" style="flex:1;padding:8px;border-radius:9px;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;border:2px solid #e2e8f0;background:#fff;color:#64748b">👷 Artisan</button>
+        </div>
+        <input type="hidden" id="qt-type" value="interne"/>
+      </div>
+      <div class="field" id="qt-artisan-wrap" style="display:none"><label>Artisan</label>
+        <select id="qt-artisan">${opts}</select>
+      </div>
+      <div class="field"><label>Titre *</label><input id="qt-titre" type="text" placeholder="Ex: Reprise portes"/></div>
+      <div class="field"><label>Description</label><textarea id="qt-desc" placeholder="Détails…" style="min-height:80px"></textarea></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-secondary" onclick="closeM('m-sav')">Annuler</button>
+        <button class="btn btn-primary" onclick="saveQuickTask()">💾 Enregistrer</button>
+      </div>
+    </div>`;
+  openM('m-sav');
+}
+function _qtSetType(t){
+  const inp=document.getElementById('qt-type');if(inp)inp.value=t;
+  ['interne','artisan'].forEach(tt=>{const b=document.getElementById('qttype-'+tt);if(!b)return;const on=tt===t;b.style.border='2px solid '+(on?'#00B4C5':'#e2e8f0');b.style.background=on?'#ecfeff':'#fff';b.style.color=on?'#0891b2':'#64748b';});
+  const aw=document.getElementById('qt-artisan-wrap');if(aw)aw.style.display=t==='artisan'?'block':'none';
+}
+async function saveQuickTask(){
+  const clientId=window._quickTaskClient;
+  const titre=document.getElementById('qt-titre').value.trim();
+  const type=document.getElementById('qt-type').value;
+  const artisanId=type==='artisan'?(document.getElementById('qt-artisan').value||null):null;
+  const desc=document.getElementById('qt-desc').value.trim();
+  if(!clientId||!titre){toast('Titre obligatoire','#ef4444');return;}
+  const data={client_id:clientId,titre,type_suivi:type,artisan_id:artisanId,description:desc,statut:'nouveau'};
+  try{
+    const res=await db('POST','suivis',data);
+    const created=Array.isArray(res)?res[0]:res;
+    if(created&&created.id)suivisList.unshift(created);
+    else suivisList.unshift({...data,id:Date.now().toString(),created_at:new Date().toISOString()});
+    closeM('m-sav');toast('✅ Tâche ajoutée');_renderSuiviView();
+  }catch(e){toast('Erreur: '+e.message,'#ef4444');}
 }
 
 function toggleSuiviStatutMenu(menuId,event){
