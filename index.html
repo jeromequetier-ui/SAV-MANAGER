@@ -5115,6 +5115,14 @@ function getCommune(adresse){
   }
   return '';
 }
+// Retire les accents (pour les SMS)
+function _sansAccents(str){return (str||'').normalize('NFD').replace(/[̀-ͯ]/g,'');}
+// Extrait "CP COMMUNE" de l'adresse (ex: "17380 TONNAY BOUTONNE"), sinon ''
+function _cpCommune(adresse){
+  if(!adresse)return '';
+  const m=adresse.match(/([0-9]{5})\s+([^,]+)/);
+  return m?(m[1]+' '+m[2].trim()):'';
+}
 
 function renderSuivi(c){
   c.classList.add('suivi-view');
@@ -5281,7 +5289,20 @@ function _suiviRow(s,flat){
   const mailBodyTxt=mailLines.join('\r\n');
   const mailSubject='MA17SUD / INTERVENTION SUR CHANTIER : '+(cl?.nom||'');
   const mailHref=artisan?.email?'mailto:'+artisan.email+'?subject='+encodeURIComponent(mailSubject)+'&body='+encodeURIComponent(mailBodyTxt):'';
-  const smsBody='Chantier '+(cl?.nom||'')+' : '+(s.titre||'')+'. '+(s.description||'');
+  // SMS — texte condensé calqué sur le mail, sans accents, détail en puces
+  const cpCommune=_cpCommune(cl?.adresse||'');
+  const smsLines=[
+    'Bonjour,',
+    'Merci d\'intervenir sur le chantier '+(cl?.nom||'')+(cpCommune?' '+cpCommune:'')+'.',
+    'Objet : '+(s.titre||'')+'.'
+  ];
+  const detLines=(s.description||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+  if(detLines.length){
+    smsLines.push('Detail :','');
+    detLines.forEach(l=>smsLines.push('* '+l));
+  }
+  smsLines.push('','Merci, tres bonne journee.');
+  const smsBody=_sansAccents(smsLines.join('\n'));
   const smsHref=artisan?.tel?'sms:'+artisan.tel.replace(/\s/g,'')+'?&body='+encodeURIComponent(smsBody):'';
 
   let html='<div style="border-bottom:1px solid #f1f5f9;background:#fafbfc">';
@@ -5313,8 +5334,8 @@ function _suiviRow(s,flat){
     // Interne : planifier
     html+='<button data-sid="'+s.id+'" onclick="event.stopPropagation();planifierSuivi(this.dataset.sid)" style="padding:7px 12px;border-radius:9px;border:1.5px solid #ddd6fe;background:#f5f3ff;color:#7c3aed;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">📅 Planifier</button>';
   } else {
-    if(mailHref)html+='<a href="'+mailHref+'" data-sid="'+s.id+'" onclick="event.stopPropagation();_suiviMailSent(this.dataset.sid)" style="text-decoration:none;padding:7px 12px;border-radius:9px;border:1.5px solid #bfdbfe;background:#eff6ff;color:#2563eb;font-size:12px;font-weight:700">✉ Mail artisan</a>';
-    if(smsHref)html+='<a href="'+smsHref+'" data-sid="'+s.id+'" onclick="event.stopPropagation();_suiviMailSent(this.dataset.sid)" style="text-decoration:none;padding:7px 12px;border-radius:9px;border:1.5px solid #bbf7d0;background:#f0fdf4;color:#15803d;font-size:12px;font-weight:700">💬 SMS artisan</a>';
+    if(mailHref)html+='<a href="'+mailHref+'" data-sid="'+s.id+'" onclick="return _suiviEnvoi(event,this)" style="text-decoration:none;padding:7px 12px;border-radius:9px;border:1.5px solid #bfdbfe;background:#eff6ff;color:#2563eb;font-size:12px;font-weight:700">✉ Mail artisan</a>';
+    if(smsHref)html+='<a href="'+smsHref+'" data-sid="'+s.id+'" onclick="return _suiviEnvoi(event,this)" style="text-decoration:none;padding:7px 12px;border-radius:9px;border:1.5px solid #bbf7d0;background:#f0fdf4;color:#15803d;font-size:12px;font-weight:700">💬 SMS artisan</a>';
   }
   // Espace pour pousser le groupe de droite
   html+='<div style="flex:1;min-width:8px"></div>';
@@ -5518,24 +5539,41 @@ function toggleSuiviStatutMenu(menuId,event){
 async function chgSuiviStatut(sid,statut){
   const s=suivisList.find(x=>x.id===sid);
   if(!s)return;
-  suivisList=suivisList.map(x=>x.id===sid?{...x,statut}:x);
+  // Retour à "nouveau" → on purge la date d'envoi (on garde la date de création)
+  const patch=(statut==='nouveau')?{statut,date_envoi:null}:{statut};
+  suivisList=suivisList.map(x=>x.id===sid?{...x,...patch}:x);
   if(statut==='resolu')window._suiviOpen=null;
   const cont=document.getElementById('suivi-list');
   const scrollPos=cont?cont.scrollTop:0;
   _renderSuiviView();
   setTimeout(()=>{const c=document.getElementById('suivi-list');if(c)c.scrollTop=scrollPos;},20);
-  try{await db('PATCH','suivis',{statut},`?id=eq.${sid}`);}catch(e){toast('⚠ '+e.message,'#ef4444');}
+  try{await db('PATCH','suivis',patch,`?id=eq.${sid}`);}catch(e){toast('⚠ '+e.message,'#ef4444');}
 }
 
-async function _suiviMailSent(sid){
+async function _suiviEnvoi(ev,el){
+  if(ev){ev.preventDefault();ev.stopPropagation();}
+  const sid=el.dataset.sid;
+  const href=el.getAttribute('href');
   const s=suivisList.find(x=>x.id===sid);
-  if(!s)return;
-  const dateEnvoi=new Date().toISOString();
-  const patch={date_envoi:dateEnvoi};
-  if(s.statut==='nouveau')patch.statut='en_cours';
+  if(!s){if(href)window.location.href=href;return false;}
+  const patch={date_envoi:new Date().toISOString()};
+  // Envoi (mail ou SMS) → passe en "en cours" (sauf si déjà en cours ou résolu)
+  if(s.statut==='nouveau'||s.statut==='planifie')patch.statut='en_cours';
+  // MAJ locale immédiate + rafraîchissement SANS bouger le scroll (cellule reste ouverte au même endroit)
   suivisList=suivisList.map(x=>x.id===sid?{...x,...patch}:x);
-  try{await db('PATCH','suivis',patch,`?id=eq.${sid}`);}catch(e){}
-  setTimeout(()=>_renderSuiviView(),400);
+  const cont=document.getElementById('suivi-list');
+  const scrollPos=cont?cont.scrollTop:0;
+  _renderSuiviView();
+  const cont2=document.getElementById('suivi-list');
+  if(cont2)cont2.scrollTop=scrollPos;
+  // Écriture en base ATTENDUE jusqu'au bout AVANT d'ouvrir l'app → le statut/la date persistent
+  try{await db('PATCH','suivis',patch,`?id=eq.${sid}`);}
+  catch(e){toast('⚠ Envoi non enregistré : '+e.message,'#ef4444');}
+  // Ré-appliquer en local au cas où un polling (10 s) serait passé entre-temps
+  suivisList=suivisList.map(x=>x.id===sid?{...x,...patch}:x);
+  // Puis on ouvre l'app Mail/SMS
+  if(href)window.location.href=href;
+  return false;
 }
 
 async function planifierSuivi(sid){
