@@ -392,20 +392,13 @@ function renderArtisanView(){
 
   const mesChantiers=chantierArtisans.filter(x=>x.artisan_id===artisan.id).map(x=>clients.find(c=>c.id===x.client_id)).filter(Boolean).sort((a,b)=>a.nom.localeCompare(b.nom));
   const mesSav=savList.filter(s=>s.artisan_id===artisan.id&&s.statut!=='resolu');
+  const mesSuivis=(suivisList||[]).filter(s=>s.artisan_id===artisan.id&&s.statut!=='resolu');
 
   // Restaurer visibilité
   document.getElementById('content').style.visibility='visible';
 
-  // Remplacer barre du bas pour artisans
-  const bottomNav=document.getElementById('bottom-nav');
-  if(bottomNav){
-    bottomNav.innerHTML=`
-      <button onclick="renderArtisanView()" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#3b82f6;cursor:pointer;gap:2px;font-family:inherit;padding-top:2px;border-top:2px solid #3b82f6"><span style="font-size:22px">🗺️</span><span style="font-size:9px;font-weight:600">Carte</span></button>
-      <button onclick="renderArtisanSav()" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:2px;font-family:inherit;padding-top:2px"><span style="font-size:22px">🔧</span><span style="font-size:9px;font-weight:600">Mes SAV</span></button>
-      <button onclick="renderArtisanChantiers()" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:#64748b;cursor:pointer;gap:2px;font-family:inherit;padding-top:2px"><span style="font-size:22px">🏡</span><span style="font-size:9px;font-weight:600">Chantiers</span></button>
-    `;
-    bottomNav.style.display='flex';
-  }
+  // Barre du bas artisan : 4 onglets
+  _setArtisanNav('carte');
   // Masquer chat
   const chatBtn=document.getElementById('chat-btn');
   const chatPanel=document.getElementById('chat-panel');
@@ -422,7 +415,7 @@ function renderArtisanView(){
     `;
   }
 
-  window._artisanData={artisan, mesChantiers, mesSav};
+  window._artisanData={artisan, mesChantiers, mesSav, mesSuivis};
 
   // Garder seulement 2 boutons dans la nav : accueil, mes SAV, mes chantiers
   document.querySelectorAll('.bnav-btn').forEach(b=>{
@@ -633,37 +626,26 @@ function filterArtisanClients(q){
 
 function renderArtisanSav(){
   document.getElementById('content').classList.remove('artisan-accueil');
-  const {artisan,mesSav}=window._artisanData||{};
+  const artisan=window._artisanData&&window._artisanData.artisan;
   if(!artisan)return;
-  document.getElementById('page-title').textContent='Mes SAV';
+  _setArtisanNav('sav');
+  const pt=document.getElementById('page-title');if(pt)pt.textContent='Mes SAV';
+  const liste=savList.filter(s=>s.artisan_id===artisan.id&&s.statut!=='resolu')
+    .sort((a,b)=>{const na=(clients.find(c=>c.id===a.client_id)||{}).nom||'';const nb=(clients.find(c=>c.id===b.client_id)||{}).nom||'';return na.toLowerCase().localeCompare(nb.toLowerCase());});
   const c=document.getElementById('content');
-  if(mesSav.length===0){
+  if(liste.length===0){
     c.innerHTML='<div class="card" style="text-align:center;padding:24px;color:#10b981;font-weight:700;font-size:15px">✅ Aucun SAV en cours !</div>';
     return;
   }
-  c.innerHTML='<div style="font-weight:700;font-size:14px;margin-bottom:10px">🔧 Mes SAV en cours ('+mesSav.length+')</div>'
-    +mesSav.map(s=>{
-      const cl=clients.find(c=>c.id===s.client_id);
-      const j=jours(s.date_signalement);
-      return `<div class="card" style="margin-bottom:10px;border-left:4px solid ${s.statut==='nouveau'?'#ef4444':'#f59e0b'}">
-        <div style="font-weight:700;font-size:13px;margin-bottom:3px">${s.titre}</div>
-        <div style="font-size:12px;color:#2563eb;font-weight:600">${cl?.nom||'—'}</div>
-        <div style="font-size:11px;color:#64748b">${cl?.adresse||''} · ${j}j</div>
-        ${s.notes?`<div style="font-size:11px;color:#374151;background:#f8fafc;padding:6px 8px;border-radius:6px;margin-top:6px">${s.notes}</div>`:''}
-        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
-          ${cl?.tel?`<a href="tel:${cl.tel}" style="padding:4px 9px;border-radius:7px;background:#dbeafe;color:#1e40af;font-size:11px;font-weight:700;text-decoration:none">📞 ${cl.conjoint1?cl.conjoint1+' — '+cl.tel:cl.tel}</a>`:''}
-          ${cl?.tel2?`<a href="tel:${cl.tel2}" style="padding:4px 9px;border-radius:7px;background:#e0e7ff;color:#3730a3;font-size:11px;font-weight:700;text-decoration:none">📞 ${cl.conjoint2?cl.conjoint2+' — '+cl.tel2:cl.tel2}</a>`:''}
-          ${cl?.email?`<a href="mailto:${cl.email}" style="padding:4px 9px;border-radius:7px;background:#ecfdf5;color:#065f46;font-size:11px;font-weight:700;text-decoration:none">✉ ${cl.email}</a>`:''}
-          ${cl?.lat&&cl?.lng?`<button onclick="openNavArtisan('${cl.id}')" style="padding:4px 9px;border-radius:7px;background:#fef3c7;color:#d97706;border:none;cursor:pointer;font-size:11px;font-weight:700">🧭 Itinéraire</button>`:''}
-        </div>
-      </div>`;
-    }).join('');
+  c.innerHTML='<div style="font-weight:700;font-size:14px;margin-bottom:10px">🔧 SAV ('+liste.length+')</div>'
+    +liste.map(s=>_artisanBulle('sav',s,clients.find(c=>c.id===s.client_id))).join('');
 }
 
 function renderArtisanChantiers(filtre){
   document.getElementById('content').classList.remove('artisan-accueil');
   const {mesChantiers,mesSav}=window._artisanData||{};
   if(!mesChantiers)return;
+  _setArtisanNav('chantiers');
   window._artisanFiltre=filtre||'tous';
   document.getElementById('page-title').textContent='Mes chantiers';
   const c=document.getElementById('content');
@@ -722,6 +704,108 @@ function openNavArtisan(clientId){
   const c=clients.find(x=>x.id===clientId);
   if(!c||!c.lat||!c.lng)return;
   window.open(`https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}&travelmode=driving`,'_blank');
+}
+
+// ═══ ESPACE ARTISAN : nav 4 onglets + pages Tâches / SAV ═══
+function _setArtisanNav(active){
+  const bn=document.getElementById('bottom-nav');
+  if(!bn)return;
+  const items=[
+    {k:'carte',ic:'🗺️',l:'Carte',fn:'renderArtisanView()'},
+    {k:'taches',ic:'📋',l:'Tâches',fn:'renderArtisanTaches()'},
+    {k:'sav',ic:'🔧',l:'SAV',fn:'renderArtisanSav()'},
+    {k:'chantiers',ic:'🏡',l:'Chantiers',fn:'renderArtisanChantiers()'}
+  ];
+  bn.innerHTML=items.map(it=>{
+    const on=it.k===active;
+    return '<button onclick="'+it.fn+'" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:'+(on?'#3b82f6':'#64748b')+';cursor:pointer;gap:2px;font-family:inherit;padding-top:2px'+(on?';border-top:2px solid #3b82f6':'')+'"><span style="font-size:20px">'+it.ic+'</span><span style="font-size:8.5px;font-weight:700">'+it.l+'</span></button>';
+  }).join('');
+  bn.style.display='flex';
+}
+
+function _artisanItinHref(cl){
+  if(!cl)return '';
+  if(cl.lat&&cl.lng)return 'https://www.google.com/maps/dir/?api=1&destination='+cl.lat+','+cl.lng+'&travelmode=driving';
+  if(cl.adresse)return 'https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(cl.adresse);
+  return '';
+}
+
+// Bulle commune SAV / Tâche de chantier dans l'espace artisan
+function _artisanBulle(kind,item,cl){
+  const itin=_artisanItinHref(cl);
+  const dateRef=kind==='sav'?(item.date_signalement||item.created_at):item.created_at;
+  const dateTxt=dateRef?new Date(dateRef).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}):'';
+  const borderCol=kind==='sav'?'#b91c1c':'#4c1d95';
+  const titre=item.titre||'';
+  const desc=kind==='sav'?(item.notes||''):(item.description||'');
+  const fait=item.artisan_fait;
+  const faitDate=item.artisan_fait_date?new Date(item.artisan_fait_date).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}):'';
+  let h='<div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);padding:11px 13px;margin-bottom:10px;border-left:4px solid '+borderCol+'">';
+  h+='<div style="font-weight:800;font-size:14px;color:#0f172a">'+(cl?cl.nom:'—')+'</div>';
+  if(cl&&cl.adresse){
+    h+='<div style="display:flex;align-items:center;gap:8px;margin:3px 0 8px">';
+    h+='<span style="flex:1;font-size:11px;color:#64748b">📍 '+cl.adresse+'</span>';
+    if(itin)h+='<a href="'+itin+'" target="_blank" style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:8px;background:#fef3c7;color:#d97706;font-size:11px;font-weight:800;text-decoration:none;white-space:nowrap">🧭 Itinéraire</a>';
+    h+='</div>';
+  } else {
+    h+='<div style="font-size:11px;color:#94a3b8;font-style:italic;margin:3px 0 8px">📍 Adresse non renseignée</div>';
+  }
+  if(titre)h+='<div style="font-weight:700;font-size:12.5px;color:#1e293b">'+titre+'</div>';
+  if(desc)h+='<div style="font-size:12px;color:#374151;background:#f8fafc;padding:7px 9px;border-radius:7px;margin-top:5px;white-space:pre-wrap;line-height:1.5">'+desc+'</div>';
+  if(dateTxt)h+='<div style="font-size:11px;color:#94a3b8;margin-top:6px">🗓️ Créé le '+dateTxt+'</div>';
+  if(cl&&cl.tel)h+='<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><a href="tel:'+cl.tel+'" style="padding:5px 10px;border-radius:7px;background:#dbeafe;color:#1e40af;font-size:11px;font-weight:700;text-decoration:none">📞 '+cl.tel+'</a></div>';
+  const fnSig=kind==='sav'?'signalerFaitSav':'signalerFaitSuivi';
+  const fnAnn=kind==='sav'?'annulerFaitSav':'annulerFaitSuivi';
+  if(fait){
+    h+='<div style="margin-top:9px;background:#ecfdf5;border:1.5px solid #6ee7b7;border-radius:9px;padding:9px 11px">';
+    h+='<div style="font-size:12px;font-weight:800;color:#047857">✅ Terminé — signalé le '+faitDate+'</div>';
+    h+='<div style="font-size:11px;color:#059669;margin-top:1px">En attente de validation MA 17 SUD</div>';
+    h+='</div>';
+    h+='<button data-id="'+item.id+'" onclick="'+fnAnn+'(this.dataset.id)" style="margin-top:7px;background:none;border:none;color:#94a3b8;font-size:11px;font-weight:700;text-decoration:underline;cursor:pointer;font-family:inherit">Annuler mon signalement</button>';
+  } else {
+    h+='<button data-id="'+item.id+'" onclick="'+fnSig+'(this.dataset.id)" style="margin-top:9px;width:100%;padding:10px;border-radius:9px;border:2px solid #10b981;background:#ecfdf5;color:#047857;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer">✅ J\'ai terminé'+(kind==='sav'?' ce SAV':' cette tâche')+'</button>';
+  }
+  h+='</div>';
+  return h;
+}
+
+function renderArtisanTaches(){
+  document.getElementById('content').classList.remove('artisan-accueil');
+  const artisan=window._artisanData&&window._artisanData.artisan;
+  if(!artisan)return;
+  _setArtisanNav('taches');
+  const pt=document.getElementById('page-title');if(pt)pt.textContent='Tâches de chantier';
+  const liste=(suivisList||[]).filter(s=>s.artisan_id===artisan.id&&s.statut!=='resolu')
+    .sort((a,b)=>{const na=(clients.find(c=>c.id===a.client_id)||{}).nom||'';const nb=(clients.find(c=>c.id===b.client_id)||{}).nom||'';return na.toLowerCase().localeCompare(nb.toLowerCase());});
+  const c=document.getElementById('content');
+  if(liste.length===0){c.innerHTML='<div class="card" style="text-align:center;padding:24px;color:#10b981;font-weight:700;font-size:15px">✅ Aucune tâche de chantier !</div>';return;}
+  c.innerHTML='<div style="font-weight:700;font-size:14px;margin-bottom:10px">📋 Tâches de chantier ('+liste.length+')</div>'
+    +liste.map(s=>_artisanBulle('suivi',s,clients.find(c=>c.id===s.client_id))).join('');
+}
+
+async function signalerFaitSav(sid){
+  const patch={artisan_fait:true,artisan_fait_date:new Date().toISOString()};
+  savList=savList.map(s=>s.id===sid?{...s,...patch}:s);
+  renderArtisanSav();
+  try{await db('PATCH','sav',patch,`?id=eq.${sid}`);}catch(e){toast('⚠ '+e.message,'#ef4444');}
+}
+async function annulerFaitSav(sid){
+  const patch={artisan_fait:false,artisan_fait_date:null};
+  savList=savList.map(s=>s.id===sid?{...s,...patch}:s);
+  renderArtisanSav();
+  try{await db('PATCH','sav',patch,`?id=eq.${sid}`);}catch(e){toast('⚠ '+e.message,'#ef4444');}
+}
+async function signalerFaitSuivi(sid){
+  const patch={artisan_fait:true,artisan_fait_date:new Date().toISOString()};
+  suivisList=suivisList.map(s=>s.id===sid?{...s,...patch}:s);
+  renderArtisanTaches();
+  try{await db('PATCH','suivis',patch,`?id=eq.${sid}`);}catch(e){toast('⚠ '+e.message,'#ef4444');}
+}
+async function annulerFaitSuivi(sid){
+  const patch={artisan_fait:false,artisan_fait_date:null};
+  suivisList=suivisList.map(s=>s.id===sid?{...s,...patch}:s);
+  renderArtisanTaches();
+  try{await db('PATCH','suivis',patch,`?id=eq.${sid}`);}catch(e){toast('⚠ '+e.message,'#ef4444');}
 }
 
 
@@ -4602,6 +4686,7 @@ function renderOneSav(s,client){
     return '<div data-sid="'+sid+'" onclick="toggleSavOpen(this.dataset.sid)" style="display:flex;align-items:center;gap:9px;padding:9px 13px;border-bottom:1px solid #f1f5f9;cursor:pointer;font-size:12px">'
       +'<span style="width:8px;height:8px;border-radius:50%;background:'+dotColor+';flex-shrink:0"></span>'
       +'<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">'+s.titre+'</span>'
+      +(s.artisan_fait&&s.statut!=='resolu'?'<span title="Artisan a signalé : fait" style="color:#10b981;font-size:12px">✅</span>':'')
       +'<span style="color:#94a3b8;font-size:11px;white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis">'+artLabel+'</span>'
       +'<span class="status '+stCls+'" style="font-size:10px">'+stLabel+'</span>'
       +(enRetard?'<span style="background:#fef2f2;color:#dc2626;font-size:9px;font-weight:700;padding:2px 6px;border-radius:5px">'+jMail+'j</span>':'')
@@ -4684,6 +4769,15 @@ function renderOneSav(s,client){
     html+='</div>';
   }
 
+  // Signalement artisan "fait" → badge + validation
+  if(s.artisan_fait){
+    const fd=s.artisan_fait_date?new Date(s.artisan_fait_date).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'}):'';
+    html+='<div style="margin-bottom:10px;display:flex;align-items:center;gap:8px;background:#d1fae5;border:1.5px solid #6ee7b7;border-radius:9px;padding:8px 11px">'
+      +'<span style="font-size:17px">✅</span>'
+      +'<span style="flex:1;font-size:12px;font-weight:700;color:#065f46">Artisan a signalé : fait le '+fd+'</span>'
+      +'<button data-sid="'+sid+'" data-cid="'+cid+'" onclick="event.stopPropagation();chgStatut(this.dataset.sid,\'resolu\',this.dataset.cid)" style="padding:5px 11px;border-radius:8px;background:#10b981;color:#fff;border:none;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit">Valider / Clôturer</button>'
+    +'</div>';
+  }
   // Actions
   html+='<div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">';
   if(s.type_sav==='fournisseur'){
@@ -5260,6 +5354,7 @@ function _suiviRow(s,flat){
       +'<span style="width:8px;height:8px;border-radius:50%;background:'+st.dot+';flex-shrink:0"></span>'
       +(flat?'<span style="font-weight:800;color:#0f172a;font-size:11px;white-space:nowrap;max-width:90px;overflow:hidden;text-overflow:ellipsis">'+(cl?.nom||'—')+'</span>':'')
       +'<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">'+(s.titre||artLabel)+'</span>'
+      +(s.artisan_fait&&s.statut!=='resolu'?'<span title="Artisan a signalé : fait" style="color:#10b981;font-size:12px">✅</span>':'')
       +'<span style="color:#94a3b8;font-size:11px;white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis">'+artLabel+'</span>'
       +'<span class="status '+st.cls+'" style="font-size:10px">'+st.l+'</span>'
       +'<span style="color:#cbd5e1;font-size:12px">›</span>'
@@ -5328,6 +5423,15 @@ function _suiviRow(s,flat){
   if(artisan)html+='<br>🔧 '+(artisan.entreprise||artisan.nom);
   else html+='<br>🏠 Interne MA 17 SUD';
   html+='</div>';
+  // Signalement artisan "fait" → badge + validation
+  if(s.artisan_fait){
+    const fd=s.artisan_fait_date?new Date(s.artisan_fait_date).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'}):'';
+    html+='<div style="margin-bottom:10px;display:flex;align-items:center;gap:8px;background:#d1fae5;border:1.5px solid #6ee7b7;border-radius:9px;padding:8px 11px">'
+      +'<span style="font-size:17px">✅</span>'
+      +'<span style="flex:1;font-size:12px;font-weight:700;color:#065f46">Artisan a signalé : fait le '+fd+'</span>'
+      +'<button data-sid="'+s.id+'" onclick="event.stopPropagation();chgSuiviStatut(this.dataset.sid,\'resolu\')" style="padding:5px 11px;border-radius:8px;background:#10b981;color:#fff;border:none;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit">Valider / Clôturer</button>'
+    +'</div>';
+  }
   // Actions — Mail/SMS (ou Planifier) à gauche · Modification / Statut / Poubelle à droite
   html+='<div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">';
   if(s.type_suivi==='interne'||!s.artisan_id){
