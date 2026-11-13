@@ -17,13 +17,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #more-menu-overlay{display:none;position:fixed;inset:0;z-index:198;background:rgba(0,0,0,0.5);}
 #more-menu-overlay.open{display:block;}
 @media(max-width:768px){
-  #content.sav-view,#content.suivi-view{height:calc(100vh - max(env(safe-area-inset-bottom),20px) - 64px)!important;}
-  #topbar{display:none!important;}
-  #bottom-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:#0f172a;border-top:1px solid #1e293b;z-index:200;align-items:flex-start;justify-content:space-around;padding-bottom:max(env(safe-area-inset-bottom),20px);padding-top:6px;height:auto;min-height:58px;}
-  #content{padding-top:env(safe-area-inset-top)!important;padding-bottom:calc(80px + max(env(safe-area-inset-bottom),20px))!important;}
-  .hamburger{display:none!important;}
-  #chat-btn{display:none!important;}
-  #chat-panel{display:none!important;}
+  /* Admin : plus de barre du bas, tout passe par le menu du bandeau */
+  #bottom-nav,#more-menu-panel,#more-menu-overlay{display:none!important;}
+  #chat-btn,#chat-panel{display:none!important;}
+  /* Espace artisan : comportement inchangé pour l'instant (refonte prévue plus tard) */
+  body.is-artisan #topbar{display:none!important;}
+  body.is-artisan .hamburger{display:none!important;}
+  body.is-artisan #bottom-nav{display:flex!important;position:fixed;bottom:0;left:0;right:0;background:#0f172a;border-top:1px solid #1e293b;z-index:200;align-items:flex-start;justify-content:space-around;padding-bottom:max(env(safe-area-inset-bottom),20px);padding-top:6px;height:auto;min-height:58px;}
+  body.is-artisan #content{height:100vh!important;height:100dvh!important;padding-top:env(safe-area-inset-top)!important;padding-bottom:calc(80px + max(env(safe-area-inset-bottom),20px))!important;}
 }
 @media(min-width:769px){
   #bottom-nav{display:none!important;}
@@ -191,40 +192,309 @@ input,select,textarea{font-family:inherit;}
 #sav-list-container{padding-bottom:40vh}
 @keyframes savSlideOut{0%{opacity:1;transform:translateX(0)}100%{opacity:0;transform:translateX(30px)}}
 .sav-resolving{animation:savSlideOut .35s ease forwards}
+
+/* ═══════════════════════════════════════════════════════════
+   DESIGN SYSTEM ALYSIA — socle commun (vague 1)
+   Turquoise = action · Bleu = navigation/nouveau · Orange = en cours
+   ═══════════════════════════════════════════════════════════ */
+:root{
+  --turq:#00B4C5;--turq-ink:#067E8C;--turq-soft:#E2F7FA;
+  --blue:#1E6079;--blue-soft:#E4EEF2;
+  --orange:#FB9B0C;--orange-ink:#B26A00;--orange-soft:#FFF1D9;
+  --ink:#1C1C1E;--ink2:#48484A;--grey:#8A8A8E;--grey2:#C7C7CC;
+  --bg:#F2F3F5;--card:#FFFFFF;--line:#EBECF0;
+  --ok:#2FB866;--ok-ink:#1E8A4B;--ok-soft:#E3F7EC;
+  --danger:#FF3B30;--danger-ink:#D92D20;--danger-soft:#FFE8E6;
+  --r-lg:18px;--r-md:14px;--r-sm:10px;
+  --sh:0 1px 2px rgba(16,24,40,.04),0 4px 14px rgba(16,24,40,.06);
+  --sh-lg:0 12px 40px rgba(16,24,40,.16);
+  --topbar-h:56px;--side-w:248px;
+  --font:-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display','Segoe UI',system-ui,sans-serif;
+}
+html,body{height:100%;}
+body{font-family:var(--font);background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;overflow:hidden;}
+/* Un seul conteneur qui défile : #content */
+#content{height:calc(100vh - var(--topbar-h));height:calc(100dvh - var(--topbar-h) - env(safe-area-inset-top));min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:16px;padding-bottom:calc(28px + env(safe-area-inset-bottom));}
+#content.sav-view,#content.suivi-view{padding:0!important;}
+#content.sav-view #sav-sticky-header,#content.suivi-view #suivi-header{background:var(--bg);border-bottom:1px solid var(--line);padding:14px 16px;}
+#content.sav-view #sav-list-container,#content.suivi-view #suivi-list{padding:14px 16px;}
+
+/* Bandeau du haut : clair, translucide, hauteur fixe */
+#topbar{height:calc(var(--topbar-h) + env(safe-area-inset-top));padding:env(safe-area-inset-top) 16px 0;background:rgba(242,243,245,.86);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);box-shadow:none;border-bottom:1px solid var(--line);gap:10px;}
+#hamburger{background:#fff;color:var(--ink2);border-radius:11px;padding:8px 9px;box-shadow:var(--sh);}
+.page-title{color:var(--ink);font-size:17px;font-weight:700;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#topbar-actions{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+#topbar-actions:empty{display:none;}
+#alert-pill{background:var(--danger);border-radius:20px;padding:5px 11px;box-shadow:0 2px 8px rgba(255,59,48,.28);}
+.tb-btn{height:36px;padding:0 14px;border-radius:18px;border:none;font-family:inherit;font-size:13.5px;font-weight:700;background:var(--turq);color:#fff;box-shadow:0 2px 8px rgba(0,180,197,.32);white-space:nowrap;display:inline-flex;align-items:center;gap:6px;cursor:pointer;transition:transform .08s;}
+.tb-btn:active{transform:scale(.96);}
+.tb-ic{width:36px;height:36px;border-radius:50%;border:none;background:#fff;box-shadow:var(--sh);font-size:16px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--blue);flex-shrink:0;}
+@media(max-width:420px){.tb-btn .tb-long{display:none;}}
+
+/* Menu latéral : clair ; fixe sur ordinateur, tiroir sur téléphone */
+#overlay{background:rgba(16,24,40,.32);}
+#sidebar{width:var(--side-w);background:#fff;border-right:1px solid var(--line);box-shadow:var(--sh-lg);padding-top:env(safe-area-inset-top);}
+.sb-head{border-bottom:1px solid var(--line);padding:18px 16px;}
+.sb-brand{color:var(--blue);font-size:16px;letter-spacing:-.01em;text-transform:none;}
+.sb-sub{color:var(--grey);font-size:12px;}
+#close-sb{color:var(--grey);}
+.sb-nav{padding:10px;}
+.nav-btn{color:var(--ink2);font-weight:600;font-size:14.5px;padding:11px 12px;border-radius:11px;}
+.nav-btn:hover{background:#F4F5F7;}
+.nav-btn.active{background:var(--turq-soft);color:var(--turq-ink);font-weight:700;}
+.nb{background:var(--danger);}
+.sb-foot{border-top:1px solid var(--line);color:var(--grey);padding:14px 16px calc(14px + env(safe-area-inset-bottom));}
+.sb-live{color:var(--ok-ink);}
+.live-dot{background:var(--ok);}
+.sb-foot [data-demo-label]{background:#F4F0FF!important;border:1px solid #E4DBFF!important;color:#6D28D9!important;}
+@media(min-width:1024px){
+  #sidebar{transform:none!important;box-shadow:none;}
+  #overlay{display:none!important;}
+  #hamburger,#close-sb,#topbar .hamburger{display:none!important;}
+  body{padding-left:var(--side-w);}
+  #content{padding:20px 24px;}
+  #content.sav-view #sav-sticky-header,#content.suivi-view #suivi-header{padding:16px 24px;}
+  #content.sav-view #sav-list-container,#content.suivi-view #suivi-list{padding:16px 24px;}
+}
+@media(min-width:1024px){
+  body.is-artisan{padding-left:0;}
+  body.is-artisan #sidebar{transform:translateX(-100%)!important;box-shadow:var(--sh-lg);}
+  body.is-artisan #sidebar.open{transform:none!important;}
+  body.is-artisan #topbar .hamburger,body.is-artisan #close-sb{display:inline-block!important;}
+  body.is-artisan #overlay{display:none;}
+}
+/* Espace artisan : bandeau sombre conservé et chiffres admin masqués (refonte plus tard) */
+body.is-artisan #topbar{background:#0f172a;border-bottom:none;}
+body.is-artisan .sb-foot{display:none;}
+
+/* Composants communs */
+.card{border-radius:var(--r-lg);box-shadow:var(--sh);padding:14px 16px;margin-bottom:12px;}
+.card.warn{border:1px solid #FFD2CE;background:#FFF7F6;}
+.status{border-radius:8px;padding:3px 9px;font-size:11px;font-weight:700;}
+.s-nouveau{background:var(--blue-soft);color:var(--blue);border:none;}
+.s-attente{background:var(--orange-soft);color:var(--orange-ink);border:none;}
+.s-planifie{background:var(--turq-soft);color:var(--turq-ink);border:none;}
+.s-intervenu{background:var(--turq-soft);color:var(--turq-ink);border:none;}
+.s-en_retard{background:var(--danger-soft);color:var(--danger-ink);border:none;}
+.s-resolu{background:var(--ok-soft);color:var(--ok-ink);border:none;}
+.ch-badge{border-radius:8px;}
+.btn{border-radius:12px;font-weight:700;font-size:13.5px;padding:10px 16px;transition:transform .08s,opacity .15s;}
+.btn:active{transform:scale(.97);}
+.btn-primary{background:var(--turq);color:#fff;box-shadow:0 2px 8px rgba(0,180,197,.28);}
+.btn-secondary{background:#fff;color:var(--ink2);border:1px solid var(--line);box-shadow:var(--sh);}
+.btn-danger{background:var(--danger-soft);color:var(--danger-ink);border:none;}
+.btn-green{background:var(--ok-soft);color:var(--ok-ink);border:none;}
+.btn-purple{background:var(--blue);color:#fff;}
+.btn-sm{padding:5px 10px;font-size:11.5px;border-radius:8px;}
+.chip{border:none;background:#fff;color:var(--ink2);box-shadow:var(--sh);font-weight:600;padding:7px 14px;font-size:12.5px;}
+.chip.on{background:var(--blue);color:#fff;font-weight:700;border:none;}
+.field label{color:var(--grey);font-size:11px;letter-spacing:.04em;}
+.field input,.field select,.field textarea{border:1px solid #E3E5EA;border-radius:12px;background:#fff;padding:11px 13px;font-size:16px;color:var(--ink);}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--turq);box-shadow:0 0 0 3px rgba(0,180,197,.15);background:#fff;}
+.search-wrap input{border:none;background:#fff;border-radius:12px;box-shadow:var(--sh);padding:11px 13px 11px 38px;font-size:16px;}
+.search-wrap input:focus{border:none;box-shadow:0 0 0 3px rgba(0,180,197,.18),var(--sh);}
+.modal-bg{background:rgba(16,24,40,.42);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}
+.modal{border-radius:22px 22px 0 0;box-shadow:var(--sh-lg);}
+@media(min-width:600px){.modal{border-radius:22px;}}
+.modal-head{border-bottom:1px solid var(--line);padding:16px 20px;}
+.modal-head h3{font-size:17px;font-weight:700;letter-spacing:-.01em;}
+.modal-body{padding:20px;}
+.cli-item{border-radius:var(--r-md);box-shadow:var(--sh);border:none;padding:12px 14px;margin-bottom:9px;}
+.sav-item{border-radius:var(--r-md);border:1px solid var(--line);}
+.map-wrap{border-radius:var(--r-lg);box-shadow:var(--sh);}
+.map-bar{background:#fff;border-bottom:1px solid var(--line);}
+.map-bar span{color:var(--ink);}
+.statut-menu{border-radius:14px;border:1px solid var(--line);box-shadow:var(--sh-lg);}
+.cli-head{background:linear-gradient(135deg,#1E6079,#00B4C5);border-radius:var(--r-lg);}
+#toast{border-radius:14px;}
+#loader{background:var(--bg);}
+#loader .logo{color:var(--blue);}
+#loader .sub{color:var(--grey);}
+#loader .spinner{border-color:#E3E5EA;border-top-color:var(--turq);}
+
+/* ── Gabarit de module (vague 2) ── */
+.seg{background:#E7E8EC;border-radius:12px;padding:3px;display:flex;gap:2px;}
+.seg button{flex:1;border:none;background:none;font-family:inherit;font-size:13px;font-weight:600;color:var(--ink2);padding:8px 4px;border-radius:9px;cursor:pointer;white-space:nowrap;transition:background .15s;}
+.seg button.on{background:#fff;color:var(--turq-ink);font-weight:700;box-shadow:0 1px 3px rgba(16,24,40,.12);}
+.ds-row{display:flex;flex-direction:column;gap:10px;}
+.ds-chips{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 4px;margin:0 -2px;scrollbar-width:none;}
+.ds-chips::-webkit-scrollbar{display:none;}
+.ds-chips .chip{flex-shrink:0;}
+.ds-sort{display:flex;gap:8px;}
+.ds-sortbtn{flex:1;border:none;background:#fff;box-shadow:var(--sh);color:var(--ink2);font-family:inherit;font-size:12.5px;font-weight:600;padding:9px 12px;border-radius:10px;cursor:pointer;white-space:nowrap;}
+.ds-sortbtn.on{background:var(--turq-soft);color:var(--turq-ink);font-weight:700;}
+.ds-card{background:var(--card);border-radius:var(--r-lg);box-shadow:var(--sh);overflow:hidden;margin-bottom:13px;}
+.ds-card-head{display:flex;align-items:center;gap:10px;padding:13px 15px;border-bottom:1px solid var(--line);}
+.ds-card-head .nom{flex:1;font-size:15px;font-weight:700;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink);}
+.ds-cnt{font-size:11px;font-weight:700;color:var(--grey);background:#F2F3F5;padding:3px 9px;border-radius:20px;white-space:nowrap;}
+.ds-add{width:30px;height:30px;border-radius:50%;background:var(--turq);color:#fff;border:none;cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,180,197,.4);flex-shrink:0;}
+.ds-card-head.art{background:var(--blue);border-bottom:none;}
+.ds-card-head.art .nom{color:#fff;}
+.ds-item{display:flex;align-items:center;gap:10px;padding:13px 15px;border-bottom:1px solid var(--line);cursor:pointer;font-size:14px;}
+.ds-item:last-child{border-bottom:none;}
+.ds-item .ti{flex:1;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink);}
+.ds-item .sub{color:var(--grey);font-size:11.5px;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis;}
+.ds-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.ds-chev{color:var(--grey2);font-size:16px;}
+@media(min-width:1024px){
+  .seg{max-width:420px;}
+  .ds-row{flex-direction:row;align-items:center;}
+  .ds-chips{flex:1;}
+  .ds-sort{width:300px;flex-shrink:0;}
+}
+@media(max-width:480px){.ds-item .sub{max-width:84px;}}
+
+/* Ligne dépliée */
+.ds-open{background:#fff;border-bottom:1px solid var(--line);box-shadow:inset 3px 0 0 var(--acc,var(--turq));}
+.ds-open:last-child{border-bottom:none;}
+.ds-open-head{display:flex;align-items:center;gap:10px;padding:14px 15px 6px;cursor:pointer;}
+.ds-open-head .ti{flex:1;font-size:16px;font-weight:700;letter-spacing:-.01em;color:var(--ink);}
+.ds-open-body{padding:0 15px 15px 34px;max-width:760px;}
+.ds-meta{font-size:12.5px;color:var(--grey);margin-bottom:10px;}
+.ds-desc{font-size:14.5px;line-height:1.6;color:var(--ink);white-space:pre-wrap;margin-bottom:14px;}
+.ds-notice{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--ok-soft);color:var(--ok-ink);font-size:13px;font-weight:600;border-radius:12px;padding:10px 12px;margin-bottom:12px;}
+.ds-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.ds-act{display:inline-flex;align-items:center;height:36px;padding:0 14px;border-radius:10px;border:none;background:#F2F3F5;color:var(--ink);font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;text-decoration:none;white-space:nowrap;}
+.ds-act.main{background:var(--turq);color:#fff;font-weight:700;}
+.ds-act.ok{background:var(--ok);color:#fff;font-weight:700;}
+.ds-act.del{background:none;color:var(--danger-ink);padding:0 6px;}
+@media(max-width:480px){.ds-open-body{padding-left:15px;}}
+
+/* Formulaire en place */
+.ds-form{padding:14px 15px 15px;background:#fff;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:10px;max-width:760px;}
+.ds-open>.ds-form{border-top:none;}
+.ds-in{width:100%;border:1px solid transparent;background-color:#F2F3F5;border-radius:12px;padding:11px 13px;font-family:inherit;font-size:16px;color:var(--ink);outline:none;transition:background .15s,border-color .15s,box-shadow .15s;-webkit-appearance:none;appearance:none;}
+.ds-in:focus{background-color:#fff;border-color:var(--turq);box-shadow:0 0 0 3px rgba(0,180,197,.15);}
+.ds-in::placeholder{color:var(--grey);}
+.ds-in-title{font-weight:700;font-size:17px;letter-spacing:-.01em;}
+textarea.ds-in{resize:none;line-height:1.5;min-height:84px;}
+.ds-in-note{font-size:16.5px;}
+.ds-form>.ds-hint{display:block!important;}
+select.ds-in{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%238A8A8E' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center;padding-right:34px;}
+.ds-form-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+.ds-form-row .seg{flex:0 0 240px;max-width:100%;}
+.ds-form-row select{flex:1;min-width:200px;}
+.ds-hint{font-size:11.5px;color:var(--grey);margin-left:6px;}
+@media(max-width:768px){.ds-kbd{display:none;}.ds-form-row .seg{flex:1 1 100%;}}
+/* Le bandeau démo ne recouvre pas les fenêtres */
+body:has(.modal-bg.open) #demo-banner{display:none!important;}
+
+/* Menu contextuel façon iOS */
+.ds-menu{min-width:220px;padding:6px;border:none;border-radius:16px;background:rgba(255,255,255,.94);backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);box-shadow:0 0 0 1px rgba(16,24,40,.06),0 16px 44px rgba(16,24,40,.2);}
+.ds-menu button{padding:11px 12px;border-radius:10px;background:none;gap:11px;font-family:inherit;font-size:15px;font-weight:500;color:var(--ink);}
+.ds-menu button:hover{background:rgba(16,24,40,.06);}
+.ds-menu button.cur{font-weight:700;}
+.ds-menu .ck{color:var(--turq-ink);font-weight:800;font-size:15px;}
+
+/* Checklist du détail */
+.ds-check{margin:2px 0 14px;}
+.ds-ck{display:flex;align-items:flex-start;gap:11px;padding:7px 0;cursor:pointer;font-size:14.5px;line-height:1.45;color:var(--ink);-webkit-user-select:none;user-select:none;}
+.ds-ck .box{width:21px;height:21px;border-radius:50%;border:1.6px solid var(--grey2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;margin-top:1px;transition:background .15s,border-color .15s;}
+.ds-ck:hover .box{border-color:var(--turq);}
+.ds-ck.done .box{background:var(--turq);border-color:var(--turq);}
+.ds-ck.done .tx{color:var(--grey);text-decoration:line-through;}
+.ds-prog{font-size:11px;font-weight:700;color:var(--grey);white-space:nowrap;}
+
+/* Groupe « À faire » qui englobe Nouveau / En cours / Planifié */
+.ds-grp{display:inline-flex;align-items:center;gap:2px;padding:3px;border-radius:22px;background:#fff;box-shadow:var(--sh);flex-shrink:0;transition:background .18s;}
+.ds-grp button{border:none;background:none;font-family:inherit;font-size:12.5px;font-weight:600;padding:6px 11px;border-radius:18px;color:var(--ink2);cursor:pointer;white-space:nowrap;}
+.ds-grp .grp-lbl{font-weight:700;padding:6px 12px;}
+.ds-grp.all{background:var(--blue);box-shadow:inset 0 2px 6px rgba(0,0,0,.32),inset 0 -1px 0 rgba(255,255,255,.12);}
+.ds-grp.all button{color:rgba(255,255,255,.8);}
+.ds-grp.all .grp-lbl{color:#fff;border-right:1px solid rgba(255,255,255,.28);border-radius:18px 0 0 18px;margin-right:2px;}
+.ds-grp.sub{background:#D5E3E9;box-shadow:inset 0 1px 4px rgba(16,24,40,.18);}
+.ds-grp.sub .grp-lbl{color:var(--blue);}
+.ds-grp.sub button.on{background:var(--blue);color:#fff;font-weight:700;box-shadow:0 1px 3px rgba(16,24,40,.25);}
+
+/* SAV (vague 3) */
+.seg4 button{font-size:12.5px;padding:8px 2px;}
+@media(min-width:1024px){.seg.seg4{max-width:520px;}}
+.ds-adr{font-size:12px;color:var(--grey);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ds-badge{font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:7px;white-space:nowrap;flex-shrink:0;}
+.ds-badge.late{background:var(--danger-soft);color:var(--danger-ink);}
+.ds-badge.ok{background:var(--ok-soft);color:var(--ok-ink);}
+.ds-contacts{display:flex;gap:8px;flex-wrap:wrap;padding:10px 15px;border-bottom:1px solid var(--line);}
+.ds-link{display:inline-flex;align-items:center;font-family:inherit;font-size:12.5px;font-weight:600;color:var(--blue);background:var(--blue-soft);padding:6px 11px;border-radius:9px;text-decoration:none;border:none;cursor:pointer;white-space:nowrap;}
+.ds-link.plain{background:#F2F3F5;color:var(--ink2);margin-left:auto;}
+.ds-tl{margin:0 0 14px;}
+.ds-tl-row{display:flex;gap:12px;font-size:13px;color:var(--ink2);padding:4px 0;align-items:baseline;}
+.ds-tl-row .d{color:var(--grey);min-width:86px;font-variant-numeric:tabular-nums;flex-shrink:0;}
+.ds-tl-row.late{color:var(--danger-ink);font-weight:600;}
+.ds-tl-row.ok{color:var(--ok-ink);font-weight:600;}
+.ds-tl-row.link{color:var(--turq-ink);font-weight:600;cursor:pointer;}
+.ds-sub{font-size:12px;font-weight:700;color:var(--grey);margin:0 0 4px;}
+
+.ds-arow{padding:13px 15px;border-bottom:1px solid var(--line);}
+.ds-arow:last-child{border-bottom:none;}
+.ds-arow .t{font-size:14.5px;font-weight:600;color:var(--ink);}
+.ds-arow .c{font-size:13px;font-weight:600;color:var(--blue);margin-top:2px;}
+.ds-arow .m{font-size:12px;color:var(--grey);margin-top:1px;}
+.ds-arow .n{font-size:13px;color:var(--ink2);margin-top:5px;white-space:pre-wrap;line-height:1.5;}
+
+/* Formulaire SAV en place */
+.ds-lbl{font-size:13px;color:var(--grey);font-weight:600;}
+.ds-pick{display:flex;align-items:center;gap:10px;background:var(--turq-soft);border-radius:12px;padding:10px 13px;}
+.ds-pick .n{flex:1;font-weight:700;color:var(--turq-ink);font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ds-pick button{border:none;background:none;color:var(--turq-ink);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;text-decoration:underline;}
+.ds-res{margin-top:6px;border-radius:12px;overflow:hidden;background:#fff;box-shadow:var(--sh);}
+.ds-res:empty{display:none;}
+.ds-res-row{padding:10px 13px;border-bottom:1px solid var(--line);cursor:pointer;display:flex;flex-direction:column;gap:1px;}
+.ds-res-row:last-child{border-bottom:none;}
+.ds-res-row:hover{background:#F6F7F9;}
+.ds-res-row b{font-size:14.5px;font-weight:600;color:var(--ink);}
+.ds-res-row span{font-size:12px;color:var(--grey);}
+.ds-res-row.none{color:var(--grey);font-size:13px;cursor:default;}
+.ds-form .voice-btn{height:36px;padding:0 13px;border-radius:10px;font-size:13px;font-weight:600;}
+.ds-form .voice-btn.idle{background:#F2F3F5;color:var(--ink);}
+@media(max-width:768px){#vf-seg{flex:1 1 100%!important;}#vf-seg button{font-size:12px;}}
+
+.ds-cts{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;font-size:13px;margin:-4px 0 12px;}
+.ds-cts span{color:var(--grey);}
+.ds-cts a{color:var(--blue);font-weight:600;text-decoration:none;}
+
+/* Menu : entrées retirées · pastille d'alertes masquée */
+.nav-btn[data-v="alertes"],.nav-btn[data-v="attribution"]{display:none!important;}
+#alert-pill{display:none!important;}
+.ds-meta .late{color:var(--danger-ink);font-weight:700;}
+.ds-meta .lk{color:var(--turq-ink);font-weight:600;cursor:pointer;text-decoration:underline;}
+.ds-tl-row .d{min-width:48px;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
-<div id="login-screen" style="position:fixed;inset:0;background:#0f172a;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;">
+<div id="login-screen" style="position:fixed;inset:0;background:linear-gradient(160deg,#F2F3F5 0%,#E6F6F8 100%);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',system-ui,sans-serif">
   <div style="width:100%;max-width:360px">
-    <div style="text-align:center;margin-bottom:32px">
-      <div style="font-size:28px;font-weight:900;color:#2563eb;letter-spacing:.05em">SAV Manager</div>
-      <div style="color:#475569;font-size:13px;margin-top:6px">MA 17 SUD — Accès sécurisé</div>
+    <div style="text-align:center;margin-bottom:28px">
+      <div style="display:inline-flex;gap:6px;margin-bottom:14px"><span style="width:10px;height:10px;border-radius:50%;background:#00B4C5"></span><span style="width:10px;height:10px;border-radius:50%;background:#1E6079"></span><span style="width:10px;height:10px;border-radius:50%;background:#FB9B0C"></span></div>
+      <div style="font-size:30px;font-weight:800;color:#1C1C1E;letter-spacing:-.02em">SAV Manager</div>
+      <div style="color:#8A8A8E;font-size:14px;margin-top:4px">MA 17 SUD — Maisons Alysia</div>
     </div>
-    <div style="background:#1e293b;border-radius:16px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
-      <div style="margin-bottom:16px">
-        <label style="display:block;font-size:12px;font-weight:700;color:#94a3b8;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Identifiant</label>
-        <input id="login-user" type="text" placeholder="Identifiant" autocomplete="username"
-          style="width:100%;padding:11px 14px;background:#0f172a;border:1.5px solid #334155;border-radius:10px;color:#f1f5f9;font-size:15px;outline:none;font-family:inherit"
+    <div style="background:#fff;border-radius:22px;padding:26px;box-shadow:0 12px 40px rgba(16,24,40,.12)">
+      <div style="margin-bottom:14px">
+        <label style="display:block;font-size:12px;font-weight:600;color:#8A8A8E;margin-bottom:6px">Identifiant</label>
+        <input id="login-user" type="text" placeholder="Identifiant" autocomplete="username" autocapitalize="none"
+          style="width:100%;padding:13px 14px;background:#F2F3F5;border:1px solid transparent;border-radius:12px;color:#1C1C1E;font-size:16px;outline:none;font-family:inherit"
+          onfocus="this.style.borderColor='#00B4C5';this.style.background='#fff'" onblur="this.style.borderColor='transparent';this.style.background='#F2F3F5'"
           onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()"/>
       </div>
-      <div style="margin-bottom:20px">
-        <label style="display:block;font-size:12px;font-weight:700;color:#94a3b8;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Mot de passe</label>
+      <div style="margin-bottom:18px">
+        <label style="display:block;font-size:12px;font-weight:600;color:#8A8A8E;margin-bottom:6px">Mot de passe</label>
         <input id="login-pass" type="password" placeholder="Mot de passe" autocomplete="current-password"
-          style="width:100%;padding:11px 14px;background:#0f172a;border:1.5px solid #334155;border-radius:10px;color:#f1f5f9;font-size:15px;outline:none;font-family:inherit"
+          style="width:100%;padding:13px 14px;background:#F2F3F5;border:1px solid transparent;border-radius:12px;color:#1C1C1E;font-size:16px;outline:none;font-family:inherit"
+          onfocus="this.style.borderColor='#00B4C5';this.style.background='#fff'" onblur="this.style.borderColor='transparent';this.style.background='#F2F3F5'"
           onkeydown="if(event.key==='Enter')doLogin()"/>
       </div>
-      <div id="login-error" style="display:none;background:#fef2f2;color:#ef4444;border-radius:8px;padding:9px 13px;font-size:13px;font-weight:600;margin-bottom:14px;text-align:center">
-        ❌ Identifiant ou mot de passe incorrect
+      <div id="login-error" style="display:none;background:#FFE8E6;color:#D92D20;border-radius:10px;padding:10px 13px;font-size:13px;font-weight:600;margin-bottom:14px;text-align:center">
+        Identifiant ou mot de passe incorrect
       </div>
-      <button onclick="doLogin()" style="width:100%;padding:13px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">
-        Se connecter →
+      <button onclick="doLogin()" style="width:100%;padding:14px;background:#00B4C5;color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 4px 14px rgba(0,180,197,.35)">
+        Se connecter
       </button>
     </div>
-    <div style="text-align:center;margin-top:16px;color:#334155;font-size:11px">
-      Application privée — Accès réservé à MA 17 SUD
+    <div style="text-align:center;margin-top:16px;color:#8A8A8E;font-size:12px">
+      Application privée — accès réservé à MA 17 SUD
     </div>
   </div>
 </div>
@@ -243,6 +513,7 @@ input,select,textarea{font-family:inherit;}
     </svg>
   </button>
   <div class="page-title" id="page-title">Tableau de bord</div>
+  <div id="topbar-actions"></div>
   <button id="alert-pill" onclick="goView('alertes')">⚠ <span id="alert-count">0</span></button>
 </div>
 <div id="overlay" onclick="closeSB()"></div>
@@ -253,19 +524,24 @@ input,select,textarea{font-family:inherit;}
   </div>
   <div class="sb-nav">
     <button class="nav-btn active" onclick="goView('dashboard')" data-v="dashboard"><span class="icon">🏠</span>Tableau de bord</button>
-    <button class="nav-btn" onclick="goView('clients')" data-v="clients"><span class="icon">🏡</span>Chantiers</button>
-    <button class="nav-btn" onclick="goView('sav')" data-v="sav"><span class="icon">🔧</span>Tous les SAV</button>
-    <button class="nav-btn" onclick="goView('artisans')" data-v="artisans"><span class="icon">👷</span>Artisans</button>
-    <button class="nav-btn" onclick="goView('attribution')" data-v="attribution"><span class="icon">🔗</span>Attribution artisans</button>
+    <button class="nav-btn" onclick="goView('sav')" data-v="sav"><span class="icon">🔧</span>SAV</button>
+    <button class="nav-btn" onclick="goView('suivi')" data-v="suivi"><span class="icon">📋</span>Suivi de chantier</button>
     <button class="nav-btn" onclick="goView('planning')" data-v="planning"><span class="icon">📅</span>Planning</button>
     <button class="nav-btn" onclick="goView('commandes')" data-v="commandes"><span class="icon">🧱</span>Commandes</button>
-    <button class="nav-btn" onclick="goView('suivi')" data-v="suivi"><span class="icon">📋</span>Suivi de chantier</button>
+    <button class="nav-btn" onclick="goView('clients')" data-v="clients"><span class="icon">🏡</span>Chantiers</button>
+    <button class="nav-btn" onclick="goView('artisans')" data-v="artisans"><span class="icon">👷</span>Artisans</button>
+    <button class="nav-btn" onclick="goView('attribution')" data-v="attribution"><span class="icon">🔗</span>Attribution artisans</button>
     <button class="nav-btn" onclick="goView('alertes')" data-v="alertes"><span class="icon">🔔</span>Alertes<span class="nb" id="sb-nb" style="display:none">0</span></button>
   </div>
   <div class="sb-foot">
     <div id="sb-counts">Chargement…</div>
     <div class="sb-live"><span class="live-dot"></span>Temps réel — Supabase</div>
+    <button onclick="toggleDemo()" data-demo-label style="width:100%;margin-top:10px;padding:9px;border-radius:9px;border:1px solid #334155;background:#1e293b;color:#c4b5fd;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🎭 Mode démo : désactivé</button>
   </div>
+</div>
+<div id="demo-banner" style="display:none;position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:9000;background:#7c3aed;color:#fff;align-items:center;gap:10px;padding:9px 16px;font-size:12.5px;font-weight:700;border-radius:24px;box-shadow:0 6px 22px rgba(124,58,237,.45)">
+  🎭 Mode démo — rien n'est enregistré
+  <button onclick="toggleDemo()" style="background:rgba(255,255,255,.22);border:none;color:#fff;border-radius:16px;padding:4px 11px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Quitter</button>
 </div>
 <div id="content"></div>
 <div id="lightbox" onclick="closeLB()">
@@ -302,11 +578,34 @@ input,select,textarea{font-family:inherit;}
 const SUPA_URL='https://kmryofzzmyssgsejsmem.supabase.co';
 const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImttcnlvZnp6bXlzc2dzZWpzbWVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNjQ5NzQsImV4cCI6MjA5NDg0MDk3NH0.cJ82pNpXoUAno8m_5_4-8vN98COR57V1lnHIooVOSSM';
 const HDR={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'return=representation'};
+// Mode démo : les lectures (GET) passent normalement, mais toute écriture
+// (POST/PATCH/DELETE) est SIMULÉE — rien n'est envoyé à Supabase.
+let DEMO_MODE=(()=>{try{return localStorage.getItem('sav_demo')==='1';}catch(e){return false;}})();
 async function db(method,table,body=null,query=''){
+  if(DEMO_MODE && method!=='GET'){
+    if(typeof toast==='function')toast('🎭 Démo — '+method+' simulé (non enregistré)','#8b5cf6');
+    if(method==='POST'){
+      const stamp=()=>'demo-'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+      if(Array.isArray(body))return body.map(b=>({...b,id:stamp(),created_at:new Date().toISOString()}));
+      return [{...body,id:stamp(),created_at:new Date().toISOString()}];
+    }
+    return null; // PATCH / DELETE : comme un 204
+  }
   const r=await fetch(`${SUPA_URL}/rest/v1/${table}${query}`,{method,headers:HDR,body:body?JSON.stringify(body):null});
   if(!r.ok){const e=await r.text();throw new Error(e);}
   if(r.status===204)return null;
   return r.json();
+}
+function updateDemoBanner(){
+  const b=document.getElementById('demo-banner');
+  if(b)b.style.display=DEMO_MODE?'flex':'none';
+  document.querySelectorAll('[data-demo-label]').forEach(el=>{el.textContent='🎭 Mode démo : '+(DEMO_MODE?'ACTIVÉ':'désactivé');});
+}
+function toggleDemo(){
+  DEMO_MODE=!DEMO_MODE;
+  try{localStorage.setItem('sav_demo',DEMO_MODE?'1':'0');}catch(e){}
+  updateDemoBanner();
+  if(typeof toast==='function')toast(DEMO_MODE?'🎭 Mode démo ACTIVÉ — aucune écriture réelle':'✅ Mode réel — écritures actives',DEMO_MODE?'#8b5cf6':'#10b981');
 }
 
 // ══════════════════════════════════════════════
@@ -326,7 +625,7 @@ let savTri='clients';
 
 const STATUTS={
   nouveau:{l:'Nouveau',cls:'s-nouveau'},
-  planifie:{l:'Planifié 📅',cls:'s-planifie'},
+  planifie:{l:'Planifié',cls:'s-planifie'},
   attente_intervention:{l:'En cours',cls:'s-attente'},
   resolu:{l:'Résolu',cls:'s-resolu'}
 };
@@ -342,14 +641,14 @@ function getStatutsForSav(sav){
   if(!sav.artisan_id){
     return {
       nouveau:{l:'Nouveau',cls:'s-nouveau'},
-      planifie:{l:'Planifié 📅',cls:'s-planifie'},
+      planifie:{l:'Planifié',cls:'s-planifie'},
       resolu:{l:'Résolu',cls:'s-resolu'}
     };
   }
   // SAV artisan
   return {
     nouveau:{l:'Nouveau',cls:'s-nouveau'},
-    planifie:{l:'Planifié 📅',cls:'s-planifie'},
+    planifie:{l:'Planifié',cls:'s-planifie'},
     attente_intervention:{l:'En cours',cls:'s-attente'},
     resolu:{l:'Résolu',cls:'s-resolu'}
   };
@@ -377,6 +676,7 @@ const timeout=setTimeout(()=>{
 
 function renderArtisanView(){
   document.getElementById('loader').style.display='none';
+  document.body.classList.add('is-artisan');
   const artisanNom=getArtisanName();
   const artisan=artisans.find(a=>a.nom===artisanNom||(a.entreprise&&a.entreprise===artisanNom));
 
@@ -3990,7 +4290,7 @@ function updateUI(){
   else{ap.style.display='none';sb.style.display='none';}
   document.getElementById('sb-counts').textContent=`${clients.length} chantiers · ${savList.length} SAV`;
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.v===currentView));
-  const titles={dashboard:'Tableau de bord',clients:'Chantiers',sav:'Tous les SAV',artisans:'Artisans',alertes:'Alertes'};
+  const titles={dashboard:'Tableau de bord',clients:'Chantiers',sav:'SAV',artisans:'Artisans',alertes:'Alertes',attribution:'Attribution artisans',planning:'Planning',commandes:'Commandes',suivi:'Suivi'};
   const _ptm=document.getElementById('page-title');if(_ptm)_ptm.textContent=titles[currentView]||'';
 }
 
@@ -3999,6 +4299,7 @@ function updateUI(){
 // ══════════════════════════════════════════════
 function goView(v){
   currentView=v;closeSB();updateUI();
+  const _tba=document.getElementById('topbar-actions');if(_tba)_tba.innerHTML='';
   const c=document.getElementById('content');
   c.classList.remove('sav-view','suivi-view');
   c.style.visibility='visible';
@@ -4492,58 +4793,62 @@ function quickNav(clientId){
 function renderSav(c){
   c.classList.add('sav-view');
   savStatutFilter=null;
-  const sv=savList;
+  window._savEdit=null;
   c.innerHTML=`
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px">
-      <h1 style="font-size:20px;font-weight:800">Tous les SAV</h1>
-      <button class="btn btn-primary" onclick="openSavFromList()">+ Nouveau SAV</button>
-    </div>
-    <div class="search-wrap" style="margin-bottom:10px">
-      <span class="search-ic">🔍</span>
-      <input type="text" id="sav-search" placeholder="Rechercher par client, titre…" oninput="applyAllSavFilters(this.value)"/>
-    </div>
-    <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px">Affichage</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px">
-      <button onclick="setSavScope('clients')" id="scope-clients" style="padding:8px;border-radius:9px;border:2px solid #2563eb;background:#eff6ff;color:#2563eb;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">🏡 Par chantier</button>
-      <button onclick="setSavScope('artisans')" id="scope-artisans" style="padding:8px;border-radius:9px;border:2px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;font-size:12px;font-weight:400;font-family:inherit">👷 Par artisan</button>
-      <button onclick="setSavScope('interne')" id="scope-interne" style="padding:8px;border-radius:9px;border:2px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;font-size:12px;font-weight:400;font-family:inherit">🏠 Interne (${sv.filter(s=>s.type_sav!=='fournisseur'&&!s.artisan_id).length})</button>
-      <button onclick="setSavScope('fournisseur')" id="scope-fournisseur" style="padding:8px;border-radius:9px;border:2px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;font-size:12px;font-weight:400;font-family:inherit">📦 Fournisseur (${sv.filter(s=>s.type_sav==='fournisseur').length})</button>
-    </div>
-    <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px">Filtrer & trier</div>
-    <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap" id="sav-statut-filters">
-      <button onclick="filterSavByStatut(null)" id="sf-all" style="padding:4px 12px;border-radius:20px;border:2px solid #2563eb;background:#eff6ff;color:#2563eb;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit">Tous</button>
-      <button onclick="filterSavByStatut('nouveau')" id="sf-nouveau" class="status s-nouveau" style="cursor:pointer;font-family:inherit">Nouveau</button>
-      <button onclick="filterSavByStatut('attente_intervention')" id="sf-attente_intervention" class="status s-attente" style="cursor:pointer;font-family:inherit">En cours</button>
-      <button onclick="filterSavByStatut('planifie')" id="sf-planifie" style="padding:2px 10px;border-radius:20px;border:1px solid #c7d2fe;background:#e0e7ff;color:#3730a3;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit">📅 Planifié</button>
-      <button onclick="filterSavByStatut('resolu')" id="sf-resolu" class="status s-resolu" style="cursor:pointer;font-family:inherit">Résolu</button>
-    </div>
-    <div style="display:flex;gap:7px;margin-bottom:12px">
-      <button onclick="toggleSavTriJours()" id="sav-tri-jours" style="flex:1;padding:6px;border-radius:9px;border:1.5px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit">⏱ Trier par jours</button>
-      <button onclick="resetSavTri()" id="sav-tri-reset" style="padding:6px 12px;border-radius:9px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#94a3b8;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit">↩ A-Z</button>
-    </div>
+    <div id="sav-sticky-header">
+      <div class="search-wrap" style="margin-bottom:12px">
+        <span class="search-ic">🔍</span>
+        <input type="text" id="sav-search" placeholder="Rechercher un client, un SAV…" oninput="applyAllSavFilters(this.value)"/>
+      </div>
+      <div class="seg seg4" style="margin-bottom:12px">
+        <button id="scope-clients" onclick="setSavScope('clients')">🏡 Chantier</button>
+        <button id="scope-artisans" onclick="setSavScope('artisans')">👷 Artisan</button>
+        <button id="scope-interne" onclick="setSavScope('interne')">🏠 Interne</button>
+        <button id="scope-fournisseur" onclick="setSavScope('fournisseur')">📦 Fourn.</button>
+      </div>
+      <div class="ds-row">
+        <div class="ds-chips" id="sav-statut-filters">
+          <div class="ds-grp all" id="sav-grp">
+            <button class="grp-lbl" onclick="filterSavByStatut(null)">À faire</button>
+            <button id="sf-nouveau" onclick="filterSavByStatut('nouveau')">Nouveau</button>
+            <button id="sf-attente_intervention" onclick="filterSavByStatut('attente_intervention')">En cours</button>
+            <button id="sf-planifie" onclick="filterSavByStatut('planifie')">Planifié</button>
+          </div>
+          <button class="chip" id="sf-resolu" onclick="filterSavByStatut('resolu')">Résolu</button>
+        </div>
+        <div class="ds-sort">
+          <button onclick="toggleSavTriJours()" id="sav-tri-jours" class="ds-sortbtn">📅 Par date</button>
+          <button onclick="resetSavTri()" id="sav-tri-reset" class="ds-sortbtn on">A–Z</button>
+        </div>
+      </div>
     </div>
     <div id="sav-list-container"></div>
   `;
-  renderSavItems(sv);
+  _setTopbarActions('<button class="tb-btn" onclick="openSavNewInline()">+ Nouveau<span class="tb-long">SAV</span></button>');
+  _savHeaderSync();
+  applyAllSavFilters('');
 }
-
+function _savHeaderSync(){
+  ['clients','artisans','interne','fournisseur'].forEach(k=>{const b=document.getElementById('scope-'+k);if(b)b.classList.toggle('on',savScope===k);});
+  const f=savStatutFilter;
+  const g=document.getElementById('sav-grp');
+  if(g){g.classList.toggle('all',!f);g.classList.toggle('sub',!!f&&f!=='resolu');}
+  ['nouveau','attente_intervention','planifie'].forEach(k=>{const b=document.getElementById('sf-'+k);if(b)b.classList.toggle('on',f===k);});
+  const r=document.getElementById('sf-resolu');
+  if(r){r.classList.toggle('on',f==='resolu');const n=savList.filter(x=>x.statut==='resolu').length;r.textContent='Résolu'+(n?' · '+n:'');}
+  const t=window._savTriJours||null;
+  const bj=document.getElementById('sav-tri-jours'),br=document.getElementById('sav-tri-reset');
+  if(bj){bj.classList.toggle('on',!!t);bj.textContent='📅 '+(t==='old'?'Plus ancien d\'abord ↑':t==='new'?'Plus récent d\'abord ↓':'Par date');}
+  if(br)br.classList.toggle('on',!t);
+}
 function toggleSavTriJours(){
-  // Boucle : vieux en haut ⇄ récent en haut (seul A-Z désactive)
-  if(window._savTriJours==='new'){window._savTriJours='old';}
-  else {window._savTriJours='new';}
-  const btn=document.getElementById('sav-tri-jours');
-  if(btn){
-    if(window._savTriJours==='old'){btn.textContent='⏱ Plus vieux en haut ↓';}
-    else {btn.textContent='⏱ Plus récent en haut ↑';}
-    btn.style.border='2px solid #2563eb';btn.style.background='#eff6ff';btn.style.color='#2563eb';
-  }
+  window._savTriJours=(window._savTriJours==='new')?'old':'new';
+  _savHeaderSync();
   applyAllSavFilters(document.getElementById('sav-search')?.value||'');
 }
-
 function resetSavTri(){
   window._savTriJours=null;
-  const btn=document.getElementById('sav-tri-jours');
-  if(btn){btn.textContent='⏱ Trier par jours';btn.style.border='1.5px solid #e2e8f0';btn.style.background='#fff';btn.style.color='#64748b';}
+  _savHeaderSync();
   applyAllSavFilters(document.getElementById('sav-search')?.value||'');
 }
 
@@ -4563,23 +4868,22 @@ function renderSavItemsFlat(list){
     const ja=_savJoursRef(a),jb=_savJoursRef(b);
     return dir==='new'?(ja-jb):(jb-ja);
   });
-  el.innerHTML='<div class="card" style="overflow:hidden">'+sorted.map(s=>{
+  el.innerHTML='<div class="ds-card">'+sorted.map(s=>{
     const client=clients.find(c=>c.id===s.client_id);
     const artisan=artisans.find(a=>a.id===s.artisan_id);
     const jr=_savJoursRef(s);
     const isOpen=window._savOpen===s.id;
     if(isOpen)return renderOneSav(s,client);
     // ligne compacte avec nom client en plus + jours en évidence
-    const dotColor=s.statut==='resolu'?'#10b981':s.statut==='planifie'?'#8b5cf6':(s.statut==='attente_intervention'&&jr>7)?'#ef4444':s.statut==='attente_intervention'?'#f59e0b':'#3b82f6';
+    const dotColor=s.statut==='resolu'?'#2FB866':s.statut==='planifie'?'#00B4C5':(s.statut==='attente_intervention'&&jr>7)?'#FF3B30':s.statut==='attente_intervention'?'#FB9B0C':'#1E6079';
     const stCls=STATUTS[s.statut]?.cls||'s-nouveau';
     const stLabel=STATUTS[s.statut]?.l||'Nouveau';
-    return '<div data-sid="'+s.id+'" onclick="toggleSavOpen(this.dataset.sid)" style="display:flex;align-items:center;gap:9px;padding:9px 13px;border-bottom:1px solid #f1f5f9;cursor:pointer;font-size:12px">'
-      +'<span style="width:8px;height:8px;border-radius:50%;background:'+dotColor+';flex-shrink:0"></span>'
-      +'<span style="font-weight:800;color:#0f172a;min-width:70px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90px">'+(client?.nom||'—')+'</span>'
-      +'<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:#475569">'+s.titre+'</span>'
-      +'<span style="background:#f1f5f9;color:#334155;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;white-space:nowrap">'+jr+'j</span>'
-      +'<span class="status '+stCls+'" style="font-size:10px">'+stLabel+'</span>'
-      +'<span style="color:#cbd5e1;font-size:12px">›</span>'
+    return '<div class="ds-item" data-sid="'+s.id+'" onclick="toggleSavOpen(this.dataset.sid)">'
+      +'<span class="ds-dot" style="background:'+dotColor+'"></span>'
+      +'<span class="ti"><b>'+_esc((client?.nom||'—').split(' ')[0])+'</b> · '+_esc(s.titre)+'</span>'
+      +'<span class="ds-prog">'+jr+' j</span>'
+      +'<span class="status '+stCls+'">'+stLabel+'</span>'
+      +'<span class="ds-chev">›</span>'
     +'</div>';
   }).join('')+'</div>';
 }
@@ -4625,31 +4929,18 @@ function renderSavItems(list){
     const client=clients.find(c=>c.id===client_id);
     const allResolved=savs.every(s=>s.statut==='resolu');
     const hasRetard=savs.some(s=>s.statut==='attente_intervention'&&jours(s.date_mail||s.date_signalement)>7);
-    const bgHeader=allResolved?'#064e3b':'#0f172a';
-    return '<div class="sav-group" data-cid="'+client_id+'" style="border-radius:13px;overflow:hidden;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,0.08)">'
-      // Header client
-      +'<div style="background:'+bgHeader+';padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px">'
-        +'<div>'
-          +'<div style="color:#f1f5f9;font-weight:800;font-size:14px">'+(client?.nom||'—')+'</div>'
-          +'<div style="color:#94a3b8;font-size:11px;margin-top:2px">'+(client?.adresse||'')+'</div>'
-        +'</div>'
-        +'<div style="display:flex;align-items:center;gap:6px">'
-          +(hasRetard?'<span style="background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px">⚠ Retard</span>':'')
-          +(allResolved?'<span style="background:#10b981;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px">✅ Résolu</span>':'')
-          +'<span style="background:rgba(255,255,255,0.15);color:#f1f5f9;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px">'+savs.length+' SAV</span>'
-        +'</div>'
+    return '<div class="sav-group ds-card" data-cid="'+client_id+'">'
+      +'<div class="ds-card-head">'
+        +'<span class="nom">'+_esc(client?.nom||'—')+'</span>'
+        +(hasRetard?'<span class="ds-badge late">Retard</span>':'')
+        +(allResolved?'<span class="ds-badge ok">Résolu</span>':'')
+        +'<span class="ds-cnt">'+savs.length+' SAV</span>'
+        +'<button class="ds-add" data-cid="'+client_id+'" onclick="event.stopPropagation();openSavQuick(this.dataset.cid)" title="Ajouter un SAV sur ce chantier">+</button>'
       +'</div>'
-      // Contacts rapides
-      +'<div style="background:#1e293b;padding:8px 14px;display:flex;gap:6px;flex-wrap:wrap">'
-        +(client?.tel?'<a href="tel:'+client.tel+'" style="padding:4px 9px;border-radius:7px;background:#1e40af;color:#bfdbfe;font-size:11px;font-weight:700;text-decoration:none">📞 '+(client.conjoint1||client.tel)+'</a>':'')
-        +(client?.tel2?'<a href="tel:'+client.tel2+'" style="padding:4px 9px;border-radius:7px;background:#3730a3;color:#c7d2fe;font-size:11px;font-weight:700;text-decoration:none">📞 '+(client.conjoint2||client.tel2)+'</a>':'')
-        +(client?.email?'<a href="mailto:'+client.email+(client.email2?','+client.email2:'')+'" style="padding:4px 9px;border-radius:7px;background:#065f46;color:#a7f3d0;font-size:11px;font-weight:700;text-decoration:none">✉ Mail</a>':'')
-        +'<button onclick="openDetail(\''+client_id+'\')" style="padding:4px 9px;border-radius:7px;background:rgba(255,255,255,0.1);color:#94a3b8;border:none;cursor:pointer;font-size:11px;font-family:inherit">Fiche →</button>'
-      +'</div>'
-      // SAV items
-      +'<div style="background:#fff">'
+      +'<div>'
         +savs.map(s=>renderOneSav(s,client)).join('')
       +'</div>'
+      +((window._savEdit&&window._savEdit.mode==='new'&&window._savEdit.cid===client_id)?(window._savEdit._placed=true,_savFormHtml()):'')
     +'</div>';
   }).join('');
 }
@@ -4663,21 +4954,25 @@ function renderOneSav(s,client){
   const isOpen=window._savOpen===sid;
 
   // Point couleur selon statut
-  const dotColor=s.statut==='resolu'?'#10b981':s.statut==='planifie'?'#8b5cf6':enRetard?'#ef4444':s.statut==='attente_intervention'?'#f59e0b':'#3b82f6';
+  const dotColor=s.statut==='resolu'?'#2FB866':s.statut==='planifie'?'#00B4C5':enRetard?'#FF3B30':s.statut==='attente_intervention'?'#FB9B0C':'#1E6079';
   const stCls=STATUTS[s.statut]?.cls||'s-nouveau';
   const stLabel=STATUTS[s.statut]?.l||'Nouveau';
   const artLabel=s.type_sav==='fournisseur'?'📦 Fournisseur':artisan?(artisan.entreprise||artisan.nom):'🏠 Interne';
 
+  if(window._savEdit&&window._savEdit.mode==='edit'&&window._savEdit.sid===sid){
+    return '<div class="ds-open" style="--acc:'+dotColor+'">'+_savFormHtml()+'</div>';
+  }
   // ─── LIGNE FERMÉE ───
   if(!isOpen){
-    return '<div data-sid="'+sid+'" onclick="toggleSavOpen(this.dataset.sid)" style="display:flex;align-items:center;gap:9px;padding:9px 13px;border-bottom:1px solid #f1f5f9;cursor:pointer;font-size:12px">'
-      +'<span style="width:8px;height:8px;border-radius:50%;background:'+dotColor+';flex-shrink:0"></span>'
-      +'<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">'+s.titre+'</span>'
-      +(s.artisan_fait&&s.statut!=='resolu'?'<span title="Artisan a signalé : fait" style="color:#10b981;font-size:12px">✅</span>':'')
-      +'<span style="color:#94a3b8;font-size:11px;white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis">'+artLabel+'</span>'
-      +'<span class="status '+stCls+'" style="font-size:10px">'+stLabel+'</span>'
-      +(enRetard?'<span style="background:#fef2f2;color:#dc2626;font-size:9px;font-weight:700;padding:2px 6px;border-radius:5px">'+jMail+'j</span>':'')
-      +'<span style="color:#cbd5e1;font-size:12px">›</span>'
+    return '<div class="ds-item" data-sid="'+sid+'" onclick="toggleSavOpen(this.dataset.sid)">'
+      +'<span class="ds-dot" style="background:'+dotColor+'"></span>'
+      +'<span class="ti">'+_esc(s.titre)+'</span>'
+      +(s.artisan_fait&&s.statut!=='resolu'?'<span title="Artisan a signalé : fait" style="font-size:12px">✅</span>':'')
+      +(()=>{const k=_savLignes(s);const n=k.filter(x=>x.done).length;return (k.length&&n)?'<span class="ds-prog">'+n+'/'+k.length+'</span>':'';})()
+      +'<span class="sub">'+artLabel+'</span>'
+      +'<span class="status '+stCls+'">'+stLabel+'</span>'
+      +(enRetard?'<span class="ds-badge late">'+jMail+' j</span>':'')
+      +'<span class="ds-chev">›</span>'
     +'</div>';
   }
 
@@ -4694,7 +4989,7 @@ function renderOneSav(s,client){
     +'%0ATéléphones :%0A'+tels+'%0A'
     +'━━━━━━━━━━━━━━━━━━━━%0A'
     +'Intervention à réaliser :%0A'
-    +encodeURIComponent(s.titre)+(s.notes?'%0A'+encodeURIComponent(s.notes):'')+'%0A'
+    +encodeURIComponent(s.titre)+(_savLignes(s).some(x=>!x.done)?'%0A'+encodeURIComponent(_savLignes(s).filter(x=>!x.done).map(x=>'- '+x.txt).join('\n')):'')+'%0A'
     +'━━━━━━━━━━━━━━━━━━━━%0A%0AMerci de confirmer votre disponibilité.%0A%0ACordialement';
   const mailHref=artisan?.email?'mailto:'+artisan.email+'?cc='+cc+'&subject='+encodeURIComponent('Intervention SAV : '+s.titre)+'&body='+body:'';
   const relanceBody='Bonjour,%0A%0ANous revenons vers vous concernant le SAV ci-dessous, sans réponse depuis '+jMail+' jours.%0A%0A'+body;
@@ -4704,113 +4999,93 @@ function renderOneSav(s,client){
   const smsHref=artisan?.tel?'sms:'+artisan.tel+'?&body='+smsBody:'';
 
   // Vue à plat (interne/fournisseur ou tri jours) → afficher le nom du client dans le header
-  const flatView=(typeof savScope!=='undefined'&&(savScope==='interne'||savScope==='fournisseur'))||window._savTriJours;
-  let html='<div style="border-bottom:1px solid #f1f5f9;background:#fafbfc">';
-  // Header cliquable (referme)
-  html+='<div data-sid="'+sid+'" onclick="toggleSavOpen(this.dataset.sid)" style="display:flex;align-items:center;gap:9px;padding:9px 13px;cursor:pointer">'
-    +'<span style="width:8px;height:8px;border-radius:50%;background:'+dotColor+';flex-shrink:0"></span>'
-    +(flatView&&client?'<span style="font-weight:800;color:#0f172a;font-size:11px;white-space:nowrap;max-width:95px;overflow:hidden;text-overflow:ellipsis">'+client.nom+'</span>':'')
-    +'<span style="flex:1;font-weight:700;font-size:12px'+(flatView?';color:#475569':'')+'">'+s.titre+'</span>'
-    +'<span class="status '+stCls+'" style="font-size:10px">'+stLabel+'</span>'
-    +(enRetard?'<span style="background:#fef2f2;color:#dc2626;font-size:9px;font-weight:700;padding:2px 6px;border-radius:5px">'+jMail+'j</span>':'')
-    +'<span style="color:#cbd5e1;font-size:12px;transform:rotate(90deg)">›</span>'
+  const flatView=!!window._savTriJours;
+  const fourn=(s.type_sav==='fournisseur');
+  let html='<div class="ds-open" style="--acc:'+dotColor+'">';
+  // En-tête cliquable (referme)
+  html+='<div class="ds-open-head" data-sid="'+sid+'" onclick="toggleSavOpen(this.dataset.sid)">'
+    +'<span class="ds-dot" style="background:'+dotColor+'"></span>'
+    +'<span class="ti">'+(flatView&&client?'<span style="font-weight:500;color:var(--grey)">'+_esc(client.nom.split(' ')[0])+' · </span>':'')+_esc(s.titre)+'</span>'
+    +'<span class="status '+stCls+'">'+stLabel+'</span>'
+    +(enRetard?'<span class="ds-badge late">'+jMail+' j</span>':'')
+    +'<span class="ds-chev" style="transform:rotate(90deg)">›</span>'
   +'</div>';
-  // Détail
-  html+='<div style="padding:0 13px 13px 30px">';
-  // Description
-  html+='<div style="font-size:12px;color:#334155;line-height:1.5;background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:9px 11px;margin-bottom:10px;white-space:pre-wrap">';
-  html+='<div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:3px">Description</div>';
-  html+=(s.notes||s.titre);
-  if(artisan)html+='<div style="margin-top:5px;color:#64748b">Artisan : <b>'+(artisan.entreprise||artisan.nom)+'</b>'+(artisan.metier?' ('+artisan.metier+')':'')+'</div>';
-  html+='</div>';
-  // Timeline
-  html+='<div style="margin-bottom:10px">';
-  html+='<div style="display:flex;gap:8px;font-size:11px;color:#64748b;padding:3px 0"><span style="font-weight:700;color:#475569;min-width:78px">'+frDate(s.date_signalement)+'</span>📝 SAV créé</div>';
-  if(s.date_mail)html+='<div style="display:flex;gap:8px;font-size:11px;color:#64748b;padding:3px 0"><span style="font-weight:700;color:#475569;min-width:78px">'+frDate(s.date_mail)+'</span>✉ Demande envoyée</div>';
+  html+='<div class="ds-open-body">';
+  // Une seule ligne d'infos : qui · créé · demandé · planifié / sans réponse / résolu
+  const _dc=d=>{if(!d)return '';const x=new Date(String(d).length<=10?d+'T12:00:00':d);return isNaN(x)?'':x.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});};
+  const meta=[fourn?'Fournisseur':artisan?_esc(artisan.entreprise||artisan.nom):'Interne MA 17 SUD','créé le '+_dc(s.date_signalement)];
+  if(s.date_mail)meta.push('demandé le '+_dc(s.date_mail));
   if(s.statut==='planifie'){
     const planItem=planningList.find(p=>p.sav_id===s.id);
-    if(planItem?.date){
-      const dpFr=new Date(planItem.date+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
-      html+='<div data-pid="'+planItem.id+'" onclick="event.stopPropagation();openEditPlanningModal(this.dataset.pid)" style="display:flex;gap:8px;font-size:11px;color:#3730a3;padding:3px 0;cursor:pointer"><span style="font-weight:700;min-width:78px">'+dpFr+'</span>📅 Planifié'+(planItem.heure?' à '+planItem.heure.slice(0,5):'')+' ✏</div>';
+    if(planItem?.date)meta.push('<a class="lk" data-pid="'+planItem.id+'" onclick="event.stopPropagation();openEditPlanningModal(this.dataset.pid)">planifié le '+_dc(planItem.date)+(planItem.heure?' à '+planItem.heure.slice(0,5):'')+'</a>');
+  }
+  if(enRetard)meta.push('<b class="late">'+jMail+' jours sans réponse</b>');
+  if(s.statut==='resolu'&&s.date_intervention)meta.push('résolu le '+_dc(s.date_intervention));
+  html+='<div class="ds-meta">'+meta.join(' · ')+'</div>';
+  // Détail en checklist
+  const ck=_savLignes(s);
+  if(ck.length){
+    html+='<div class="ds-check">';
+    ck.forEach(x=>{html+='<div class="ds-ck'+(x.done?' done':'')+'" data-sid="'+sid+'" data-i="'+x.i+'" onclick="event.stopPropagation();_savToggleLine(this.dataset.sid,+this.dataset.i)"><span class="box">'+(x.done?'✓':'')+'</span><span class="tx">'+_esc(x.txt)+'</span></div>';});
+    html+='</div>';
+    if(ck.every(x=>x.done)&&s.statut!=='resolu'){
+      html+='<div class="ds-notice"><span style="flex:1">Tout est coché.</span><button class="ds-act ok" data-sid="'+sid+'" data-cid="'+cid+'" onclick="event.stopPropagation();chgStatut(this.dataset.sid,\'resolu\',this.dataset.cid)">Marquer résolu</button></div>';
     }
   }
-  if(enRetard)html+='<div style="display:flex;gap:8px;font-size:11px;color:#dc2626;font-weight:600;padding:3px 0"><span style="font-weight:700;min-width:78px">Auj.</span>⚠ '+jMail+' jours sans réponse</div>';
-  if(s.statut==='resolu'&&s.date_intervention)html+='<div style="display:flex;gap:8px;font-size:11px;color:#10b981;font-weight:600;padding:3px 0"><span style="font-weight:700;min-width:78px">'+frDate(s.date_intervention)+'</span>✅ Résolu</div>';
-  html+='</div>';
-  // ─── Historique fournisseur (éditable) ───
-  if(s.type_sav==='fournisseur'){
+  // Fournisseur : journal des échanges (une ligne par étape, datée automatiquement)
+  if(fourn){
     const hist=s.historique||[];
-    html+='<div style="margin-bottom:10px">';
-    html+='<div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:5px">Suivi</div>';
-    hist.forEach((h,i)=>{
-      html+='<div style="display:flex;gap:8px;font-size:11px;color:#64748b;padding:3px 0;align-items:flex-start">'
-        +'<span style="font-weight:700;color:#475569;min-width:72px;white-space:nowrap">'+h.date+'</span>'
-        +'<span style="flex:1">'+h.texte.replace(/</g,"&lt;")+'</span>'
-        +'<button data-sid="'+sid+'" data-i="'+i+'" onclick="event.stopPropagation();_delHistLine(this.dataset.sid,parseInt(this.dataset.i))" style="border:none;background:none;color:#cbd5e1;cursor:pointer;font-size:12px;padding:0">✕</button>'
-      +'</div>';
-    });
-    html+='<div style="display:flex;gap:6px;margin-top:6px">'
-      +'<input type="text" id="hist-input-'+sid+'" placeholder="Ajouter un suivi..." onclick="event.stopPropagation()" onkeydown="if(event.key===\'Enter\'){event.stopPropagation();_addHistLine(\''+sid+'\')}" style="flex:1;padding:6px 10px;border-radius:8px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:12px"/>'
-      +'<button data-sid="'+sid+'" onclick="event.stopPropagation();_addHistLine(this.dataset.sid)" style="padding:6px 12px;border-radius:8px;border:none;background:#d97706;color:#fff;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">+</button>'
+    if(hist.length){
+      html+='<div class="ds-tl">';
+      hist.forEach((h,i)=>{
+        html+='<div class="ds-tl-row"><span class="d">'+_esc(String(h.date).slice(0,5))+'</span><span style="flex:1">'+_esc(h.texte)+'</span>'
+          +'<button data-sid="'+sid+'" data-i="'+i+'" onclick="event.stopPropagation();_delHistLine(this.dataset.sid,parseInt(this.dataset.i))" title="Retirer cette ligne" style="border:none;background:none;color:var(--grey2);cursor:pointer;font-size:14px;padding:0 4px">✕</button></div>';
+      });
+      html+='</div>';
+    }
+    html+='<div style="display:flex;gap:8px;margin:0 0 14px">'
+      +'<input type="text" class="ds-in" id="hist-input-'+sid+'" placeholder="Noter une étape (relance, réponse…)" onclick="event.stopPropagation()" onkeydown="if(event.key===\'Enter\'){event.stopPropagation();_addHistLine(\''+sid+'\')}" style="flex:1;padding:9px 12px"/>'
+      +'<button class="ds-act" data-sid="'+sid+'" onclick="event.stopPropagation();_addHistLine(this.dataset.sid)">Noter</button>'
     +'</div>';
-    html+='</div>';
   }
-
-  // Signalement artisan "fait" → badge + validation
+  // Signalement artisan "fait" → validation
   if(s.artisan_fait){
     const fd=s.artisan_fait_date?new Date(s.artisan_fait_date).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'}):'';
-    html+='<div style="margin-bottom:10px;display:flex;align-items:center;gap:8px;background:#d1fae5;border:1.5px solid #6ee7b7;border-radius:9px;padding:8px 11px">'
-      +'<span style="font-size:17px">✅</span>'
-      +'<span style="flex:1;font-size:12px;font-weight:700;color:#065f46">Artisan a signalé : fait le '+fd+'</span>'
-      +'<button data-sid="'+sid+'" data-cid="'+cid+'" onclick="event.stopPropagation();chgStatut(this.dataset.sid,\'resolu\',this.dataset.cid)" style="padding:5px 11px;border-radius:8px;background:#10b981;color:#fff;border:none;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit">Valider / Clôturer</button>'
-    +'</div>';
+    html+='<div class="ds-notice"><span style="flex:1">✅ L\'artisan a signalé avoir terminé le '+fd+'</span>'
+      +'<button class="ds-act ok" data-sid="'+sid+'" data-cid="'+cid+'" onclick="event.stopPropagation();chgStatut(this.dataset.sid,\'resolu\',this.dataset.cid)">Valider et clôturer</button></div>';
   }
   // Actions
-  html+='<div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">';
-  if(s.type_sav==='fournisseur'){
-    // Pas de relance - juste statut + edit + delete
-    html+='<span class="status '+stCls+'" data-menu="smenu-'+sid+'" onclick="event.stopPropagation();toggleSavStatutMenu(this.dataset.menu,event)" style="cursor:pointer;padding:7px 12px;border-radius:9px;font-size:12px;font-weight:700">🔄 Statut ▾</span>';
-    html+='<div class="statut-menu" id="smenu-'+sid+'" style="right:0;left:auto;min-width:160px">';
-    const sd=getStatutsForSav(s);
-    Object.entries(sd).filter(([k])=>k!==s.statut).forEach(([k,v])=>{
-      html+='<button data-sid="'+sid+'" data-k="'+k+'" data-cid="'+cid+'" onclick="event.stopPropagation();chgStatut(this.dataset.sid,this.dataset.k,this.dataset.cid)"><span class="status '+v.cls+'">'+v.l+'</span></button>';
-    });
-    html+='</div>';
-    html+='<button onclick="event.stopPropagation();openSavModal(this.dataset.cid,this.dataset.sid)" data-cid="'+cid+'" data-sid="'+sid+'" style="padding:7px 10px;border-radius:9px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:12px;font-family:inherit">✏</button>';
-    html+='<button onclick="event.stopPropagation();delSavFromList(this.dataset.sid,this.dataset.cid)" data-sid="'+sid+'" data-cid="'+cid+'" style="padding:7px 10px;border-radius:9px;border:1.5px solid #fee2e2;background:#fff5f5;color:#ef4444;cursor:pointer;font-size:12px;font-family:inherit;margin-left:auto">🗑</button>';
-    html+='</div></div></div>';
-    return html;
-  }
-  if(artisan){
-    if(s.statut==='nouveau'&&artisan.email){
-      html+='<a href="'+mailHref+'" data-sid="'+sid+'" data-cid="'+cid+'" onclick="event.stopPropagation();sendMailAndUpdateStatus(this.dataset.sid,this.dataset.cid,event)" style="text-decoration:none;padding:7px 12px;border-radius:9px;border:1.5px solid #bfdbfe;background:#eff6ff;color:#2563eb;font-size:12px;font-weight:700">✉ Demander</a>';
-    } else if(artisan.email){
-      html+='<a href="'+relanceHref+'" onclick="event.stopPropagation()" style="text-decoration:none;padding:7px 12px;border-radius:9px;border:1.5px solid #bfdbfe;background:#eff6ff;color:#2563eb;font-size:12px;font-weight:700">✉ Relance mail</a>';
-    }
-    if(artisan.tel)html+='<a href="'+smsHref+'" onclick="event.stopPropagation()" style="text-decoration:none;padding:7px 12px;border-radius:9px;border:1.5px solid #bbf7d0;background:#f0fdf4;color:#15803d;font-size:12px;font-weight:700">💬 Relance SMS</a>';
-  } else {
-    if(s.statut!=='planifie'&&s.statut!=='resolu'){
-      html+='<button data-sid="'+sid+'" onclick="event.stopPropagation();planifierSav(this.dataset.sid)" style="padding:7px 12px;border-radius:9px;border:1.5px solid #ddd6fe;background:#f5f3ff;color:#7c3aed;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">📅 Planifier</button>';
-    } else if(s.statut==='planifie'){
-      const pi=planningList.find(p=>p.sav_id===s.id);
-      if(pi)html+='<button data-pid="'+pi.id+'" onclick="event.stopPropagation();openEditPlanningModal(this.dataset.pid)" style="padding:7px 12px;border-radius:9px;border:1.5px solid #ddd6fe;background:#f5f3ff;color:#7c3aed;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">📅 Modifier planif</button>';
-    }
-  }
-  // Statut
-  html+='<span class="status '+stCls+'" data-menu="smenu-'+sid+'" onclick="event.stopPropagation();toggleSavStatutMenu(this.dataset.menu,event)" style="cursor:pointer;padding:7px 12px;border-radius:9px;font-size:12px;font-weight:700">🔄 Statut ▾</span>';
-  html+='<div class="statut-menu" id="smenu-'+sid+'" style="right:0;left:auto;min-width:180px">';
-  const statutsDispos=getStatutsForSav(s);
-  Object.entries(statutsDispos).filter(([k])=>k!==s.statut).forEach(([k,v])=>{
-    if(k==='planifie'&&s.artisan_id){
-      html+='<button data-sid="'+sid+'" data-cid="'+cid+'" onclick="event.stopPropagation();openPlanifieArtisanModal(this.dataset.sid,this.dataset.cid)"><span class="status '+v.cls+'">'+v.l+'</span></button>';
+  html+='<div class="ds-actions">';
+  if(!fourn){
+    if(artisan){
+      if(s.statut==='nouveau'&&artisan.email){
+        html+='<a class="ds-act main" href="'+mailHref+'" data-sid="'+sid+'" data-cid="'+cid+'" onclick="event.stopPropagation();sendMailAndUpdateStatus(this.dataset.sid,this.dataset.cid,event)">Demander l\'intervention</a>';
+      } else if(artisan.email){
+        html+='<a class="ds-act main" href="'+relanceHref+'" onclick="event.stopPropagation()">Relancer par mail</a>';
+      }
+      if(artisan.tel)html+='<a class="ds-act main" href="'+smsHref+'" onclick="event.stopPropagation()">Relancer par SMS</a>';
     } else {
-      html+='<button data-sid="'+sid+'" data-k="'+k+'" data-cid="'+cid+'" onclick="event.stopPropagation();chgStatut(this.dataset.sid,this.dataset.k,this.dataset.cid)"><span class="status '+v.cls+'">'+v.l+'</span></button>';
+      if(s.statut!=='planifie'&&s.statut!=='resolu'){
+        html+='<button class="ds-act main" data-sid="'+sid+'" onclick="event.stopPropagation();planifierSav(this.dataset.sid)">Planifier</button>';
+      } else if(s.statut==='planifie'){
+        const pi=planningList.find(p=>p.sav_id===s.id);
+        if(pi)html+='<button class="ds-act main" data-pid="'+pi.id+'" onclick="event.stopPropagation();openEditPlanningModal(this.dataset.pid)">Modifier la date</button>';
+      }
     }
+  }
+  html+='<button class="ds-act" data-sid="'+sid+'" onclick="event.stopPropagation();openSavEditInline(this.dataset.sid)">Modifier</button>';
+  html+='<button class="ds-act" data-menu="smenu-'+sid+'" onclick="event.stopPropagation();toggleSavStatutMenu(this.dataset.menu,event)">Statut ▾</button>';
+  html+='<div class="statut-menu ds-menu" id="smenu-'+sid+'">';
+  const _dots={nouveau:'#1E6079',attente_intervention:'#FB9B0C',planifie:'#00B4C5',resolu:'#2FB866'};
+  Object.entries(getStatutsForSav(s)).forEach(([k,v])=>{
+    const cur=(k===s.statut);
+    const act=cur?'this.parentElement.classList.remove(\'open\')':(k==='planifie'&&s.artisan_id&&!fourn)?'openPlanifieArtisanModal(this.dataset.sid,this.dataset.cid)':'chgStatut(this.dataset.sid,this.dataset.k,this.dataset.cid)';
+    html+='<button'+(cur?' class="cur"':'')+' data-sid="'+sid+'" data-k="'+k+'" data-cid="'+cid+'" onclick="event.stopPropagation();'+act+'">'
+      +'<span class="ds-dot" style="background:'+(_dots[k]||'#8A8A8E')+'"></span><span style="flex:1">'+v.l+'</span>'+(cur?'<span class="ck">✓</span>':'')+'</button>';
   });
   html+='</div>';
-  // Edit + Delete
-  html+='<button onclick="event.stopPropagation();openSavModal(this.dataset.cid,this.dataset.sid)" data-cid="'+cid+'" data-sid="'+sid+'" style="padding:7px 10px;border-radius:9px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:12px;font-family:inherit">✏</button>';
-  html+='<button onclick="event.stopPropagation();delSavFromList(this.dataset.sid,this.dataset.cid)" data-sid="'+sid+'" data-cid="'+cid+'" style="padding:7px 10px;border-radius:9px;border:1.5px solid #fee2e2;background:#fff5f5;color:#ef4444;cursor:pointer;font-size:12px;font-family:inherit;margin-left:auto">🗑</button>';
+  html+='<span style="flex:1"></span>';
+  html+='<button class="ds-act del" data-sid="'+sid+'" data-cid="'+cid+'" onclick="event.stopPropagation();delSavFromList(this.dataset.sid,this.dataset.cid)">Supprimer</button>';
   html+='</div>';
   html+='</div></div>';
   return html;
@@ -4944,14 +5219,7 @@ async function sendMailAndUpdateStatus(savId,clientId,event){
 
 function filterSavByStatut(statut){
   savStatutFilter=statut;
-  const allBtn=document.getElementById('sf-all');
-  if(allBtn){allBtn.style.borderColor=statut===null?'#2563eb':'#e2e8f0';allBtn.style.background=statut===null?'#eff6ff':'#fff';allBtn.style.fontWeight=statut===null?'700':'400';}
-  Object.keys(STATUTS).forEach(k=>{
-    const btn=document.getElementById('sf-'+k);
-    if(btn){btn.style.fontWeight=statut===k?'700':'400';btn.style.opacity=statut===k||statut===null?'1':'0.5';}
-  });
-  const btnInt=document.getElementById('sf-interne');
-  if(btnInt){btnInt.style.fontWeight=statut==='interne'?'700':'400';btnInt.style.opacity=statut==='interne'||statut===null?'1':'0.5';}
+  _savHeaderSync();
   applyAllSavFilters(document.getElementById('sav-search')?.value||'');
 }
 
@@ -5008,17 +5276,7 @@ function setSavScope(scope){
   savScope=scope;
   // 'clients' et 'artisans' = modes de groupement ; 'interne' et 'fournisseur' = périmètres (groupés par chantier)
   savTri=(scope==='artisans')?'artisans':'clients';
-  const scopes={clients:'#2563eb',artisans:'#7c3aed',interne:'#7c3aed',fournisseur:'#d97706'};
-  const bgs={clients:'#eff6ff',artisans:'#f3e8ff',interne:'#f3e8ff',fournisseur:'#fffbeb'};
-  ['clients','artisans','interne','fournisseur'].forEach(s=>{
-    const btn=document.getElementById('scope-'+s);
-    if(!btn)return;
-    const active=s===scope;
-    btn.style.border='2px solid '+(active?scopes[s]:'#e2e8f0');
-    btn.style.background=active?bgs[s]:'#fff';
-    btn.style.color=active?scopes[s]:'#64748b';
-    btn.style.fontWeight=active?'700':'400';
-  });
+  _savHeaderSync();
   applyAllSavFilters(document.getElementById('sav-search')?.value||'');
 }
 
@@ -5081,61 +5339,69 @@ function renderSavByArtisan(list){
     const smsBody=encodeURIComponent('Bonjour, relance pour '+savs.length+' SAV en attente. Merci de confirmer vos dispo. MA 17 SUD');
     const smsHref=art?.tel?'sms:'+art.tel.replace(/\s/g,'')+'?body='+smsBody:'';
 
-    let html='<div class="card" style="margin-bottom:14px;padding:0;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">';
-    // Header artisan
-    html+='<div style="background:'+(hasRetard?'#7f1d1d':'#1e1b4b')+';padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px">';
-    html+='<div>';
-    html+='<div style="color:#f1f5f9;font-weight:800;font-size:14px">'+(art?.metier||'Artisan sans métier')+(art?.entreprise?' — '+art.entreprise:'')+'</div>';
-    html+='<div style="color:#a5b4fc;font-size:11px;margin-top:2px">'+(art?.nom||'?')+(art?.tel?' · '+art.tel:'')+'</div>';
+    let html='<div class="ds-card">';
+    // En-tête artisan
+    html+='<div class="ds-card-head art" style="align-items:flex-start">';
+    html+='<div style="flex:1;min-width:0">';
+    html+='<div class="nom">'+_esc((art?.metier||'Artisan')+(art?.entreprise?' — '+art.entreprise:''))+'</div>';
+    html+='<div style="color:rgba(255,255,255,.78);font-size:11.5px;margin-top:2px">'+_esc((art?.nom||'')+(art?.tel?' · '+art.tel:''))+'</div>';
     html+='</div>';
-    html+='<div style="display:flex;gap:5px;align-items:center">';
-    if(hasRetard)html+='<span style="background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px">⚠ Retard</span>';
-    html+='<span style="background:rgba(255,255,255,0.15);color:#f1f5f9;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px">'+savs.length+' SAV</span>';
-    html+='</div></div>';
-    // Barre contact + relance
-    html+='<div style="background:#312e81;padding:8px 14px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">';
-    if(art?.tel)html+='<a href="tel:'+art.tel+'" style="padding:4px 9px;border-radius:7px;background:#3730a3;color:#c7d2fe;font-size:11px;font-weight:700;text-decoration:none">📞 Appeler</a>';
-    if(relanceHref)html+='<a href="'+relanceHref+'" style="padding:4px 9px;border-radius:7px;background:#b91c1c;color:#fecaca;font-size:11px;font-weight:700;text-decoration:none">✉ Relance ('+savs.length+')</a>';
-    if(art?.email)html+='<button data-aid="'+artisanId+'" onclick="relanceIA(this.dataset.aid)" style="padding:4px 9px;border-radius:7px;background:#7c3aed;color:#f3e8ff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;border:none">✨ Reformuler</button>';
-    if(smsHref)html+='<a href="'+smsHref+'" style="padding:4px 9px;border-radius:7px;background:#065f46;color:#a7f3d0;font-size:11px;font-weight:700;text-decoration:none">💬 SMS</a>';
+    if(hasRetard)html+='<span class="ds-badge late">Retard</span>';
+    html+='<span class="ds-cnt" style="background:rgba(255,255,255,.18);color:#fff">'+savs.length+' SAV</span>';
     html+='</div>';
-    // Chantiers
-    html+='<div style="background:#fff">';
+    // Contact + relances
+    html+='<div class="ds-contacts">';
+    if(art?.tel)html+='<a class="ds-link" href="tel:'+art.tel+'">📞 Appeler</a>';
+    if(relanceHref)html+='<a class="ds-link" href="'+relanceHref+'">✉ Relancer ('+savs.length+')</a>';
+    if(smsHref)html+='<a class="ds-link" href="'+smsHref+'">💬 SMS</a>';
+    if(art?.email)html+='<button class="ds-link plain" data-aid="'+artisanId+'" onclick="relanceIA(this.dataset.aid)">✨ Reformuler le mail</button>';
+    html+='</div>';
+    // SAV de cet artisan
     savs.forEach(s=>{
       const cl=clients.find(c=>c.id===s.client_id);
       const j=jours(s.date_signalement);
       const enRetard=s.statut==='attente_intervention'&&jours(s.date_mail||s.date_signalement)>7;
-      html+='<div style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background:'+(enRetard?'#fff5f5':'#fff')+'">';
-      html+='<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">';
+      html+='<div class="ds-arow">';
+      html+='<div style="display:flex;align-items:flex-start;gap:10px">';
       html+='<div style="flex:1;min-width:0">';
-      html+='<div style="font-size:12px;font-weight:700;color:#2563eb;margin-bottom:2px">'+(cl?.nom||'?')+'</div>';
-      html+='<div style="font-size:12px;font-weight:600">'+s.titre+'</div>';
-      html+='<div style="font-size:11px;color:#64748b;margin-top:1px">'+(cl?.adresse||'')+' · '+j+'j'+(enRetard?' <span style="color:#ef4444;font-weight:700">⚠</span>':'')+'</div>';
-      if(s.notes)html+='<div style="font-size:11px;color:#94a3b8;font-style:italic;margin-top:2px">'+s.notes+'</div>';
+      html+='<div class="t">'+_esc(s.titre)+'</div>';
+      html+='<div class="c">'+_esc(cl?.nom||'?')+'</div>';
+      html+='<div class="m">'+_esc(cl?.adresse||'')+' · '+j+' j</div>';
+      if(s.notes)html+='<div class="n">'+_esc(s.notes)+'</div>';
       html+='</div>';
+      if(enRetard)html+='<span class="ds-badge late">Retard</span>';
       html+='<span class="status '+(STATUTS[s.statut]?.cls||'s-nouveau')+'">'+(STATUTS[s.statut]?.l||'Nouveau')+'</span>';
       html+='</div>';
-      // Contacts client
-      html+='<div style="display:flex;gap:5px;margin-top:6px;flex-wrap:wrap">';
-      if(cl?.tel)html+='<a href="tel:'+cl.tel+'" onclick="event.stopPropagation()" style="padding:3px 8px;border-radius:6px;background:#dbeafe;color:#1e40af;font-size:11px;font-weight:700;text-decoration:none">📞 '+(cl.conjoint1||cl.tel)+'</a>';
-      if(cl?.tel2)html+='<a href="tel:'+cl.tel2+'" onclick="event.stopPropagation()" style="padding:3px 8px;border-radius:6px;background:#e0e7ff;color:#3730a3;font-size:11px;font-weight:700;text-decoration:none">📞 '+(cl.conjoint2||cl.tel2)+'</a>';
-      html+='<button data-cid="'+s.client_id+'" onclick="openDetail(this.dataset.cid)" style="padding:3px 8px;border-radius:6px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:11px;font-family:inherit">Fiche →</button>';
+      html+='<div style="display:flex;gap:8px;margin-top:9px;flex-wrap:wrap">';
+      if(cl?.tel)html+='<a class="ds-link" href="tel:'+cl.tel+'" onclick="event.stopPropagation()">📞 '+_esc(cl.conjoint1||cl.tel)+'</a>';
+      if(cl?.tel2)html+='<a class="ds-link" href="tel:'+cl.tel2+'" onclick="event.stopPropagation()">📞 '+_esc(cl.conjoint2||cl.tel2)+'</a>';
+      html+='<button class="ds-link plain" data-cid="'+s.client_id+'" onclick="openDetail(this.dataset.cid)">Fiche chantier ›</button>';
       html+='</div></div>';
     });
-    html+='</div></div>';
+    html+='</div>';
     return html;
   }).join('');
 
   if(noArtisan.length>0){
-    let html='<div class="card" style="margin-bottom:14px;padding:0;overflow:hidden">';
-    html+='<div style="background:#374151;padding:10px 14px"><div style="color:#f1f5f9;font-weight:700;font-size:13px">Sans artisan assigné ('+noArtisan.length+')</div></div>';
-    html+='<div style="background:#fff">'+noArtisan.map(s=>renderOneSav(s,clients.find(c=>c.id===s.client_id))).join('')+'</div>';
+    let html='<div class="ds-card">';
+    html+='<div class="ds-card-head"><span class="nom">Sans artisan assigné</span><span class="ds-cnt">'+noArtisan.length+'</span></div>';
+    html+='<div>'+noArtisan.map(s=>renderOneSav(s,clients.find(c=>c.id===s.client_id))).join('')+'</div>';
     html+='</div>';
     el.innerHTML+= html;
   }
 }
 
 function applyAllSavFilters(q){
+  if(window._savEdit)window._savEdit._placed=false;
+  _applyAllSavFiltersInner(q);
+  const ed=window._savEdit;
+  if(ed&&ed.mode==='new'&&!ed._placed){
+    const el=document.getElementById('sav-list-container');
+    const cl=ed.cid?clients.find(x=>x.id===ed.cid):null;
+    if(el)el.insertAdjacentHTML('afterbegin','<div class="ds-card"><div class="ds-card-head"><span class="nom">'+(cl?_esc(cl.nom):'Nouveau SAV')+'</span></div>'+_savFormHtml()+'</div>');
+  }
+}
+function _applyAllSavFiltersInner(q){
   let list=savList;
   // Périmètre (scope)
   const scope=(typeof savScope!=='undefined')?savScope:'clients';
@@ -5145,6 +5411,7 @@ function applyAllSavFilters(q){
   // Filtre statut (sous-filtre)
   if(savStatutFilter==='planifie')list=list.filter(s=>s.statut==='planifie');
   else if(savStatutFilter)list=list.filter(s=>s.statut===savStatutFilter);
+  else list=list.filter(s=>s.statut!=='resolu'); // « À faire » : les résolus sont rangés à part
   // Recherche
   if(q){
     const lq=q.toLowerCase();
@@ -5167,19 +5434,18 @@ function renderSavItemsFlatScope(list){
   const el=document.getElementById('sav-list-container');
   if(!el)return;
   if(list.length===0){el.innerHTML='<div class="empty"><div class="big">🔧</div><p>Aucun SAV</p></div>';return;}
-  el.innerHTML='<div class="card" style="overflow:hidden">'+list.map(s=>{
+  el.innerHTML='<div class="ds-card">'+list.map(s=>{
     const client=clients.find(c=>c.id===s.client_id);
     if(window._savOpen===s.id)return renderOneSav(s,client);
     const jr=_savJoursRef(s);
-    const dotColor=s.statut==='resolu'?'#10b981':s.statut==='planifie'?'#8b5cf6':(s.statut==='attente_intervention'&&jr>7)?'#ef4444':s.statut==='attente_intervention'?'#f59e0b':'#3b82f6';
+    const dotColor=s.statut==='resolu'?'#2FB866':s.statut==='planifie'?'#00B4C5':(s.statut==='attente_intervention'&&jr>7)?'#FF3B30':s.statut==='attente_intervention'?'#FB9B0C':'#1E6079';
     const stCls=STATUTS[s.statut]?.cls||'s-nouveau';
     const stLabel=STATUTS[s.statut]?.l||'Nouveau';
-    return '<div data-sid="'+s.id+'" onclick="toggleSavOpen(this.dataset.sid)" style="display:flex;align-items:center;gap:9px;padding:9px 13px;border-bottom:1px solid #f1f5f9;cursor:pointer;font-size:12px">'
-      +'<span style="width:8px;height:8px;border-radius:50%;background:'+dotColor+';flex-shrink:0"></span>'
-      +'<span style="font-weight:800;color:#0f172a;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:95px">'+(client?.nom||'—')+'</span>'
-      +'<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:#475569">'+s.titre+'</span>'
-      +'<span class="status '+stCls+'" style="font-size:10px">'+stLabel+'</span>'
-      +'<span style="color:#cbd5e1;font-size:12px">›</span>'
+    return '<div class="ds-item" data-sid="'+s.id+'" onclick="toggleSavOpen(this.dataset.sid)">'
+      +'<span class="ds-dot" style="background:'+dotColor+'"></span>'
+      +'<span class="ti"><b>'+_esc((client?.nom||'—').split(' ')[0])+'</b> · '+_esc(s.titre)+'</span>'
+      +'<span class="status '+stCls+'">'+stLabel+'</span>'
+      +'<span class="ds-chev">›</span>'
     +'</div>';
   }).join('')+'</div>';
 }
@@ -5209,6 +5475,7 @@ function renderSuivi(c){
   c.classList.add('suivi-view');
   window._suiviScope=window._suiviScope||'clients';
   window._suiviStatutFilter=window._suiviStatutFilter||null;
+  window._suiviEdit=null;
   _renderSuiviView(c);
 }
 
@@ -5218,10 +5485,10 @@ function _suiviJoursRef(s){
 }
 
 const SUIVI_STATUTS={
-  nouveau:{l:'Nouveau',cls:'s-nouveau',dot:'#3b82f6'},
-  en_cours:{l:'En cours',cls:'s-attente',dot:'#f59e0b'},
-  planifie:{l:'Planifié 📅',cls:'s-planifie',dot:'#8b5cf6'},
-  resolu:{l:'Résolu',cls:'s-resolu',dot:'#10b981'}
+  nouveau:{l:'Nouveau',cls:'s-nouveau',dot:'#1E6079'},
+  en_cours:{l:'En cours',cls:'s-attente',dot:'#FB9B0C'},
+  planifie:{l:'Planifié',cls:'s-planifie',dot:'#00B4C5'},
+  resolu:{l:'Résolu',cls:'s-resolu',dot:'#2FB866'}
 };
 
 function _renderSuiviView(c){
@@ -5234,7 +5501,9 @@ function _renderSuiviView(c){
   else if(scope==='artisans')list=list.filter(s=>s.artisan_id);
   // Filtre statut
   const sf=window._suiviStatutFilter;
+  const nbResolus=list.filter(s=>s.statut==='resolu').length;
   if(sf)list=list.filter(s=>s.statut===sf);
+  else list=list.filter(s=>s.statut!=='resolu'); // « À faire » : les résolus sont rangés à part
   // Recherche
   const q=(window._suiviSearch||'').toLowerCase();
   if(q)list=list.filter(s=>{
@@ -5242,67 +5511,79 @@ function _renderSuiviView(c){
     return (cl?.nom||'').toLowerCase().includes(q)||(s.titre||'').toLowerCase().includes(q)||(s.description||'').toLowerCase().includes(q);
   });
 
+  const tri=window._suiviTriJours||null;
   c.innerHTML=`
     <div id="suivi-header">
-      <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px">
-        <h1 style="font-size:16px;font-weight:800;flex:1;white-space:nowrap">📋 Suivi</h1>
-        <button onclick="openNewSuivi()" style="padding:8px 12px;border-radius:9px;border:none;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;background:#00B4C5;color:#fff;white-space:nowrap">+ Nouveau suivi</button>
-        <button onclick="openSuiviIA()" style="padding:8px 11px;border-radius:9px;border:none;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;white-space:nowrap">✨ IA</button>
+      <div class="search-wrap" style="margin-bottom:12px">
+        <span class="search-ic">🔍</span>
+        <input id="suivi-search" type="text" value="${(window._suiviSearch||'').replace(/"/g,'&quot;')}" oninput="window._suiviSearch=this.value;_renderSuiviView()" placeholder="Rechercher un chantier…"/>
       </div>
-      <input id="suivi-search" value="${(window._suiviSearch||'').replace(/"/g,'&quot;')}" oninput="window._suiviSearch=this.value;_renderSuiviView()" placeholder="🔍 Rechercher un chantier..." style="width:100%;padding:10px 14px;border-radius:12px;border:1.5px solid #e2e8f0;font-family:inherit;font-size:14px;margin-bottom:10px"/>
-      <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px">Affichage</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:10px">
+      <div class="seg" style="margin-bottom:12px">
         ${_suiviScopeBtn('clients','🏡 Chantier')}
         ${_suiviScopeBtn('artisans','👷 Artisan')}
         ${_suiviScopeBtn('interne','🏠 Interne')}
       </div>
-      <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px">Filtrer & trier</div>
-      <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
-        ${_suiviFiltBtn(null,'Tous')}
-        ${_suiviFiltBtn('nouveau','Nouveau')}
-        ${_suiviFiltBtn('en_cours','En cours')}
-        ${_suiviFiltBtn('planifie','📅 Planifié')}
-        ${_suiviFiltBtn('resolu','Résolu')}
-      </div>
-      <div style="display:flex;gap:7px;margin-bottom:4px">
-        <button onclick="_toggleSuiviJours()" id="suivi-tri-jours" style="flex:1;padding:6px;border-radius:9px;border:1.5px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit">⏱ Trier par jours</button>
-        <button onclick="_resetSuiviTri()" style="padding:6px 12px;border-radius:9px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#94a3b8;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit">↩ A-Z</button>
+      <div class="ds-row">
+        <div class="ds-chips">
+          <div class="ds-grp ${!sf?'all':(sf!=='resolu'?'sub':'')}">
+            <button class="grp-lbl" onclick="window._suiviStatutFilter=null;_renderSuiviView()">À faire</button>
+            ${_suiviGrpBtn('nouveau','Nouveau')}
+            ${_suiviGrpBtn('en_cours','En cours')}
+            ${_suiviGrpBtn('planifie','Planifié')}
+          </div>
+          ${_suiviFiltBtn('resolu','Résolu'+(nbResolus?' · '+nbResolus:''))}
+        </div>
+        <div class="ds-sort">
+          <button onclick="_toggleSuiviJours()" id="suivi-tri-jours" class="ds-sortbtn${tri?' on':''}">📅 ${tri==='old'?'Plus ancien d\'abord ↑':tri==='new'?'Plus récent d\'abord ↓':'Par date'}</button>
+          <button onclick="_resetSuiviTri()" class="ds-sortbtn${tri?'':' on'}">A–Z</button>
+        </div>
       </div>
     </div>
     <div id="suivi-list">${_renderSuiviList(list)}</div>
   `;
+  _setTopbarActions('<button class="tb-ic" onclick="openSuiviIA()" title="Créer un suivi à la voix (IA)">✨</button><button class="tb-btn" onclick="openNewSuivi()">+ Nouveau<span class="tb-long">suivi</span></button>');
   if(window._suiviSearch){const inp=document.getElementById('suivi-search');if(inp){inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);}}
 }
 
+function _setTopbarActions(html){const el=document.getElementById('topbar-actions');if(el)el.innerHTML=html||'';}
 function _suiviScopeBtn(key,label){
   const active=(window._suiviScope||'clients')===key;
-  return `<button onclick="window._suiviScope='${key}';_renderSuiviView()" style="padding:8px;border-radius:9px;border:2px solid ${active?'#00B4C5':'#e2e8f0'};background:${active?'#ecfeff':'#fff'};color:${active?'#0891b2':'#64748b'};cursor:pointer;font-size:12px;font-weight:${active?700:400};font-family:inherit">${label}</button>`;
+  return `<button class="${active?'on':''}" onclick="window._suiviScope='${key}';_renderSuiviView()">${label}</button>`;
+}
+function _suiviGrpBtn(key,label){
+  const active=(window._suiviStatutFilter||null)===key;
+  return `<button class="${active?'on':''}" onclick="window._suiviStatutFilter='${key}';_renderSuiviView()">${label}</button>`;
 }
 function _suiviFiltBtn(key,label){
   const active=(window._suiviStatutFilter||null)===key;
-  return `<button onclick="window._suiviStatutFilter=${key?`'${key}'`:'null'};_renderSuiviView()" style="padding:4px 11px;border-radius:20px;border:1.5px solid ${active?'#00B4C5':'#e2e8f0'};background:${active?'#ecfeff':'#fff'};color:${active?'#0891b2':'#64748b'};cursor:pointer;font-size:11px;font-weight:${active?700:600};font-family:inherit">${label}</button>`;
+  return `<button class="chip${active?' on':''}" onclick="window._suiviStatutFilter=${key?`'${key}'`:'null'};_renderSuiviView()">${label}</button>`;
 }
-
 function _toggleSuiviJours(){
   window._suiviTriJours=(window._suiviTriJours==='new')?'old':'new';
-  const btn=document.getElementById('suivi-tri-jours');
-  if(btn){btn.textContent=window._suiviTriJours==='old'?'⏱ Plus vieux en haut ↓':'⏱ Plus récent en haut ↑';btn.style.border='2px solid #00B4C5';btn.style.background='#ecfeff';btn.style.color='#0891b2';}
   _renderSuiviView();
 }
 function _resetSuiviTri(){
   window._suiviTriJours=null;
-  const btn=document.getElementById('suivi-tri-jours');
-  if(btn){btn.textContent='⏱ Trier par jours';btn.style.border='1.5px solid #e2e8f0';btn.style.background='#fff';btn.style.color='#64748b';}
   _renderSuiviView();
 }
 
 function _renderSuiviList(list){
+  const ed=window._suiviEdit;
+  const html=_renderSuiviListInner(list,ed);
+  if(ed&&ed.mode==='new'&&!ed._placed){
+    const cl=ed.cid?clients.find(x=>x.id===ed.cid):null;
+    return '<div class="ds-card"><div class="ds-card-head"><span class="nom">'+(cl?_esc(cl.nom):'Nouveau suivi')+'</span></div>'+_suiviFormHtml()+'</div>'+html;
+  }
+  return html;
+}
+function _renderSuiviListInner(list,ed){
+  if(ed)ed._placed=false;
   if(list.length===0)return '<div class="empty"><div class="big">✅</div><p style="color:#10b981;font-weight:700">Aucun suivi en cours !</p></div>';
   // Tri par jours → vue à plat
   if(window._suiviTriJours){
     const dir=window._suiviTriJours;
     const sorted=[...list].sort((a,b)=>{const ja=_suiviJoursRef(a),jb=_suiviJoursRef(b);return dir==='new'?(ja-jb):(jb-ja);});
-    return '<div class="card" style="overflow:hidden">'+sorted.map(s=>_suiviRow(s,true)).join('')+'</div><div style="height:30vh"></div>';
+    return '<div class="ds-card">'+sorted.map(s=>_suiviRow(s,true)).join('')+'</div><div style="height:30vh"></div>';
   }
   // Vue par artisan
   if((window._suiviScope||'clients')==='artisans')return _renderSuiviArtisanView(list);
@@ -5317,13 +5598,14 @@ function _renderSuiviList(list){
   return cids.map(cid=>{
     const cl=clients.find(x=>x.id===cid);
     const items=byClient[cid];
-    return '<div class="card" style="overflow:hidden;margin-bottom:10px;padding:0">'
-      +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 13px;background:#0f172a;color:#fff">'
-        +'<span style="font-weight:700;font-size:13px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(cl?.nom||'?')+'</span>'
-        +'<span style="font-size:11px;background:rgba(255,255,255,0.2);padding:2px 9px;border-radius:20px;white-space:nowrap">'+items.length+' suivi'+(items.length>1?'s':'')+'</span>'
-        +'<button data-cid="'+cid+'" onclick="event.stopPropagation();openQuickTask(this.dataset.cid)" title="Ajouter une tâche" style="width:27px;height:27px;flex-shrink:0;border-radius:7px;background:#00B4C5;color:#fff;border:none;cursor:pointer;font-size:17px;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center">+</button>'
+    return '<div class="ds-card">'
+      +'<div class="ds-card-head">'
+        +'<span class="nom">'+(cl?.nom||'?')+'</span>'
+        +'<span class="ds-cnt">'+items.length+' suivi'+(items.length>1?'s':'')+'</span>'
+        +'<button class="ds-add" data-cid="'+cid+'" onclick="event.stopPropagation();openQuickTask(this.dataset.cid)" title="Ajouter une tâche">+</button>'
       +'</div>'
       +items.map(s=>_suiviRow(s,false)).join('')
+      +((ed&&ed.mode==='new'&&ed.cid===cid)?(ed._placed=true,_suiviFormHtml()):'')
     +'</div>';
   }).join('')+'<div style="height:30vh"></div>';
 }
@@ -5336,15 +5618,19 @@ function _suiviRow(s,flat){
   const isOpen=window._suiviOpen===s.id;
   const jr=_suiviJoursRef(s);
 
+  if(window._suiviEdit&&window._suiviEdit.mode==='edit'&&window._suiviEdit.sid===s.id){
+    return '<div class="ds-open" style="--acc:'+st.dot+'">'+_suiviFormHtml()+'</div>';
+  }
   if(!isOpen){
-    return '<div data-sid="'+s.id+'" onclick="toggleSuiviOpen(this.dataset.sid)" style="display:flex;align-items:center;gap:9px;padding:9px 13px;border-bottom:1px solid #f1f5f9;cursor:pointer;font-size:12px">'
-      +'<span style="width:8px;height:8px;border-radius:50%;background:'+st.dot+';flex-shrink:0"></span>'
-      +(flat?'<span style="font-weight:800;color:#0f172a;font-size:11px;white-space:nowrap;max-width:90px;overflow:hidden;text-overflow:ellipsis">'+(cl?.nom||'—')+'</span>':'')
-      +'<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">'+(s.titre||artLabel)+'</span>'
-      +(s.artisan_fait&&s.statut!=='resolu'?'<span title="Artisan a signalé : fait" style="color:#10b981;font-size:12px">✅</span>':'')
-      +'<span style="color:#94a3b8;font-size:11px;white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis">'+artLabel+'</span>'
-      +'<span class="status '+st.cls+'" style="font-size:10px">'+st.l+'</span>'
-      +'<span style="color:#cbd5e1;font-size:12px">›</span>'
+    const dCourt=s.created_at?new Date(s.created_at).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}):'';
+    return '<div class="ds-item" data-sid="'+s.id+'" onclick="toggleSuiviOpen(this.dataset.sid)">'
+      +'<span class="ds-dot" style="background:'+st.dot+'"></span>'
+      +'<span class="ti">'+(flat?'<b>'+(cl?.nom||'—').split(' ')[0]+'</b> · ':'')+(s.titre||artLabel)+'</span>'
+      +(s.artisan_fait&&s.statut!=='resolu'?'<span title="Artisan a signalé : fait" style="font-size:12px">✅</span>':'')
+      +(()=>{const k=_suiviLignes(s);const n=k.filter(x=>x.done).length;return (k.length&&n)?'<span class="ds-prog">'+n+'/'+k.length+'</span>':'';})()
+      +'<span class="sub">'+(flat?dCourt:artLabel)+'</span>'
+      +'<span class="status '+st.cls+'">'+st.l+'</span>'
+      +'<span class="ds-chev">›</span>'
     +'</div>';
   }
 
@@ -5361,7 +5647,7 @@ function _suiviRow(s,flat){
     '',
     'Détails :',
     (s.titre||''),
-    (s.description||''),
+    _suiviLignes(s).filter(x=>!x.done).map(x=>'- '+x.txt).join('\r\n'),
     '',
     'Merci d\'intervenir dans les meilleurs délais.',
     '',
@@ -5378,7 +5664,7 @@ function _suiviRow(s,flat){
     'Merci d\'intervenir sur le chantier '+(cl?.nom||'')+(cpCommune?' '+cpCommune:'')+'.',
     'Objet : '+(s.titre||'')+'.'
   ];
-  const detLines=(s.description||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+  const detLines=_suiviLignes(s).filter(x=>!x.done).map(x=>x.txt);
   if(detLines.length){
     smsLines.push('Detail :','');
     detLines.forEach(l=>smsLines.push('* '+l));
@@ -5387,63 +5673,80 @@ function _suiviRow(s,flat){
   const smsBody=_sansAccents(smsLines.join('\n'));
   const smsHref=artisan?.tel?'sms:'+artisan.tel.replace(/\s/g,'')+'?&body='+encodeURIComponent(smsBody):'';
 
-  let html='<div style="border-bottom:1px solid #f1f5f9;background:#fafbfc">';
-  html+='<div data-sid="'+s.id+'" onclick="toggleSuiviOpen(this.dataset.sid)" style="display:flex;align-items:center;gap:9px;padding:9px 13px;cursor:pointer">'
-    +'<span style="width:8px;height:8px;border-radius:50%;background:'+st.dot+';flex-shrink:0"></span>'
-    +(flat&&cl?'<span style="font-weight:800;color:#0f172a;font-size:11px;max-width:95px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+cl.nom+'</span>':'')
-    +'<span style="flex:1;font-weight:700;font-size:12px">'+(s.titre||artLabel)+'</span>'
-    +'<span class="status '+st.cls+'" style="font-size:10px">'+st.l+'</span>'
-    +'<span style="color:#cbd5e1;font-size:12px;transform:rotate(90deg)">›</span>'
+  const interne=(s.type_suivi==='interne'||!s.artisan_id);
+  const dCree=s.created_at?new Date(s.created_at).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'}):'';
+  const dEnv=s.date_envoi?new Date(s.date_envoi).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}):'';
+  let html='<div class="ds-open" style="--acc:'+st.dot+'">';
+  html+='<div class="ds-open-head" data-sid="'+s.id+'" onclick="toggleSuiviOpen(this.dataset.sid)">'
+    +'<span class="ds-dot" style="background:'+st.dot+'"></span>'
+    +'<span class="ti">'+(flat&&cl?'<span style="font-weight:500;color:var(--grey)">'+cl.nom.split(' ')[0]+' · </span>':'')+(s.titre||artLabel)+'</span>'
+    +'<span class="status '+st.cls+'">'+st.l+'</span>'
+    +'<span class="ds-chev" style="transform:rotate(90deg)">›</span>'
   +'</div>';
-  html+='<div style="padding:0 13px 13px 30px">';
-  // Description
-  html+='<div style="font-size:12px;color:#334155;line-height:1.5;background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:9px 11px;margin-bottom:8px;white-space:pre-wrap">';
-  html+='<div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:3px">Description</div>';
-  html+=(s.description||'(aucune)');
-  html+='</div>';
-  // Meta
-  html+='<div style="font-size:11px;color:#64748b;margin-bottom:10px">📅 Créé le '+dateCreation;
-  if(s.date_envoi){
-    const dEnv=new Date(s.date_envoi).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
-    html+=' · ✉ Envoyé le '+dEnv;
+  html+='<div class="ds-open-body">';
+  // Méta sur une ligne
+  html+='<div class="ds-meta">'+(interne?'Interne MA 17 SUD':(artisan?(artisan.entreprise||artisan.nom):'Artisan'))+' · créé le '+dCree+(dEnv?' · envoyé le '+dEnv:'')+'</div>';
+  // Description en texte simple
+  const ck=_suiviLignes(s);
+  if(ck.length){
+    html+='<div class="ds-check">';
+    ck.forEach(x=>{
+      html+='<div class="ds-ck'+(x.done?' done':'')+'" data-sid="'+s.id+'" data-i="'+x.i+'" onclick="event.stopPropagation();_suiviToggleLine(this.dataset.sid,+this.dataset.i)"><span class="box">'+(x.done?'✓':'')+'</span><span class="tx">'+_esc(x.txt)+'</span></div>';
+    });
+    html+='</div>';
+    if(ck.every(x=>x.done)&&s.statut!=='resolu'){
+      html+='<div class="ds-notice"><span style="flex:1">Tout est coché.</span><button class="ds-act ok" data-sid="'+s.id+'" onclick="event.stopPropagation();chgSuiviStatut(this.dataset.sid,\'resolu\')">Marquer résolu</button></div>';
+    }
   }
-  if(artisan)html+='<br>🔧 '+(artisan.entreprise||artisan.nom);
-  else html+='<br>🏠 Interne MA 17 SUD';
-  html+='</div>';
-  // Signalement artisan "fait" → badge + validation
+  // Signalement artisan "fait" → validation
   if(s.artisan_fait){
     const fd=s.artisan_fait_date?new Date(s.artisan_fait_date).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'}):'';
-    html+='<div style="margin-bottom:10px;display:flex;align-items:center;gap:8px;background:#d1fae5;border:1.5px solid #6ee7b7;border-radius:9px;padding:8px 11px">'
-      +'<span style="font-size:17px">✅</span>'
-      +'<span style="flex:1;font-size:12px;font-weight:700;color:#065f46">Artisan a signalé : fait le '+fd+'</span>'
-      +'<button data-sid="'+s.id+'" onclick="event.stopPropagation();chgSuiviStatut(this.dataset.sid,\'resolu\')" style="padding:5px 11px;border-radius:8px;background:#10b981;color:#fff;border:none;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit">Valider / Clôturer</button>'
+    html+='<div class="ds-notice">'
+      +'<span style="flex:1">✅ L\'artisan a signalé avoir terminé le '+fd+'</span>'
+      +'<button class="ds-act ok" data-sid="'+s.id+'" onclick="event.stopPropagation();chgSuiviStatut(this.dataset.sid,\'resolu\')">Valider et clôturer</button>'
     +'</div>';
   }
-  // Actions — Mail/SMS (ou Planifier) à gauche · Modification / Statut / Poubelle à droite
-  html+='<div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">';
-  if(s.type_suivi==='interne'||!s.artisan_id){
-    // Interne : planifier
-    html+='<button data-sid="'+s.id+'" onclick="event.stopPropagation();planifierSuivi(this.dataset.sid)" style="padding:7px 12px;border-radius:9px;border:1.5px solid #ddd6fe;background:#f5f3ff;color:#7c3aed;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">📅 Planifier</button>';
+  // Actions : principale(s) à gauche, secondaires ensuite, poubelle à droite
+  html+='<div class="ds-actions">';
+  if(interne){
+    html+='<button class="ds-act main" data-sid="'+s.id+'" onclick="event.stopPropagation();planifierSuivi(this.dataset.sid)">Planifier</button>';
   } else {
-    if(mailHref)html+='<a href="'+mailHref+'" data-sid="'+s.id+'" onclick="return _suiviEnvoi(event,this)" style="text-decoration:none;padding:7px 12px;border-radius:9px;border:1.5px solid #bfdbfe;background:#eff6ff;color:#2563eb;font-size:12px;font-weight:700">✉ Mail artisan</a>';
-    if(smsHref)html+='<a href="'+smsHref+'" data-sid="'+s.id+'" onclick="return _suiviEnvoi(event,this)" style="text-decoration:none;padding:7px 12px;border-radius:9px;border:1.5px solid #bbf7d0;background:#f0fdf4;color:#15803d;font-size:12px;font-weight:700">💬 SMS artisan</a>';
+    if(mailHref)html+='<a class="ds-act main" href="'+mailHref+'" data-sid="'+s.id+'" onclick="return _suiviEnvoi(event,this)">Envoyer un mail</a>';
+    if(smsHref)html+='<a class="ds-act main" href="'+smsHref+'" data-sid="'+s.id+'" onclick="return _suiviEnvoi(event,this)">Envoyer un SMS</a>';
   }
-  // Espace pour pousser le groupe de droite
-  html+='<div style="flex:1;min-width:8px"></div>';
-  // Modification (texte)
-  html+='<button data-sid="'+s.id+'" onclick="event.stopPropagation();openEditSuivi(this.dataset.sid)" style="padding:7px 11px;border-radius:9px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#475569;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">✏ Modification</button>';
-  // Statut (à droite, près de la poubelle)
-  html+='<span class="status '+st.cls+'" data-menu="sumenu-'+s.id+'" onclick="event.stopPropagation();toggleSuiviStatutMenu(this.dataset.menu,event)" style="cursor:pointer;padding:7px 12px;border-radius:9px;font-size:12px;font-weight:700">🔄 Statut ▾</span>';
-  html+='<div class="statut-menu" id="sumenu-'+s.id+'" style="right:0;left:auto;min-width:160px">';
-  Object.entries(SUIVI_STATUTS).filter(([k])=>k!==s.statut&&(k!=='planifie'||(s.type_suivi==='interne'||!s.artisan_id))).forEach(([k,v])=>{
-    html+='<button data-sid="'+s.id+'" data-k="'+k+'" onclick="event.stopPropagation();chgSuiviStatut(this.dataset.sid,this.dataset.k)"><span class="status '+v.cls+'">'+v.l+'</span></button>';
+  html+='<button class="ds-act" data-sid="'+s.id+'" onclick="event.stopPropagation();openEditSuivi(this.dataset.sid)">Modifier</button>';
+  html+='<button class="ds-act" data-menu="sumenu-'+s.id+'" onclick="event.stopPropagation();toggleSuiviStatutMenu(this.dataset.menu,event)">Statut ▾</button>';
+  html+='<div class="statut-menu ds-menu" id="sumenu-'+s.id+'">';
+  Object.entries(SUIVI_STATUTS).filter(([k])=>k===s.statut||k!=='planifie'||interne).forEach(([k,v])=>{
+    const cur=(k===s.statut);
+    html+='<button'+(cur?' class="cur"':'')+' data-sid="'+s.id+'" data-k="'+k+'" onclick="event.stopPropagation();'+(cur?'this.parentElement.classList.remove(\'open\')':'chgSuiviStatut(this.dataset.sid,this.dataset.k)')+'">'
+      +'<span class="ds-dot" style="background:'+v.dot+'"></span><span style="flex:1">'+v.l+'</span>'+(cur?'<span class="ck">✓</span>':'')+'</button>';
   });
   html+='</div>';
-  // Poubelle
-  html+='<button data-sid="'+s.id+'" onclick="event.stopPropagation();deleteSuivi(this.dataset.sid)" style="padding:7px 11px;border-radius:9px;border:1.5px solid #fee2e2;background:#fff5f5;color:#ef4444;cursor:pointer;font-size:12px;font-family:inherit">🗑</button>';
+  html+='<span style="flex:1"></span>';
+  html+='<button class="ds-act del" data-sid="'+s.id+'" onclick="event.stopPropagation();deleteSuivi(this.dataset.sid)" title="Supprimer ce suivi">Supprimer</button>';
   html+='</div>';
   html+='</div></div>';
   return html;
+}
+
+// ═══ CHECKLIST : chaque ligne du détail peut être cochée (marque « ✓ » en début de ligne) ═══
+function _suiviLignes(s){
+  return (s.description||'').split(/\r?\n/).map((l,i)=>({i:i,raw:l})).filter(x=>x.raw.trim()).map(x=>{
+    const done=/^\s*✓/.test(x.raw);
+    return {i:x.i,done:done,txt:x.raw.replace(/^\s*✓\s?/,'').replace(/^\s*[*\-•]\s*/,'').trim()};
+  });
+}
+async function _suiviToggleLine(sid,i){
+  const s=suivisList.find(x=>x.id===sid);if(!s)return;
+  const lines=(s.description||'').split(/\r?\n/);
+  if(lines[i]==null)return;
+  lines[i]=/^\s*✓/.test(lines[i])?lines[i].replace(/^\s*✓\s?/,''):'✓ '+lines[i];
+  const description=lines.join('\n');
+  suivisList=suivisList.map(x=>x.id===sid?{...x,description:description}:x);
+  _suiviRerenderKeepScroll();
+  try{await db('PATCH','suivis',{description:description},`?id=eq.${sid}`);}
+  catch(e){toast('Coche non enregistrée : '+e.message,'#FF3B30');}
 }
 
 function toggleSuiviOpen(sid){
@@ -5506,17 +5809,17 @@ function _renderSuiviArtisanView(list){
     });
     const artTitre=a?((a.metier?a.metier+' — ':'')+(a.entreprise||a.nom)):'Artisan';
     const tel=a?.tel?a.tel.replace(/\s/g,''):'';
-    let h='<div class="card" style="overflow:hidden;margin-bottom:10px;padding:0">';
+    let h='<div class="ds-card">';
     // bannière artisan
-    h+='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 13px;background:#4c1d95;color:#fff">';
+    h+='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:13px 15px;background:#1E6079;color:#fff">';
     h+='<div style="flex:1;overflow:hidden">';
-    h+='<div style="font-weight:800;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+artTitre+'</div>';
-    h+='<div style="color:#c4b5fd;font-size:11px;margin-top:1px">'+(a?.tel||'')+' · '+clids.length+' chantier'+(clids.length>1?'s':'')+' · '+nbTot+' tâche'+(nbTot>1?'s':'')+'</div>';
+    h+='<div style="font-weight:700;font-size:15px;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+artTitre+'</div>';
+    h+='<div style="color:rgba(255,255,255,.78);font-size:11.5px;margin-top:2px">'+(a?.tel||'')+' · '+clids.length+' chantier'+(clids.length>1?'s':'')+' · '+nbTot+' tâche'+(nbTot>1?'s':'')+'</div>';
     h+='</div>';
     h+='<div style="display:flex;gap:5px;flex-shrink:0">';
-    if(tel)h+='<a href="tel:'+tel+'" onclick="event.stopPropagation()" style="width:28px;height:28px;border-radius:7px;background:#6d28d9;color:#f3e8ff;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:13px">📞</a>';
-    if(a?.email)h+='<a href="mailto:'+a.email+'" onclick="event.stopPropagation()" style="width:28px;height:28px;border-radius:7px;background:#6d28d9;color:#f3e8ff;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:13px">✉</a>';
-    if(tel)h+='<a href="sms:'+tel+'" onclick="event.stopPropagation()" style="width:28px;height:28px;border-radius:7px;background:#6d28d9;color:#f3e8ff;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:13px">💬</a>';
+    if(tel)h+='<a href="tel:'+tel+'" onclick="event.stopPropagation()" style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.18);color:#fff;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:13px">📞</a>';
+    if(a?.email)h+='<a href="mailto:'+a.email+'" onclick="event.stopPropagation()" style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.18);color:#fff;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:13px">✉</a>';
+    if(tel)h+='<a href="sms:'+tel+'" onclick="event.stopPropagation()" style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.18);color:#fff;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:13px">💬</a>';
     h+='</div></div>';
     // clients dépliables
     clids.forEach(cid=>{
@@ -5524,18 +5827,18 @@ function _renderSuiviArtisanView(list){
       const tasks=byCl[cid];
       const key=aid+'|'+cid;
       const isOpen=!!window._suiviArtClientOpen[key];
-      h+='<div data-k="'+key+'" onclick="toggleSuiviArtClient(this.dataset.k)" style="display:flex;align-items:center;gap:8px;padding:9px 13px;cursor:pointer;border-bottom:1px solid #f1f5f9">';
-      h+='<span style="flex:1;font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🏡 '+(cl?.nom||'?')+'</span>';
-      h+='<span style="font-size:10px;background:#ede9fe;color:#6d28d9;padding:2px 8px;border-radius:20px;white-space:nowrap">'+tasks.length+' tâche'+(tasks.length>1?'s':'')+'</span>';
-      h+='<span style="color:#cbd5e1;font-size:12px;display:inline-block'+(isOpen?';transform:rotate(90deg)':'')+'">›</span>';
+      h+='<div data-k="'+key+'" onclick="toggleSuiviArtClient(this.dataset.k)" class="ds-item">';
+      h+='<span class="ti" style="font-weight:600">🏡 '+(cl?.nom||'?')+'</span>';
+      h+='<span style="font-size:11px;font-weight:700;background:#E4EEF2;color:#1E6079;padding:3px 9px;border-radius:20px;white-space:nowrap">'+tasks.length+' tâche'+(tasks.length>1?'s':'')+'</span>';
+      h+='<span style="color:#C7C7CC;font-size:16px;display:inline-block;transition:transform .15s'+(isOpen?';transform:rotate(90deg)':'')+'">›</span>';
       h+='</div>';
       if(isOpen){
-        h+='<div style="padding:4px 13px 10px 30px;background:#fafbfc">';
+        h+='<div style="padding:4px 15px 12px 34px;background:#FAFAFB;border-bottom:1px solid #EBECF0">';
         tasks.forEach((s,i)=>{
           const st=SUIVI_STATUTS[s.statut]||SUIVI_STATUTS.nouveau;
           h+='<div style="padding:8px 0'+(i<tasks.length-1?';border-bottom:1px dashed #e9edf3':'')+'">';
-          h+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="width:7px;height:7px;border-radius:50%;background:'+st.dot+';flex-shrink:0"></span><span style="font-weight:700;font-size:12px;flex:1">'+(s.titre||'')+'</span><span class="status '+st.cls+'" style="font-size:9px">'+st.l+'</span></div>';
-          if(s.description)h+='<div style="font-size:12px;color:#475569;white-space:pre-wrap;line-height:1.5;padding-left:13px">'+s.description+'</div>';
+          h+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="width:7px;height:7px;border-radius:50%;background:'+st.dot+';flex-shrink:0"></span><span style="font-weight:600;font-size:13.5px;flex:1">'+(s.titre||'')+'</span><span class="status '+st.cls+'" style="font-size:9px">'+st.l+'</span></div>';
+          if(s.description)h+='<div style="font-size:13px;color:#48484A;white-space:pre-wrap;line-height:1.5;padding-left:13px">'+s.description+'</div>';
           h+='</div>';
         });
         h+='</div>';
@@ -5552,7 +5855,7 @@ function toggleSuiviArtClient(key){
 }
 
 // ═══ AJOUT RAPIDE DE TÂCHE (client déjà connu) ═══
-function openQuickTask(cid){
+function _openQuickTaskModal(cid){
   const cl=clients.find(x=>x.id===cid);
   if(!cl)return;
   window._quickTaskClient=cid;
@@ -5691,8 +5994,109 @@ async function deleteSuivi(sid){
 }
 
 // ═══ CRÉATION MANUELLE ═══
-function openNewSuivi(){openSuiviModal(null);}
-function openEditSuivi(sid){openSuiviModal(sid);}
+// ═══ AJOUT / MODIFICATION EN PLACE (sans fenêtre) ═══
+function _esc(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function _suiviArtisanOpts(clientId,sel){
+  const ac=clientId?clientArtisans(clientId):[];
+  const ids=ac.map(a=>a.id);
+  const autres=[...artisans].filter(a=>!ids.includes(a.id)).sort((x,y)=>(x.entreprise||x.nom||'').localeCompare(y.entreprise||y.nom||''));
+  const opt=a=>'<option value="'+a.id+'"'+(sel===a.id?' selected':'')+'>'+_esc((a.metier?a.metier+' – ':'')+(a.entreprise||a.nom))+'</option>';
+  let o='<option value="">Choisir un artisan…</option>';
+  if(ac.length)o+='<optgroup label="Artisans de ce chantier">'+ac.map(opt).join('')+'</optgroup>';
+  o+='<optgroup label="Tous les artisans">'+autres.map(opt).join('')+'</optgroup>';
+  return o;
+}
+function _suiviFormHtml(){
+  const e=window._suiviEdit;if(!e)return '';
+  const d=e.draft;
+  let h='<div class="ds-form" id="suivi-form" onclick="event.stopPropagation()">';
+  if(e.mode==='new'&&!e.cid){
+    const opts=[...clients].filter(c=>c.statut==='en_cours').sort((a,b)=>a.nom.localeCompare(b.nom)).map(c=>'<option value="'+c.id+'"'+(d.client_id===c.id?' selected':'')+'>'+_esc(c.nom)+'</option>').join('');
+    h+='<select id="sf-client" class="ds-in" onchange="_suiviFormClient(this.value)"><option value="">Choisir un chantier en cours…</option>'+opts+'</select>';
+  }
+  h+='<textarea id="sf-text" class="ds-in ds-in-note" rows="3" placeholder="Quoi faire ?" oninput="window._suiviEdit.draft.text=this.value;_suiviGrow(this)" onkeydown="_suiviFormKey(event)">'+_esc(d.text)+'</textarea>';
+  h+='<div class="ds-hint" style="margin:-4px 0 0 2px">La première ligne sert de libellé dans la liste, la suite est le détail.</div>';
+  h+='<div class="ds-form-row">'
+    +'<div class="seg" id="sf-seg"><button type="button" data-t="interne" class="'+(d.type==='interne'?'on':'')+'" onclick="_suiviFormType(\'interne\')">🏠 Interne</button><button type="button" data-t="artisan" class="'+(d.type==='artisan'?'on':'')+'" onclick="_suiviFormType(\'artisan\')">👷 Artisan</button></div>'
+    +'<select id="sf-artisan" class="ds-in" style="'+(d.type==='artisan'?'':'display:none')+'" onchange="window._suiviEdit.draft.artisan_id=this.value">'+_suiviArtisanOpts(d.client_id,d.artisan_id)+'</select>'
+  +'</div>';
+  h+='<div class="ds-actions">'
+    +'<button type="button" id="sf-save" class="ds-act main" onclick="_suiviFormSave()">'+(e.mode==='edit'?'Enregistrer':'Ajouter')+'</button>'
+    +'<button type="button" class="ds-act" onclick="_suiviFormCancel()">Annuler</button>'
+    +'<span class="ds-hint ds-kbd">Échap pour annuler · Ctrl/⌘ + Entrée pour valider</span>'
+  +'</div></div>';
+  return h;
+}
+function _suiviGrow(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight+2,320)+'px';}
+function _suiviFormKey(ev){
+  if(ev.key==='Escape'){ev.preventDefault();_suiviFormCancel();}
+  else if(ev.key==='Enter'&&(ev.metaKey||ev.ctrlKey)){ev.preventDefault();_suiviFormSave();}
+}
+function _suiviFormType(t){
+  const e=window._suiviEdit;if(!e)return;e.draft.type=t;
+  document.querySelectorAll('#sf-seg button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+  const sel=document.getElementById('sf-artisan');if(sel){sel.style.display=t==='artisan'?'':'none';if(t==='artisan')sel.focus();}
+}
+function _suiviFormClient(cid){
+  const e=window._suiviEdit;if(!e)return;e.draft.client_id=cid;
+  const sel=document.getElementById('sf-artisan');if(sel)sel.innerHTML=_suiviArtisanOpts(cid,e.draft.artisan_id);
+}
+function _suiviRerenderKeepScroll(){
+  const c1=document.getElementById('suivi-list');const sp=c1?c1.scrollTop:0;
+  _renderSuiviView();
+  const c2=document.getElementById('suivi-list');if(c2)c2.scrollTop=sp;
+}
+function _suiviStartEdit(e){
+  window._suiviEdit=e;
+  _suiviRerenderKeepScroll();
+  setTimeout(()=>{
+    const f=document.getElementById('suivi-form');if(!f)return;
+    const d=document.getElementById('sf-text');if(d)_suiviGrow(d);
+    f.scrollIntoView({block:'nearest',behavior:'smooth'});
+    const t=document.getElementById((e.mode==='new'&&!e.cid)?'sf-client':'sf-text');
+    if(t){t.focus({preventScroll:true});if(t.setSelectionRange&&t.value)t.setSelectionRange(t.value.length,t.value.length);}
+  },60);
+}
+function _suiviFormCancel(){window._suiviEdit=null;_suiviRerenderKeepScroll();}
+function openQuickTask(cid){_suiviStartEdit({mode:'new',cid:cid,draft:{client_id:cid,text:'',type:'interne',artisan_id:''}});}
+function openNewSuivi(){_suiviStartEdit({mode:'new',cid:null,draft:{client_id:'',text:'',type:'interne',artisan_id:''}});}
+function openEditSuivi(sid){
+  const s=suivisList.find(x=>x.id===sid);if(!s)return;
+  window._suiviOpen=sid;
+  _suiviStartEdit({mode:'edit',sid:sid,draft:{client_id:s.client_id,text:[s.titre||'',s.description||''].filter(Boolean).join('\n'),type:(s.type_suivi==='interne'||!s.artisan_id)?'interne':'artisan',artisan_id:s.artisan_id||''}});
+}
+async function _suiviFormSave(){
+  const e=window._suiviEdit;if(!e||e.saving)return;const d=e.draft;
+  // Champ unique : 1re ligne non vide = libellé, le reste = détail
+  const _lines=(d.text||'').split(/\r?\n/);
+  const _i=_lines.findIndex(l=>l.trim());
+  const titre=_i<0?'':_lines[_i].trim().replace(/^[*\-•]\s*/,'');
+  const _desc=_i<0?'':_lines.slice(_i+1).join('\n').trim();
+  const foc=id=>{const el=document.getElementById(id);if(el)el.focus();};
+  if(!d.client_id){toast('Choisis un chantier','#FF3B30');foc('sf-client');return;}
+  if(!titre){toast('Écris ce qu\'il y a à faire','#FF3B30');foc('sf-text');return;}
+  if(d.type==='artisan'&&!d.artisan_id){toast('Choisis un artisan','#FF3B30');foc('sf-artisan');return;}
+  const data={client_id:d.client_id,titre:titre,type_suivi:d.type,artisan_id:d.type==='artisan'?d.artisan_id:null,description:_desc};
+  e.saving=true;const btn=document.getElementById('sf-save');if(btn){btn.disabled=true;btn.style.opacity='.6';}
+  try{
+    if(e.mode==='edit'){
+      await db('PATCH','suivis',data,`?id=eq.${e.sid}`);
+      suivisList=suivisList.map(x=>x.id===e.sid?{...x,...data}:x);
+    } else {
+      data.statut='nouveau';
+      const res=await db('POST','suivis',data);
+      const created=Array.isArray(res)?res[0]:res;
+      if(created&&created.id)suivisList.unshift(created);
+      else suivisList.unshift({...data,id:Date.now().toString(),created_at:new Date().toISOString()});
+    }
+    window._suiviEdit=null;
+    toast(e.mode==='edit'?'Suivi modifié':'Tâche ajoutée','#2FB866');
+    _suiviRerenderKeepScroll();
+  }catch(err){
+    e.saving=false;if(btn){btn.disabled=false;btn.style.opacity='';}
+    toast('Erreur : '+err.message,'#FF3B30');
+  }
+}
 
 function openSuiviModal(sid){
   const s=sid?suivisList.find(x=>x.id===sid):null;
@@ -6453,6 +6857,147 @@ async function delArtisan(artisanId){
 // ══════════════════════════════════════════════
 // CRUD SAV
 // ══════════════════════════════════════════════
+// ═══ SAV : AJOUT / MODIFICATION EN PLACE + CHECKLIST (même principe que le Suivi) ═══
+function _savLignes(s){
+  return (s.notes||'').split(/\r?\n/).map((l,i)=>({i:i,raw:l})).filter(x=>x.raw.trim()).map(x=>{
+    const done=/^\s*✓/.test(x.raw);
+    return {i:x.i,done:done,txt:x.raw.replace(/^\s*✓\s?/,'').replace(/^\s*[*\-•]\s*/,'').trim()};
+  });
+}
+function _savRerender(){
+  const c1=document.getElementById('sav-list-container');const sp=c1?c1.scrollTop:0;
+  applyAllSavFilters(document.getElementById('sav-search')?.value||'');
+  const c2=document.getElementById('sav-list-container');if(c2)c2.scrollTop=sp;
+}
+async function _savToggleLine(sid,i){
+  const s=savList.find(x=>x.id===sid);if(!s)return;
+  const lines=(s.notes||'').split(/\r?\n/);
+  if(lines[i]==null)return;
+  lines[i]=/^\s*✓/.test(lines[i])?lines[i].replace(/^\s*✓\s?/,''):'✓ '+lines[i];
+  const notes=lines.join('\n');
+  savList=savList.map(x=>x.id===sid?{...x,notes:notes}:x);
+  _savRerender();
+  try{await db('PATCH','sav',{notes:notes},`?id=eq.${sid}`);}
+  catch(e){toast('Coche non enregistrée : '+e.message,'#FF3B30');}
+}
+function _savFormSync(){
+  const e=window._savEdit;if(!e)return;
+  const t=document.getElementById('vf-text');if(t)e.draft.text=t.value;
+  const d=document.getElementById('vf-date');if(d)e.draft.date=d.value;
+  const a=document.getElementById('vf-artisan');if(a)e.draft.artisan_id=a.value;
+}
+function _savFormHtml(){
+  const e=window._savEdit;if(!e)return '';
+  const d=e.draft;
+  let h='<div class="ds-form" id="sav-form" onclick="event.stopPropagation()">';
+  if(e.mode==='new'&&!e.cid){
+    const cl=d.client_id?clients.find(c=>c.id===d.client_id):null;
+    if(cl)h+='<div class="ds-pick"><span class="n">🏡 '+_esc(cl.nom)+'</span><button type="button" onclick="_savFormPick(\'\')">Changer</button></div>';
+    else h+='<div style="position:relative"><input id="vf-client-q" class="ds-in" type="text" autocomplete="off" placeholder="Rechercher un chantier…" oninput="_savFormSearch(this.value)" onkeydown="if(event.key===\'Escape\')_savFormCancel()"/><div id="vf-client-res" class="ds-res"></div></div>';
+  }
+  h+='<textarea id="vf-text" class="ds-in ds-in-note" rows="3" placeholder="Quel est le problème ?" oninput="window._savEdit.draft.text=this.value;_suiviGrow(this)" onkeydown="_savFormKey(event)">'+_esc(d.text)+'</textarea>';
+  h+='<div class="ds-hint" style="margin:-4px 0 0 2px">La première ligne sert de libellé dans la liste, la suite est le détail.</div>';
+  h+='<div class="ds-form-row">'
+    +'<div class="seg" id="vf-seg" style="flex:0 0 330px">'
+      +['interne|🏠 Interne','artisan|👷 Artisan','fournisseur|📦 Fournisseur'].map(x=>{const k=x.split('|');return '<button type="button" data-t="'+k[0]+'" class="'+(d.type===k[0]?'on':'')+'" onclick="_savFormType(\''+k[0]+'\')">'+k[1]+'</button>';}).join('')
+    +'</div>'
+    +'<select id="vf-artisan" class="ds-in" style="'+(d.type==='artisan'?'':'display:none')+'" onchange="window._savEdit.draft.artisan_id=this.value">'+_suiviArtisanOpts(d.client_id,d.artisan_id)+'</select>'
+  +'</div>';
+  h+='<div class="ds-form-row">'
+    +'<span class="ds-lbl">Signalé le</span>'
+    +'<input id="vf-date" type="date" class="ds-in" style="flex:0 0 170px;width:auto" value="'+_esc(d.date)+'" onchange="window._savEdit.draft.date=this.value"/>'
+    +'<button type="button" id="vf-voice" class="voice-btn idle" onclick="startVoice(\'vf-text\',\'vf-voice\',null,null)">🎤 Dicter</button>'
+  +'</div>';
+  h+='<div class="ds-actions">'
+    +'<button type="button" id="vf-save" class="ds-act main" onclick="_savFormSave()">'+(e.mode==='edit'?'Enregistrer':'Ajouter')+'</button>'
+    +'<button type="button" class="ds-act" onclick="_savFormCancel()">Annuler</button>'
+    +'<span class="ds-hint ds-kbd">Échap pour annuler · Ctrl/⌘ + Entrée pour valider</span>'
+  +'</div></div>';
+  return h;
+}
+function _savFormKey(ev){
+  if(ev.key==='Escape'){ev.preventDefault();_savFormCancel();}
+  else if(ev.key==='Enter'&&(ev.metaKey||ev.ctrlKey)){ev.preventDefault();_savFormSave();}
+}
+function _savFormType(t){
+  const e=window._savEdit;if(!e)return;e.draft.type=t;
+  document.querySelectorAll('#vf-seg button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+  const sel=document.getElementById('vf-artisan');if(sel){sel.style.display=t==='artisan'?'':'none';if(t==='artisan')sel.focus();}
+}
+function _savFormSearch(q){
+  const box=document.getElementById('vf-client-res');if(!box)return;
+  const lq=(q||'').trim().toLowerCase();
+  if(!lq){box.innerHTML='';return;}
+  const res=clients.filter(c=>(c.nom||'').toLowerCase().includes(lq)||(c.adresse||'').toLowerCase().includes(lq)).sort((a,b)=>a.nom.localeCompare(b.nom)).slice(0,7);
+  box.innerHTML=res.length?res.map(c=>'<div class="ds-res-row" data-cid="'+c.id+'" onclick="_savFormPick(this.dataset.cid)"><b>'+_esc(c.nom)+'</b><span>'+_esc(c.adresse||'')+'</span></div>').join(''):'<div class="ds-res-row none">Aucun chantier trouvé</div>';
+}
+function _savFormPick(cid){
+  const e=window._savEdit;if(!e)return;
+  _savFormSync();e.draft.client_id=cid;
+  _savRerender();
+  setTimeout(()=>{const t=document.getElementById(cid?'vf-text':'vf-client-q');if(t)t.focus({preventScroll:true});},40);
+}
+function _savStartEdit(e){
+  window._savEdit=e;
+  _savRerender();
+  setTimeout(()=>{
+    const f=document.getElementById('sav-form');if(!f)return;
+    const d=document.getElementById('vf-text');if(d)_suiviGrow(d);
+    f.scrollIntoView({block:'nearest',behavior:'smooth'});
+    const t=document.getElementById((e.mode==='new'&&!e.cid)?'vf-client-q':'vf-text');
+    if(t){t.focus({preventScroll:true});if(t.setSelectionRange&&t.value)t.setSelectionRange(t.value.length,t.value.length);}
+  },60);
+}
+function _savFormCancel(){if(typeof voiceRecognition!=='undefined'&&voiceRecognition){try{voiceRecognition.stop();}catch(_){}}window._savEdit=null;_savRerender();}
+function openSavQuick(cid){_savStartEdit({mode:'new',cid:cid,draft:{client_id:cid,text:'',type:'interne',artisan_id:'',date:today()}});}
+function openSavNewInline(){_savStartEdit({mode:'new',cid:null,draft:{client_id:'',text:'',type:'interne',artisan_id:'',date:today()}});}
+function openSavEditInline(sid){
+  const s=savList.find(x=>x.id===sid);if(!s)return;
+  window._savOpen=sid;
+  _savStartEdit({mode:'edit',sid:sid,draft:{client_id:s.client_id,text:[s.titre||'',s.notes||''].filter(Boolean).join('\n'),type:s.type_sav||(s.artisan_id?'artisan':'interne'),artisan_id:s.artisan_id||'',date:(s.date_signalement||today()).slice(0,10)}});
+}
+async function _savFormSave(){
+  const e=window._savEdit;if(!e||e.saving)return;
+  _savFormSync();const d=e.draft;
+  const lines=(d.text||'').split(/\r?\n/);
+  const i0=lines.findIndex(l=>l.trim());
+  const titre=i0<0?'':lines[i0].trim().replace(/^[*\-•]\s*/,'');
+  const notes=i0<0?'':lines.slice(i0+1).join('\n').trim();
+  const foc=id=>{const el=document.getElementById(id);if(el)el.focus();};
+  if(!d.client_id){toast('Choisis un chantier','#FF3B30');foc('vf-client-q');return;}
+  if(!titre){toast('Décris le problème','#FF3B30');foc('vf-text');return;}
+  if(d.type==='artisan'&&!d.artisan_id){toast('Choisis un artisan','#FF3B30');foc('vf-artisan');return;}
+  const artisanId=d.type==='artisan'?d.artisan_id:null;
+  const old=e.mode==='edit'?savList.find(x=>x.id===e.sid):null;
+  let statut=old?old.statut:'nouveau';
+  if(!getStatutsForSav({type_sav:d.type,artisan_id:artisanId})[statut])statut='nouveau';
+  const data={titre:titre,date_signalement:d.date||today(),statut:statut,type_sav:d.type,artisan_id:artisanId,notes:notes,client_id:d.client_id,updated_at:new Date().toISOString()};
+  e.saving=true;const btn=document.getElementById('vf-save');if(btn){btn.disabled=true;btn.style.opacity='.6';}
+  try{
+    if(e.mode==='edit'){
+      await db('PATCH','sav',data,`?id=eq.${e.sid}`);
+      savList=savList.map(x=>x.id===e.sid?{...x,...data}:x);
+    } else {
+      const res=await db('POST','sav',{...data,created_at:new Date().toISOString()});
+      const created=Array.isArray(res)?res[0]:res;
+      savList.unshift(created&&created.id?created:{...data,id:Date.now().toString(),created_at:new Date().toISOString()});
+      // Comme avant : le chantier passe automatiquement en « SAV en cours »
+      const client=clients.find(c=>c.id===d.client_id);
+      if(client&&client.statut!=='sav_en_cours'){
+        await db('PATCH','clients',{statut:'sav_en_cours',updated_at:new Date().toISOString()},`?id=eq.${d.client_id}`);
+        clients=clients.map(c=>c.id===d.client_id?{...c,statut:'sav_en_cours'}:c);
+      }
+    }
+    if(typeof voiceRecognition!=='undefined'&&voiceRecognition){try{voiceRecognition.stop();}catch(_){}}
+    window._savEdit=null;
+    updateUI();_savHeaderSync();_savRerender();
+    toast(e.mode==='edit'?'SAV modifié':'SAV ajouté','#2FB866');
+  }catch(err){
+    e.saving=false;if(btn){btn.disabled=false;btn.style.opacity='';}
+    toast('Erreur : '+err.message,'#FF3B30');
+  }
+}
+
 function openSavFromList(){
   document.getElementById('m-sav-title').textContent='Nouveau SAV — Choisir un chantier';
   document.getElementById('m-sav-body').innerHTML=`
@@ -7601,6 +8146,7 @@ document.addEventListener('DOMContentLoaded',function(){
   document.getElementById('chat-input').addEventListener('keydown',function(e){
     if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}
   });
+  updateDemoBanner();
 });
 
 
